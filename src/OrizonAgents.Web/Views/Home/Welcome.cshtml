@@ -1,11 +1,18 @@
 @{
+    Layout = "_AdminLayout";
     ViewData["Title"] = "Bem-vindo";
+    ViewData["Section"] = "Início";
 }
 
-<section class="py-4">
-    <div class="p-4 border rounded bg-white">
-        <p class="text-uppercase text-muted fw-semibold mb-2">Orizon Agents</p>
-        <h1 class="h3 mb-3">Bem-vindo à sua operação de agentes</h1>
-        <p class="mb-0 text-muted">A fundação de autenticação está pronta. O dashboard administrativo será construído na Sprint 2.</p>
+<section class="admin-hero">
+    <div>
+        <p class="eyebrow">Orizon Agents</p>
+        <h2>Bem-vindo à sua operação</h2>
+        <p class="muted">Este espaço está pronto para sua conta. Recursos administrativos aparecem conforme suas permissões.</p>
     </div>
 </section>
+
+<article class="admin-card">
+    <h3>Próximos passos</h3>
+    <p class="muted mb-0">Use a navegação para acessar Minha conta. Usuários administradores verão as áreas compatíveis com seu papel.</p>
+</article>

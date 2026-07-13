@@ -1,0 +1,86 @@
+@model OrizonAgents.Application.Dashboards.Models.TenantDashboardDto
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Visão geral";
+    ViewData["Section"] = Model.TenantName;
+    int completed = Model.SetupChecklist.Count(item => item.IsComplete);
+    int total = Model.SetupChecklist.Count;
+}
+
+<section class="admin-hero">
+    <div>
+        <p class="eyebrow">Organização</p>
+        <h2>@Model.TenantName</h2>
+        <p class="muted">@Model.TenantSlug · @Model.Culture · @Model.TimeZone</p>
+    </div>
+    <span class="status-badge">@Model.TenantStatus</span>
+</section>
+
+<section class="metric-grid">
+    @foreach (var metric in Model.Metrics)
+    {
+        <article class="metric-card metric-card--@metric.Tone">
+            <span>@metric.Label</span>
+            <strong>@metric.Value</strong>
+            <small>@metric.Description</small>
+        </article>
+    }
+</section>
+
+<section class="admin-grid">
+    <article class="admin-card">
+        <div class="card-heading">
+            <div>
+                <h3>Progresso inicial</h3>
+                <p>@completed de @total etapas concluídas</p>
+            </div>
+        </div>
+        <div class="setup-list">
+            @foreach (var item in Model.SetupChecklist)
+            {
+                <div class="setup-item @(item.IsComplete ? "is-complete" : "")">
+                    <span></span>
+                    <div>
+                        <strong>@item.Label</strong>
+                        <p>@item.Description</p>
+                    </div>
+                </div>
+            }
+        </div>
+    </article>
+
+    <article class="admin-card">
+        <div class="card-heading">
+            <div>
+                <h3>Usuários recentes</h3>
+                <p>Contas criadas no tenant</p>
+            </div>
+            <a asp-controller="TenantUsers" asp-action="Index">Gerenciar</a>
+        </div>
+        @if (Model.RecentUsers.Count == 0)
+        {
+            <div class="empty-state">Nenhum usuário cadastrado ainda.</div>
+        }
+        else
+        {
+            <div class="user-list">
+                @foreach (var user in Model.RecentUsers)
+                {
+                    <div class="user-row">
+                        <span class="avatar">@(string.IsNullOrWhiteSpace(user.FullName) ? "U" : user.FullName[..1].ToUpperInvariant())</span>
+                        <div>
+                            <strong>@user.FullName</strong>
+                            <p>@user.Email</p>
+                        </div>
+                        <span class="status-dot @(user.IsActive ? "active" : "inactive")"></span>
+                    </div>
+                }
+            </div>
+        }
+    </article>
+</section>
+
+<section class="quick-actions">
+    <a asp-controller="TenantUsers" asp-action="Index">Gestão de usuários</a>
+    <a asp-controller="MyAccount" asp-action="Index">Minha conta</a>
+</section>

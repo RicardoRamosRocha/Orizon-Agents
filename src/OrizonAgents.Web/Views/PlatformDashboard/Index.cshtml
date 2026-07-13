@@ -1,0 +1,103 @@
+@model OrizonAgents.Application.Dashboards.Models.PlatformDashboardDto
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Visão da plataforma";
+    ViewData["Section"] = "PlatformAdmin";
+}
+
+<section class="admin-hero">
+    <div>
+        <p class="eyebrow">Orizon Platform</p>
+        <h2>Operação global</h2>
+        <p class="muted">Dados agregados reais dos tenants e usuários existentes.</p>
+    </div>
+</section>
+
+<section class="metric-grid">
+    @foreach (var metric in Model.Metrics)
+    {
+        <article class="metric-card metric-card--@metric.Tone">
+            <span>@metric.Label</span>
+            <strong>@metric.Value</strong>
+            <small>@metric.Description</small>
+        </article>
+    }
+</section>
+
+<section class="admin-grid">
+    <article class="admin-card">
+        <div class="card-heading">
+            <div>
+                <h3>Tenants recentes</h3>
+                <p>Organizações criadas mais recentemente</p>
+            </div>
+        </div>
+        @if (Model.RecentTenants.Count == 0)
+        {
+            <div class="empty-state">Nenhum tenant cadastrado.</div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Nome</th><th>Slug</th><th>Status</th></tr></thead>
+                    <tbody>
+                    @foreach (var tenant in Model.RecentTenants)
+                    {
+                        <tr><td>@tenant.Name</td><td>@tenant.Slug</td><td>@tenant.Status</td></tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </article>
+
+    <article class="admin-card">
+        <div class="card-heading">
+            <div>
+                <h3>Usuários recentes</h3>
+                <p>Últimas contas criadas na plataforma</p>
+            </div>
+        </div>
+        @if (Model.RecentUsers.Count == 0)
+        {
+            <div class="empty-state">Nenhum usuário cadastrado.</div>
+        }
+        else
+        {
+            <div class="user-list">
+                @foreach (var user in Model.RecentUsers)
+                {
+                    <div class="user-row">
+                        <span class="avatar">@(string.IsNullOrWhiteSpace(user.FullName) ? "U" : user.FullName[..1].ToUpperInvariant())</span>
+                        <div>
+                            <strong>@user.FullName</strong>
+                            <p>@user.Email · @(user.TenantName ?? "Plataforma")</p>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </article>
+</section>
+
+<article class="admin-card">
+    <div class="card-heading">
+        <div>
+            <h3>Status técnico</h3>
+            <p>Serviços configurados nesta fundação</p>
+        </div>
+    </div>
+    <div class="setup-list compact">
+        @foreach (var item in Model.TechnicalStatus)
+        {
+            <div class="setup-item is-complete">
+                <span></span>
+                <div>
+                    <strong>@item.Label</strong>
+                    <p>@item.Description</p>
+                </div>
+            </div>
+        }
+    </div>
+</article>

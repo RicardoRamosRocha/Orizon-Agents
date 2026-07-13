@@ -27,6 +27,7 @@
     <ProjectReference Include="..\..\src\OrizonAgents.Infrastructure\OrizonAgents.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\OrizonAgents.Application\OrizonAgents.Application.csproj" />
     <ProjectReference Include="..\..\src\OrizonAgents.Domain\OrizonAgents.Domain.csproj" />
+    <ProjectReference Include="..\..\src\OrizonAgents.Web\OrizonAgents.Web.csproj" />
   </ItemGroup>
 
   <ItemGroup>

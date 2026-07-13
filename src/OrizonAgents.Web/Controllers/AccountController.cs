@@ -49,7 +49,8 @@ public sealed class AccountController : Controller
             return LocalRedirect(model.ReturnUrl);
         }
 
-        return RedirectToAction("Welcome", "Home");
+        string path = await _accountService.GetPostLoginPathAsync(model.Email);
+        return LocalRedirect(path);
     }
 
     [HttpGet("nova-organizacao")]
