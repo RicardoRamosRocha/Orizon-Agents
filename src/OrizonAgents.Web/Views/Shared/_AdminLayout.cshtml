@@ -1,0 +1,80 @@
+@using System.Security.Claims
+@{
+    string title = ViewData["Title"]?.ToString() ?? "Orizon Agents";
+    string currentSection = ViewData["Section"]?.ToString() ?? "Administração";
+    string fullName = User.FindFirstValue(OrizonClaimTypes.FullName) ?? User.Identity?.Name ?? "Usuário";
+    string initial = string.IsNullOrWhiteSpace(fullName) ? "U" : fullName[..1].ToUpperInvariant();
+    bool isPlatformAdmin = User.IsInRole(OrizonRoles.PlatformAdmin);
+    bool isTenantAdmin = User.IsInRole(OrizonRoles.TenantAdmin);
+}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@title - Orizon Agents</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/admin.css" asp-append-version="true" />
+</head>
+<body class="admin-shell">
+    <div class="admin-layout">
+        <aside class="admin-sidebar" aria-label="Navegação administrativa">
+            <a class="admin-brand" asp-controller="Home" asp-action="Welcome">
+                <span class="admin-brand__mark">O</span>
+                <span>
+                    <strong>Orizon Agents</strong>
+                    <small>Orizon Platform</small>
+                </span>
+            </a>
+            <nav class="admin-nav">
+                @if (isPlatformAdmin)
+                {
+                    <a asp-controller="PlatformDashboard" asp-action="Index">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        Visão da plataforma
+                    </a>
+                }
+                @if (isTenantAdmin)
+                {
+                    <a asp-controller="AdminDashboard" asp-action="Index">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        Visão geral
+                    </a>
+                    <a asp-controller="TenantUsers" asp-action="Index">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconUsers")</span>
+                        Usuários
+                    </a>
+                }
+                <a asp-controller="Home" asp-action="Welcome">
+                    <span class="admin-icon">@await Html.PartialAsync("_IconHome")</span>
+                    Início
+                </a>
+                <a asp-controller="MyAccount" asp-action="Index">
+                    <span class="admin-icon">@await Html.PartialAsync("_IconUser")</span>
+                    Minha conta
+                </a>
+            </nav>
+        </aside>
+        <div class="admin-main">
+            <header class="admin-topbar">
+                <div>
+                    <p class="admin-breadcrumb">Orizon / @currentSection</p>
+                    <h1>@title</h1>
+                </div>
+                <div class="admin-user">
+                    <span class="admin-avatar">@initial</span>
+                    <span>@fullName</span>
+                    <form asp-controller="Account" asp-action="Logout" method="post">
+                        <button type="submit" class="admin-logout">Sair</button>
+                    </form>
+                </div>
+            </header>
+            <main class="admin-content">
+                @RenderBody()
+            </main>
+        </div>
+    </div>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

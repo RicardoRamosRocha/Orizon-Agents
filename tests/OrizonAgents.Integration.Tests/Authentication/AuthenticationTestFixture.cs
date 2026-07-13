@@ -11,6 +11,8 @@ using OrizonAgents.Application.Common.Email;
 using OrizonAgents.Application.Common.Security;
 using OrizonAgents.Application.Common.Tenancy;
 using OrizonAgents.Infrastructure.Accounts;
+using OrizonAgents.Application.Dashboards;
+using OrizonAgents.Infrastructure.Dashboards;
 using OrizonAgents.Infrastructure.Identity;
 using OrizonAgents.Infrastructure.Persistence;
 using OrizonAgents.Infrastructure.Tenancy;
@@ -35,6 +37,7 @@ internal static class AuthenticationTestFixture
         services.AddScoped<IEmailSender, TestEmailSender>();
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<ITenantUserService, TenantUserService>();
+        services.AddScoped<IDashboardQueryService, DashboardQueryService>();
         services.AddDbContext<OrizonAgentsDbContext>(options =>
             options.UseInMemoryDatabase(Guid.NewGuid().ToString()));
 

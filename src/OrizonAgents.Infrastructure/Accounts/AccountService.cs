@@ -158,6 +158,29 @@ public sealed class AccountService : IAccountService
         return OperationResult.Failure("E-mail ou senha inválidos.");
     }
 
+    public async Task<string> GetPostLoginPathAsync(
+        string email,
+        CancellationToken cancellationToken = default)
+    {
+        ApplicationUser? user = await _userManager.FindByEmailAsync(email);
+        if (user is null)
+        {
+            return "/inicio";
+        }
+
+        if (await _userManager.IsInRoleAsync(user, OrizonRoles.PlatformAdmin))
+        {
+            return "/Platform/Dashboard";
+        }
+
+        if (await _userManager.IsInRoleAsync(user, OrizonRoles.TenantAdmin))
+        {
+            return "/Admin/Dashboard";
+        }
+
+        return "/inicio";
+    }
+
     public Task SignOutAsync()
     {
         return _signInManager.SignOutAsync();

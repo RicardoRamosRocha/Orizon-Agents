@@ -22,6 +22,7 @@ public class HomeController : Controller
     }
 
     [Authorize]
+    [Route("inicio")]
     public IActionResult Welcome()
     {
         return View();

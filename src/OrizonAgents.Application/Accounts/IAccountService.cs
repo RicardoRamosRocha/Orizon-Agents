@@ -14,6 +14,10 @@ public interface IAccountService
         LoginRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<string> GetPostLoginPathAsync(
+        string email,
+        CancellationToken cancellationToken = default);
+
     Task SignOutAsync();
 
     Task<OperationResult> SendPasswordResetAsync(
