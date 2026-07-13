@@ -8,6 +8,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OrizonAgents.Application\OrizonAgents.Application.csproj" />
+    <ProjectReference Include="..\OrizonAgents.Infrastructure\OrizonAgents.Infrastructure.csproj" />
   </ItemGroup>
 </Project>
