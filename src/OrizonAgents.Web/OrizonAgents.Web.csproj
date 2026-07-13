@@ -6,4 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\OrizonAgents.Application\OrizonAgents.Application.csproj" />
+    <ProjectReference Include="..\OrizonAgents.Infrastructure\OrizonAgents.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>
