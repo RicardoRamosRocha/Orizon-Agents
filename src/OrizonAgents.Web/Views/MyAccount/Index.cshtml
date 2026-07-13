@@ -1,0 +1,43 @@
+@model EditProfileViewModel
+@{
+    ViewData["Title"] = "Minha conta";
+}
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="border rounded bg-white p-4">
+            <h1 class="h4 mb-3">Minha conta</h1>
+            @if (TempData["StatusMessage"] is string message)
+            {
+                <div class="alert alert-info">@message</div>
+            }
+            <form asp-action="Index" method="post">
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                <div class="mb-3">
+                    <label asp-for="FullName" class="form-label"></label>
+                    <input asp-for="FullName" class="form-control" />
+                    <span asp-validation-for="FullName" class="text-danger"></span>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Email" class="form-label"></label>
+                    <input asp-for="Email" class="form-control" disabled />
+                </div>
+                <button type="submit" class="btn btn-primary">Salvar perfil</button>
+                <a class="btn btn-outline-secondary" asp-action="ChangePassword">Alterar senha</a>
+            </form>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="border rounded bg-white p-4">
+            <h2 class="h5">Organização atual</h2>
+            <p class="mb-1"><strong>@(Model.TenantName ?? "Administração da plataforma")</strong></p>
+            @if (!string.IsNullOrWhiteSpace(Model.TenantSlug))
+            {
+                <p class="text-muted mb-0">@Model.TenantSlug</p>
+            }
+            <form asp-action="RevokeOtherSessions" method="post" class="mt-4">
+                <button type="submit" class="btn btn-outline-secondary">Encerrar outras sessões</button>
+            </form>
+        </div>
+    </div>
+</div>

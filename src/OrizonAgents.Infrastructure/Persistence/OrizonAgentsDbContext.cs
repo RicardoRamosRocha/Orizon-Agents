@@ -1,12 +1,14 @@
 using System.Linq.Expressions;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using OrizonAgents.Application.Common.Tenancy;
 using OrizonAgents.Domain.Common;
 using OrizonAgents.Domain.Tenants;
+using OrizonAgents.Infrastructure.Identity;
 
 namespace OrizonAgents.Infrastructure.Persistence;
 
-public sealed class OrizonAgentsDbContext : DbContext
+public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>
 {
     private readonly ICurrentTenant _currentTenant;
 
@@ -36,6 +38,7 @@ public sealed class OrizonAgentsDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(OrizonAgentsDbContext).Assembly);
         ApplyTenantQueryFilters(modelBuilder);
     }

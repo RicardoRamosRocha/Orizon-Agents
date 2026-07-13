@@ -1,4 +1,6 @@
 using OrizonAgents.Infrastructure;
+using OrizonAgents.Infrastructure.Identity;
+using OrizonAgents.Infrastructure.Tenancy;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,7 +23,11 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+app.UseAuthentication();
+app.UseCurrentTenant();
 app.UseAuthorization();
+
+await IdentitySeeder.SeedAsync(app.Services);
 
 app.MapControllerRoute(
     name: "default",

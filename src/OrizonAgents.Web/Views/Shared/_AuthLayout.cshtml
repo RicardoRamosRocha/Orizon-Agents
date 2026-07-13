@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Orizon Agents</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/auth.css" asp-append-version="true" />
+</head>
+<body class="auth-shell">
+    <main class="auth-page">
+        <section class="auth-brand">
+            <div class="auth-brand__mark">O</div>
+            <p class="auth-brand__eyebrow">Orizon Platform</p>
+            <h1>Agentes de IA com governança, segurança e operação multi-tenant.</h1>
+            <p>Uma base SaaS profissional para equipes que atendem clientes pelo WhatsApp com automação inteligente.</p>
+        </section>
+        <section class="auth-panel" aria-label="Formulário">
+            @RenderBody()
+        </section>
+    </main>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
