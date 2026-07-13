@@ -1,0 +1,52 @@
+@model RegisterOrganizationViewModel
+@{
+    Layout = "_AuthLayout";
+    ViewData["Title"] = "Nova organização";
+}
+
+<div class="auth-card">
+    <h2>Criar organização</h2>
+    <p class="lead">Configure a primeira conta administrativa do seu tenant.</p>
+    <form asp-action="Register" method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+        <div class="mb-3">
+            <label asp-for="OrganizationName" class="form-label"></label>
+            <input asp-for="OrganizationName" class="form-control" />
+            <span asp-validation-for="OrganizationName" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Slug" class="form-label"></label>
+            <input asp-for="Slug" class="form-control" placeholder="minha-organizacao" />
+            <span asp-validation-for="Slug" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="FullName" class="form-label"></label>
+            <input asp-for="FullName" class="form-control" autocomplete="name" />
+            <span asp-validation-for="FullName" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Email" class="form-label"></label>
+            <input asp-for="Email" class="form-control" autocomplete="email" />
+            <span asp-validation-for="Email" class="text-danger"></span>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label asp-for="Password" class="form-label"></label>
+                <input asp-for="Password" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="Password" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label asp-for="ConfirmPassword" class="form-label"></label>
+                <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+            </div>
+        </div>
+        <div class="form-check mb-3">
+            <input asp-for="AcceptedTerms" class="form-check-input" />
+            <label asp-for="AcceptedTerms" class="form-check-label"></label>
+            <span asp-validation-for="AcceptedTerms" class="text-danger d-block"></span>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Criar organização</button>
+    </form>
+    <p class="mt-4 mb-0"><a class="auth-link" asp-action="Login">Já tenho conta</a></p>
+</div>

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OrizonAgents.Web.Models;
 
@@ -14,6 +15,14 @@ public class HomeController : Controller
     }
 
     public IActionResult Index()
+    {
+        return User.Identity?.IsAuthenticated == true
+            ? RedirectToAction(nameof(Welcome))
+            : RedirectToAction("Login", "Account");
+    }
+
+    [Authorize]
+    public IActionResult Welcome()
     {
         return View();
     }
