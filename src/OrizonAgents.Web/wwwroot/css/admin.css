@@ -392,6 +392,29 @@ td {
   text-align: left;
 }
 
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.action-row form {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.action-row input[type="password"] {
+  max-width: 150px;
+}
+
+.checkbox-line {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
 @media (max-width: 980px) {
   .admin-layout {
     grid-template-columns: 1fr;

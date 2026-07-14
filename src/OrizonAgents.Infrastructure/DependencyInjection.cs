@@ -22,6 +22,8 @@ using OrizonAgents.Infrastructure.Tenancy;
 using OrizonAgents.Application.Tenants;
 using OrizonAgents.Infrastructure.Tenants;
 using OrizonAgents.Infrastructure.Users;
+using OrizonAgents.Application.WhatsApp;
+using OrizonAgents.Infrastructure.WhatsApp;
 
 namespace OrizonAgents.Infrastructure;
 
@@ -52,6 +54,16 @@ public static class DependencyInjection
         services.AddScoped<IBillingService, BillingService>();
         services.AddScoped<IEntitlementService, EntitlementService>();
         services.AddScoped<IBillingCycleProcessor, BillingCycleProcessor>();
+        services.AddScoped<IWhatsAppTokenProtector, DataProtectionWhatsAppTokenProtector>();
+        services.AddScoped<IWhatsAppConnectionService, WhatsAppService>();
+        services.AddScoped<IWhatsAppMessagingService, WhatsAppService>();
+        services.AddScoped<IWhatsAppTemplateService, WhatsAppService>();
+        services.AddScoped<IWhatsAppPlatformService, WhatsAppService>();
+        services.AddScoped<IWhatsAppWebhookService, WhatsAppWebhookService>();
+        services.AddScoped<IWhatsAppProcessor, WhatsAppProcessor>();
+        services.Configure<WhatsAppOptions>(configuration.GetSection(WhatsAppOptions.SectionName));
+        services.AddHttpClient<IWhatsAppCloudApiClient, WhatsAppCloudApiClient>();
+        services.AddDataProtection();
 
         services.AddDbContext<OrizonAgentsDbContext>(options =>
         {

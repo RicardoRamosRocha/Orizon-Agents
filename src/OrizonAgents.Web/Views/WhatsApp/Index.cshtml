@@ -1,0 +1,76 @@
+@model WhatsAppIndexViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "WhatsApp Cloud API";
+    ViewData["Section"] = "WhatsApp";
+    var summary = Model.Summary!;
+}
+
+<section class="admin-hero">
+    <div>
+        <p class="eyebrow">Meta WhatsApp Cloud API</p>
+        <h2>Conexões oficiais</h2>
+        <p class="muted">Tokens protegidos, webhooks assinados e limites do plano aplicados.</p>
+    </div>
+</section>
+
+<section class="metric-grid">
+    <article class="metric-card metric-card--primary"><span>Números</span><strong>@summary.Usage.ActiveNumbers</strong><small>Limite: @(summary.Usage.NumberLimit?.ToString() ?? "Ilimitado")</small></article>
+    <article class="metric-card metric-card--success"><span>Mensagens no mês</span><strong>@summary.Usage.MonthlyMessagesUsed</strong><small>Saldo: @(summary.Usage.MonthlyMessageLimit.HasValue ? summary.Usage.RemainingMonthlyMessages : "Ilimitado")</small></article>
+</section>
+
+<section class="admin-grid">
+    <article class="admin-card">
+        <div class="card-heading"><div><h3>Conexões</h3><p>Números configurados no tenant</p></div></div>
+        @if (summary.Connections.Count == 0)
+        {
+            <div class="empty-state">Nenhuma conexão WhatsApp configurada.</div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Nome</th><th>Número</th><th>Status</th><th>Qualidade</th><th>Token</th><th>Ações</th></tr></thead>
+                    <tbody>
+                    @foreach (var connection in summary.Connections)
+                    {
+                        <tr>
+                            <td>@connection.Name @(connection.IsDefault ? "· padrão" : "")</td>
+                            <td>@connection.DisplayPhoneNumber</td>
+                            <td><span class="status-badge">@connection.Status</span></td>
+                            <td>@connection.QualityRating</td>
+                            <td>@connection.MaskedToken</td>
+                            <td class="action-row">
+                                <form asp-action="Validate" asp-route-id="@connection.Id" method="post"><button type="submit">Validar</button></form>
+                                <form asp-action="SetDefault" asp-route-id="@connection.Id" method="post"><input type="hidden" name="concurrencyStamp" value="@connection.ConcurrencyStamp" /><button type="submit">Padrão</button></form>
+                                <form asp-action="Disconnect" asp-route-id="@connection.Id" method="post"><input type="hidden" name="concurrencyStamp" value="@connection.ConcurrencyStamp" /><button type="submit">Desconectar</button></form>
+                                <form asp-action="ReplaceToken" asp-route-id="@connection.Id" method="post"><input type="hidden" name="concurrencyStamp" value="@connection.ConcurrencyStamp" /><input name="accessToken" type="password" placeholder="Novo token" /><button type="submit">Trocar</button></form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </article>
+
+    <article class="admin-card">
+        <div class="card-heading"><div><h3>Adicionar conexão</h3><p>O token será criptografado e nunca exibido.</p></div></div>
+        <form asp-action="Create" method="post" class="admin-form">
+            <div asp-validation-summary="ModelOnly"></div>
+            <label asp-for="Form.Name"></label><input asp-for="Form.Name" name="Name" />
+            <label asp-for="Form.WhatsAppBusinessAccountId"></label><input asp-for="Form.WhatsAppBusinessAccountId" name="WhatsAppBusinessAccountId" />
+            <label asp-for="Form.PhoneNumberId"></label><input asp-for="Form.PhoneNumberId" name="PhoneNumberId" />
+            <label asp-for="Form.DisplayPhoneNumber"></label><input asp-for="Form.DisplayPhoneNumber" name="DisplayPhoneNumber" />
+            <label asp-for="Form.VerifiedName"></label><input asp-for="Form.VerifiedName" name="VerifiedName" />
+            <label asp-for="Form.AccessToken"></label><input asp-for="Form.AccessToken" name="AccessToken" />
+            <label class="checkbox-line"><input asp-for="Form.IsDefault" name="IsDefault" /> Definir como padrão</label>
+            <button type="submit">Salvar conexão</button>
+        </form>
+    </article>
+</section>
+
+<section class="quick-actions">
+    <a asp-action="Templates">Templates</a>
+    <a asp-action="Messages">Mensagens técnicas</a>
+</section>
