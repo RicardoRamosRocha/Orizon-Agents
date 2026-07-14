@@ -348,6 +348,34 @@ body.admin-shell {
   margin: 0;
 }
 
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.plan-card {
+  display: grid;
+  gap: 10px;
+  box-shadow: none;
+}
+
+.entitlement-row,
+.usage-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(120px, 180px) minmax(90px, auto);
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.usage-row progress {
+  width: 100%;
+  height: 12px;
+  accent-color: var(--admin-blue);
+}
+
 .table-wrap {
   overflow-x: auto;
 }
@@ -375,6 +403,9 @@ td {
 
   .metric-grid,
   .admin-grid,
+  .plan-grid,
+  .entitlement-row,
+  .usage-row,
   .filter-bar {
     grid-template-columns: 1fr;
   }

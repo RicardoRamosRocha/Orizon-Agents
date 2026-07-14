@@ -1,0 +1,27 @@
+@model PlanDetailsDto
+@{ Layout = "_AdminLayout"; ViewData["Title"] = Model.Name; ViewData["Section"] = "Billing"; }
+<section class="admin-hero">
+    <div><p class="eyebrow">@Model.Code</p><h2>@Model.Name</h2><p class="muted">@Model.Description</p></div>
+    <span class="status-badge @(Model.IsActive ? "status-badge--active" : "status-badge--archived")">@(Model.IsActive ? "Ativo" : "Inativo")</span>
+</section>
+<section class="admin-grid">
+    <article class="admin-card">
+        <h3>Preços</h3>
+        <p><strong>@Model.Currency @Model.MonthlyPrice.ToString("0.00")</strong> mensal</p>
+        <p><strong>@Model.Currency @Model.YearlyPrice.ToString("0.00")</strong> anual</p>
+        <p class="muted">@Model.SubscriptionCount assinatura(s)</p>
+        <div class="quick-actions"><a asp-action="Edit" asp-route-id="@Model.Id">Editar</a></div>
+    </article>
+    <article class="admin-card">
+        <h3>Ações</h3>
+        <form asp-action="@(Model.IsActive ? "Deactivate" : "Activate")" asp-route-id="@Model.Id" method="post"><input type="hidden" name="concurrencyStamp" value="@Model.ConcurrencyStamp" /><button class="btn btn-outline-primary" type="submit">@(Model.IsActive ? "Desativar" : "Ativar")</button></form>
+        <form asp-action="Archive" asp-route-id="@Model.Id" method="post" class="mt-2"><input type="hidden" name="concurrencyStamp" value="@Model.ConcurrencyStamp" /><button class="btn btn-outline-danger" type="submit">Arquivar</button></form>
+    </article>
+</section>
+<section class="admin-card">
+    <h3>Entitlements</h3>
+    @foreach (var item in Model.Entitlements)
+    {
+        <div class="setup-item @(item.IsEnabled ? "is-complete" : "")"><span></span><div><strong>@item.FeatureKey</strong><p>@(item.IsEnabled ? item.LimitValue?.ToString() ?? "Ilimitado" : "Desabilitado")</p></div></div>
+    }
+</section>

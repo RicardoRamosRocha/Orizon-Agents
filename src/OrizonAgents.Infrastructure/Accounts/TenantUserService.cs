@@ -3,8 +3,10 @@ using Microsoft.EntityFrameworkCore;
 using OrizonAgents.Application.Accounts;
 using OrizonAgents.Application.Accounts.Models;
 using OrizonAgents.Application.Accounts.Requests;
+using OrizonAgents.Application.Billing;
 using OrizonAgents.Application.Common.Results;
 using OrizonAgents.Application.Common.Security;
+using OrizonAgents.Domain.Billing;
 using OrizonAgents.Infrastructure.Identity;
 
 namespace OrizonAgents.Infrastructure.Accounts;
@@ -12,10 +14,12 @@ namespace OrizonAgents.Infrastructure.Accounts;
 public sealed class TenantUserService : ITenantUserService
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IEntitlementService _entitlementService;
 
-    public TenantUserService(UserManager<ApplicationUser> userManager)
+    public TenantUserService(UserManager<ApplicationUser> userManager, IEntitlementService entitlementService)
     {
         _userManager = userManager;
+        _entitlementService = entitlementService;
     }
 
     public async Task<IReadOnlyCollection<UserAccountDto>> SearchAsync(
@@ -73,6 +77,11 @@ public sealed class TenantUserService : ITenantUserService
             return OperationResult<Guid>.Failure("Papel inválido para usuários da organização.");
         }
 
+        if (!await _entitlementService.HasAvailableCapacityAsync(request.TenantId, PlanFeatureKeys.Users, cancellationToken: cancellationToken))
+        {
+            return OperationResult<Guid>.Failure("O limite de usuários do plano foi atingido.");
+        }
+
         var user = new ApplicationUser
         {
             UserName = request.Email,
@@ -117,6 +126,12 @@ public sealed class TenantUserService : ITenantUserService
         if (request.UserId == request.ActingUserId && !request.IsActive)
         {
             return OperationResult.Failure("Você não pode desativar sua própria conta.");
+        }
+
+        if (!user.IsActive && request.IsActive &&
+            !await _entitlementService.HasAvailableCapacityAsync(request.TenantId, PlanFeatureKeys.Users, cancellationToken: cancellationToken))
+        {
+            return OperationResult.Failure("O limite de usuários do plano foi atingido.");
         }
 
         bool isTenantAdmin = await _userManager.IsInRoleAsync(user, OrizonRoles.TenantAdmin);

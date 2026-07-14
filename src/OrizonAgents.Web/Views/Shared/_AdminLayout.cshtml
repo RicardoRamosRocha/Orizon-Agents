@@ -37,6 +37,14 @@
                         <span class="admin-icon">@await Html.PartialAsync("_IconUsers")</span>
                         Organizações
                     </a>
+                    <a asp-controller="PlatformPlans" asp-action="Index">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        Planos
+                    </a>
+                    <a asp-controller="PlatformSubscriptions" asp-action="Index">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        Assinaturas
+                    </a>
                 }
                 @if (isTenantAdmin)
                 {
@@ -51,6 +59,10 @@
                 }
                 @if (!isPlatformAdmin)
                 {
+                    <a asp-controller="Billing" asp-action="Index">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        Meu plano
+                    </a>
                     <a asp-controller="Organization" asp-action="Index">
                         <span class="admin-icon">@await Html.PartialAsync("_IconHome")</span>
                         Organização

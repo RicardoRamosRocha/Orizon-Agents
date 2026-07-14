@@ -1,0 +1,39 @@
+@model PlanIndexViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Planos";
+    ViewData["Section"] = "Billing";
+}
+
+<section class="admin-card">
+    <div class="card-heading">
+        <div><h3>Planos de assinatura</h3><p>Cadastre planos comerciais ou internos sem integração de cobrança real.</p></div>
+        <a class="btn btn-primary" asp-action="Create">Criar plano</a>
+    </div>
+    <form method="get" class="filter-bar">
+        <input asp-for="Search" class="form-control" placeholder="Buscar por nome ou código" />
+        <select asp-for="IsActive" class="form-select"><option value="">Ativos e inativos</option><option value="true">Ativos</option><option value="false">Inativos</option></select>
+        <select asp-for="IsPublic" class="form-select"><option value="">Públicos e internos</option><option value="true">Públicos</option><option value="false">Internos</option></select>
+        <button class="btn btn-outline-primary" type="submit">Filtrar</button>
+    </form>
+    @if (Model.Result?.Items.Count > 0)
+    {
+        <div class="plan-grid">
+            @foreach (var plan in Model.Result.Items)
+            {
+                <article class="admin-card plan-card">
+                    <span class="status-badge @(plan.IsActive ? "status-badge--active" : "status-badge--archived")">@(plan.IsActive ? "Ativo" : "Inativo")</span>
+                    <h3>@plan.Name</h3>
+                    <p class="muted">@plan.Code</p>
+                    <strong>@plan.Currency @plan.MonthlyPrice.ToString("0.00")/mês</strong>
+                    <p class="muted">@plan.SubscriptionCount assinatura(s)</p>
+                    <a asp-action="Details" asp-route-id="@plan.Id">Detalhes</a>
+                </article>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">Nenhum plano encontrado.</div>
+    }
+</section>
