@@ -1,0 +1,26 @@
+@model SuspendTenantViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Suspender organização";
+    ViewData["Section"] = "Plataforma";
+}
+
+<section class="admin-card">
+    <h3>Confirmar suspensão</h3>
+    <p class="muted">A organização <strong>@Model.TenantName</strong> deixará de operar normalmente. Usuários autenticados serão redirecionados para a página informativa.</p>
+    <form method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+        <input asp-for="TenantId" type="hidden" />
+        <input asp-for="TenantName" type="hidden" />
+        <input asp-for="ConcurrencyStamp" type="hidden" />
+        <div class="mb-3">
+            <label asp-for="Reason" class="form-label"></label>
+            <textarea asp-for="Reason" class="form-control" rows="5"></textarea>
+            <span asp-validation-for="Reason" class="text-danger"></span>
+        </div>
+        <div class="form-actions">
+            <a class="btn btn-outline-secondary" asp-action="Details" asp-route-id="@Model.TenantId">Cancelar</a>
+            <button type="submit" class="btn btn-danger">Suspender organização</button>
+        </div>
+    </form>
+</section>

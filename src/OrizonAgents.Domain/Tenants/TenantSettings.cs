@@ -6,6 +6,9 @@ public sealed class TenantSettings : AuditableEntity, ITenantOwnedEntity
 {
     public const int CultureMaxLength = 16;
     public const int TimeZoneMaxLength = 64;
+    public const int ContactNameMaxLength = 120;
+    public const int ContactEmailMaxLength = 256;
+    public const int ContactPhoneMaxLength = 32;
     public const string DefaultCulture = "pt-BR";
     public const string DefaultTimeZone = "America/Sao_Paulo";
 
@@ -31,6 +34,12 @@ public sealed class TenantSettings : AuditableEntity, ITenantOwnedEntity
 
     public string TimeZone { get; private set; }
 
+    public string? ContactName { get; private set; }
+
+    public string? ContactEmail { get; private set; }
+
+    public string? ContactPhone { get; private set; }
+
     public Tenant Tenant { get; private set; } = null!;
 
     public static TenantSettings Create(
@@ -45,6 +54,13 @@ public sealed class TenantSettings : AuditableEntity, ITenantOwnedEntity
     {
         Culture = EnsureCulture(culture);
         TimeZone = EnsureTimeZone(timeZone);
+    }
+
+    public void UpdateContact(string? contactName, string? contactEmail, string? contactPhone)
+    {
+        ContactName = EnsureOptional(contactName, ContactNameMaxLength, nameof(contactName));
+        ContactEmail = EnsureOptional(contactEmail, ContactEmailMaxLength, nameof(contactEmail));
+        ContactPhone = EnsureOptional(contactPhone, ContactPhoneMaxLength, nameof(contactPhone));
     }
 
     private static string EnsureCulture(string culture)
@@ -65,5 +81,18 @@ public sealed class TenantSettings : AuditableEntity, ITenantOwnedEntity
         return trimmed.Length <= TimeZoneMaxLength
             ? trimmed
             : throw new ArgumentException($"Time zone cannot exceed {TimeZoneMaxLength} characters.", nameof(timeZone));
+    }
+
+    private static string? EnsureOptional(string? value, int maxLength, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        string trimmed = value.Trim();
+        return trimmed.Length <= maxLength
+            ? trimmed
+            : throw new ArgumentException($"{parameterName} cannot exceed {maxLength} characters.", parameterName);
     }
 }

@@ -179,6 +179,13 @@ public sealed class AccountController : Controller
         return View();
     }
 
+    [HttpGet("organizacao-suspensa")]
+    [Authorize]
+    public IActionResult SuspendedOrganization()
+    {
+        return View();
+    }
+
     [HttpPost("sair")]
     [Authorize]
     [ValidateAntiForgeryToken]

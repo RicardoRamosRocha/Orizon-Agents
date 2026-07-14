@@ -25,6 +25,7 @@ app.UseRouting();
 
 app.UseAuthentication();
 app.UseCurrentTenant();
+app.UseTenantSuspension();
 app.UseAuthorization();
 
 await IdentitySeeder.SeedAsync(app.Services);

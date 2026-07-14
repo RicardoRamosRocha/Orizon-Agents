@@ -23,6 +23,15 @@ public sealed class TenantSettingsConfiguration : IEntityTypeConfiguration<Tenan
             .HasMaxLength(TenantSettings.TimeZoneMaxLength)
             .IsRequired();
 
+        builder.Property(settings => settings.ContactName)
+            .HasMaxLength(TenantSettings.ContactNameMaxLength);
+
+        builder.Property(settings => settings.ContactEmail)
+            .HasMaxLength(TenantSettings.ContactEmailMaxLength);
+
+        builder.Property(settings => settings.ContactPhone)
+            .HasMaxLength(TenantSettings.ContactPhoneMaxLength);
+
         builder.Property(settings => settings.CreatedAtUtc)
             .IsRequired();
 

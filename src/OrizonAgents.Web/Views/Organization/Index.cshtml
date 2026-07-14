@@ -1,0 +1,89 @@
+@model OrganizationSettingsViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Minha organização";
+    ViewData["Section"] = "Organização";
+    bool canEdit = User.IsInRole(OrizonRoles.TenantAdmin);
+}
+
+@if (TempData["StatusMessage"] is string statusMessage)
+{
+    <div class="alert alert-success">@statusMessage</div>
+}
+
+<section class="admin-hero">
+    <div>
+        <p class="eyebrow">@Model.Slug</p>
+        <h2>@Model.Name</h2>
+        <p class="muted">Status atual: @Model.Status</p>
+    </div>
+    <span class="status-badge status-badge--@Model.Status.ToLowerInvariant()">@Model.Status</span>
+</section>
+
+@if (Model.Status == "Suspended")
+{
+    <div class="alert alert-warning">Sua organização está temporariamente suspensa. Algumas operações permanecem limitadas.</div>
+}
+
+<form method="post" class="stacked-form">
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+    <input asp-for="TenantId" type="hidden" />
+    <input asp-for="Slug" type="hidden" />
+    <input asp-for="Status" type="hidden" />
+    <input asp-for="ConcurrencyStamp" type="hidden" />
+
+    <section class="admin-grid">
+        <article class="admin-card">
+            <h3>Dados principais</h3>
+            <div class="mb-3">
+                <label asp-for="Name" class="form-label"></label>
+                <input asp-for="Name" class="form-control" readonly="@(!canEdit)" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Slug" class="form-label"></label>
+                <input asp-for="Slug" class="form-control" readonly />
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label asp-for="Culture" class="form-label"></label>
+                    <input asp-for="Culture" class="form-control" readonly="@(!canEdit)" />
+                    <span asp-validation-for="Culture" class="text-danger"></span>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label asp-for="TimeZone" class="form-label"></label>
+                    <input asp-for="TimeZone" class="form-control" readonly="@(!canEdit)" />
+                    <span asp-validation-for="TimeZone" class="text-danger"></span>
+                </div>
+            </div>
+        </article>
+
+        <article class="admin-card">
+            <h3>Contato</h3>
+            <div class="mb-3">
+                <label asp-for="ContactName" class="form-label"></label>
+                <input asp-for="ContactName" class="form-control" readonly="@(!canEdit)" />
+            </div>
+            <div class="mb-3">
+                <label asp-for="ContactEmail" class="form-label"></label>
+                <input asp-for="ContactEmail" class="form-control" readonly="@(!canEdit)" />
+                <span asp-validation-for="ContactEmail" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="ContactPhone" class="form-label"></label>
+                <input asp-for="ContactPhone" class="form-control" readonly="@(!canEdit)" />
+            </div>
+        </article>
+    </section>
+
+    @if (canEdit)
+    {
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Salvar organização</button>
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">Sua conta permite visualizar as informações básicas da organização, sem ações administrativas.</div>
+    }
+</form>

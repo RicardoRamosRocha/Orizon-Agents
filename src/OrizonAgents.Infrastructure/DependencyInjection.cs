@@ -17,6 +17,8 @@ using OrizonAgents.Infrastructure.Health;
 using OrizonAgents.Infrastructure.Identity;
 using OrizonAgents.Infrastructure.Persistence;
 using OrizonAgents.Infrastructure.Tenancy;
+using OrizonAgents.Application.Tenants;
+using OrizonAgents.Infrastructure.Tenants;
 using OrizonAgents.Infrastructure.Users;
 
 namespace OrizonAgents.Infrastructure;
@@ -43,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<ITenantUserService, TenantUserService>();
         services.AddScoped<IDashboardQueryService, DashboardQueryService>();
+        services.AddScoped<ITenantManagementService, TenantManagementService>();
 
         services.AddDbContext<OrizonAgentsDbContext>(options =>
         {

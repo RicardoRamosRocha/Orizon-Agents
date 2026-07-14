@@ -1,0 +1,22 @@
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Organização suspensa";
+    ViewData["Section"] = "Conta";
+}
+
+<section class="admin-hero">
+    <div>
+        <p class="eyebrow">Acesso temporariamente limitado</p>
+        <h2>Esta organização está suspensa.</h2>
+        <p class="muted">O acesso às áreas protegidas foi pausado temporariamente. Para mais informações, fale com o administrador da plataforma.</p>
+    </div>
+    <span class="status-badge status-badge--warning">Suspensa</span>
+</section>
+
+<section class="admin-card">
+    <h3>O que ainda é permitido</h3>
+    <p class="muted">Você pode encerrar sua sessão com segurança. Não exibimos detalhes internos da suspensão nesta página.</p>
+    <form asp-controller="Account" asp-action="Logout" method="post">
+        <button type="submit" class="btn btn-primary">Sair</button>
+    </form>
+</section>

@@ -8,4 +8,9 @@ public static class TenancyApplicationBuilderExtensions
     {
         return app.UseMiddleware<CurrentTenantMiddleware>();
     }
+
+    public static IApplicationBuilder UseTenantSuspension(this IApplicationBuilder app)
+    {
+        return app.UseMiddleware<TenantSuspensionMiddleware>();
+    }
 }

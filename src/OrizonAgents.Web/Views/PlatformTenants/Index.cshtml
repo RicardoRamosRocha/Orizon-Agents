@@ -1,0 +1,87 @@
+@model TenantFilterViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Organizações";
+    ViewData["Section"] = "Plataforma";
+}
+
+<section class="admin-card">
+    <div class="card-heading">
+        <div>
+            <h3>Gestão de organizações</h3>
+            <p>Pesquise, filtre e acompanhe os tenants da plataforma.</p>
+        </div>
+        <a class="btn btn-primary" asp-action="Create">Criar organização</a>
+    </div>
+
+    @if (TempData["StatusMessage"] is string statusMessage)
+    {
+        <div class="alert alert-success">@statusMessage</div>
+    }
+
+    <form method="get" class="filter-bar">
+        <input asp-for="Search" class="form-control" placeholder="Buscar por nome ou slug" />
+        <select asp-for="Status" class="form-select">
+            <option value="">Todos os status</option>
+            <option value="Active">Ativas</option>
+            <option value="Suspended">Suspensas</option>
+            <option value="Archived">Arquivadas</option>
+        </select>
+        <select asp-for="Sort" class="form-select">
+            <option value="">Mais recentes</option>
+            <option value="created">Mais antigas</option>
+            <option value="name_desc">Nome Z-A</option>
+            <option value="slug">Slug A-Z</option>
+            <option value="status">Status</option>
+        </select>
+        <button type="submit" class="btn btn-outline-primary">Filtrar</button>
+    </form>
+
+    @if (Model.Result is null || Model.Result.Items.Count == 0)
+    {
+        <div class="empty-state">Nenhuma organização encontrada para os filtros informados.</div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Organização</th>
+                        <th>Status</th>
+                        <th>Usuários</th>
+                        <th>Criada em</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (TenantListItemDto tenant in Model.Result.Items)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@tenant.Name</strong>
+                                <span class="muted d-block">@tenant.Slug</span>
+                            </td>
+                            <td><span class="status-badge status-badge--@tenant.Status.ToLowerInvariant()">@tenant.Status</span></td>
+                            <td>@tenant.TotalUsers</td>
+                            <td>@tenant.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                            <td><a asp-action="Details" asp-route-id="@tenant.Id">Detalhes</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <nav class="pagination-bar" aria-label="Paginação">
+            @if (Model.Result.HasPreviousPage)
+            {
+                <a asp-action="Index" asp-route-search="@Model.Search" asp-route-status="@Model.Status" asp-route-sort="@Model.Sort" asp-route-pageNumber="@(Model.Result.PageNumber - 1)">Anterior</a>
+            }
+            <span>Página @Model.Result.PageNumber de @Math.Max(1, Model.Result.TotalPages)</span>
+            @if (Model.Result.HasNextPage)
+            {
+                <a asp-action="Index" asp-route-search="@Model.Search" asp-route-status="@Model.Status" asp-route-sort="@Model.Sort" asp-route-pageNumber="@(Model.Result.PageNumber + 1)">Próxima</a>
+            }
+        </nav>
+    }
+</section>

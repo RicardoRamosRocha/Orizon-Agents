@@ -15,7 +15,9 @@ using OrizonAgents.Application.Dashboards;
 using OrizonAgents.Infrastructure.Dashboards;
 using OrizonAgents.Infrastructure.Identity;
 using OrizonAgents.Infrastructure.Persistence;
+using OrizonAgents.Application.Tenants;
 using OrizonAgents.Infrastructure.Tenancy;
+using OrizonAgents.Infrastructure.Tenants;
 
 namespace OrizonAgents.Integration.Tests.Authentication;
 
@@ -38,6 +40,7 @@ internal static class AuthenticationTestFixture
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<ITenantUserService, TenantUserService>();
         services.AddScoped<IDashboardQueryService, DashboardQueryService>();
+        services.AddScoped<ITenantManagementService, TenantManagementService>();
         services.AddDbContext<OrizonAgentsDbContext>(options =>
             options.UseInMemoryDatabase(Guid.NewGuid().ToString()));
 

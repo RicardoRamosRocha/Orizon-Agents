@@ -1,0 +1,14 @@
+@model TenantFormViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Criar organização";
+    ViewData["Section"] = "Plataforma";
+}
+
+<form method="post" class="stacked-form">
+    <partial name="_Form" model="Model" />
+    <div class="form-actions">
+        <a class="btn btn-outline-secondary" asp-action="Index">Cancelar</a>
+        <button type="submit" class="btn btn-primary">Criar organização</button>
+    </div>
+</form>

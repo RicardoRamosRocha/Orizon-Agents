@@ -177,6 +177,21 @@ body.admin-shell {
   font-weight: 700;
 }
 
+.status-badge--active {
+  background: #e9f8f1;
+  color: var(--admin-success);
+}
+
+.status-badge--suspended {
+  background: #fff6df;
+  color: var(--admin-warning);
+}
+
+.status-badge--archived {
+  background: #eef2f7;
+  color: var(--admin-muted);
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -293,6 +308,46 @@ body.admin-shell {
   text-decoration: none;
 }
 
+.filter-bar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 180px 180px auto;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.stacked-form {
+  display: grid;
+  gap: 20px;
+}
+
+.form-actions,
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pagination-bar {
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.details-list {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 10px 16px;
+}
+
+.details-list dt {
+  color: var(--admin-muted);
+  font-weight: 700;
+}
+
+.details-list dd {
+  margin: 0;
+}
+
 .table-wrap {
   overflow-x: auto;
 }
@@ -319,7 +374,8 @@ td {
   }
 
   .metric-grid,
-  .admin-grid {
+  .admin-grid,
+  .filter-bar {
     grid-template-columns: 1fr;
   }
 
