@@ -4,6 +4,7 @@ using OrizonAgents.Application.Common.Results;
 using OrizonAgents.Application.Common.Security;
 using OrizonAgents.Application.Dashboards;
 using OrizonAgents.Application.Dashboards.Models;
+using OrizonAgents.Domain.Billing;
 using OrizonAgents.Domain.Tenants;
 using OrizonAgents.Infrastructure.Identity;
 using OrizonAgents.Infrastructure.Persistence;
@@ -127,6 +128,12 @@ public sealed class DashboardQueryService : IDashboardQueryService
         int inactiveTenants = totalTenants - activeTenants;
         int totalUsers = await _dbContext.Users.AsNoTracking().CountAsync(cancellationToken);
         int activeUsers = await _dbContext.Users.AsNoTracking().CountAsync(user => user.IsActive, cancellationToken);
+        int activePlans = await _dbContext.SubscriptionPlans.AsNoTracking().CountAsync(
+            plan => plan.IsActive && !plan.IsArchived,
+            cancellationToken);
+        int trialingSubscriptions = await _dbContext.TenantSubscriptions.AsNoTracking().CountAsync(
+            subscription => subscription.Status == SubscriptionStatus.Trialing,
+            cancellationToken);
 
         var recentTenants = await _dbContext.Tenants
             .AsNoTracking()
@@ -160,14 +167,17 @@ public sealed class DashboardQueryService : IDashboardQueryService
             new DashboardMetricDto("Tenants", totalTenants, "Total de organizações", "primary"),
             new DashboardMetricDto("Tenants ativos", activeTenants, "Organizações em operação", "success"),
             new DashboardMetricDto("Tenants suspensos/inativos", inactiveTenants, "Organizações fora de operação", "warning"),
-            new DashboardMetricDto("Usuários", totalUsers, $"{activeUsers} ativos na plataforma", "violet")
+            new DashboardMetricDto("Usuários", totalUsers, $"{activeUsers} ativos na plataforma", "violet"),
+            new DashboardMetricDto("Planos ativos", activePlans, "Planos disponíveis para assinaturas", "primary"),
+            new DashboardMetricDto("Trials ativos", trialingSubscriptions, "Assinaturas em período de teste", "success")
         };
 
         var technicalStatus = new[]
         {
             new SetupChecklistItemDto("PostgreSQL configurado", "DbContext e provider Npgsql registrados.", true),
             new SetupChecklistItemDto("Redis configurado", "Cache distribuído registrado na Infrastructure.", true),
-            new SetupChecklistItemDto("Identity configurado", "Autenticação Web MVC ativa.", true)
+            new SetupChecklistItemDto("Identity configurado", "Autenticação Web MVC ativa.", true),
+            new SetupChecklistItemDto("Billing configurado", "Planos, assinaturas e entitlements registrados.", true)
         };
 
         return new PlatformDashboardDto(metrics, recentTenants, recentUsers, technicalStatus);

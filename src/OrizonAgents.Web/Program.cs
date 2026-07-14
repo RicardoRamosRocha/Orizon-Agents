@@ -1,6 +1,7 @@
 using OrizonAgents.Infrastructure;
 using OrizonAgents.Infrastructure.Identity;
 using OrizonAgents.Infrastructure.Tenancy;
+using OrizonAgents.Infrastructure.Billing;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +30,7 @@ app.UseTenantSuspension();
 app.UseAuthorization();
 
 await IdentitySeeder.SeedAsync(app.Services);
+await BillingSeeder.SeedAsync(app.Services);
 
 app.MapControllerRoute(
     name: "default",

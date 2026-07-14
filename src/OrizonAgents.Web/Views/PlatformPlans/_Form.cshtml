@@ -1,0 +1,33 @@
+@model PlanFormViewModel
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+<input asp-for="Id" type="hidden" />
+<input asp-for="ConcurrencyStamp" type="hidden" />
+<section class="admin-grid">
+    <article class="admin-card">
+        <h3>Dados do plano</h3>
+        <div class="mb-3"><label asp-for="Name" class="form-label"></label><input asp-for="Name" class="form-control" /><span asp-validation-for="Name" class="text-danger"></span></div>
+        <div class="mb-3"><label asp-for="Code" class="form-label"></label><input asp-for="Code" class="form-control" readonly="@(Model.Id.HasValue)" /><span asp-validation-for="Code" class="text-danger"></span></div>
+        <div class="mb-3"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control"></textarea></div>
+        <div class="row">
+            <div class="col-md-4 mb-3"><label asp-for="MonthlyPrice" class="form-label"></label><input asp-for="MonthlyPrice" class="form-control" /></div>
+            <div class="col-md-4 mb-3"><label asp-for="YearlyPrice" class="form-label"></label><input asp-for="YearlyPrice" class="form-control" /></div>
+            <div class="col-md-4 mb-3"><label asp-for="Currency" class="form-label"></label><input asp-for="Currency" class="form-control" /></div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3"><label asp-for="TrialDays" class="form-label"></label><input asp-for="TrialDays" class="form-control" /></div>
+            <div class="col-md-6 mb-3"><label asp-for="SortOrder" class="form-label"></label><input asp-for="SortOrder" class="form-control" /></div>
+        </div>
+        <div class="form-check"><input asp-for="IsPublic" class="form-check-input" /><label asp-for="IsPublic" class="form-check-label">Plano público</label></div>
+    </article>
+    <article class="admin-card">
+        <h3>Entitlements</h3>
+        @foreach (string key in PlanFeatureKeys.All)
+        {
+            <div class="entitlement-row">
+                <input type="hidden" name="Entitlements[@key].IsEnabled" value="false" />
+                <label><input type="checkbox" name="Entitlements[@key].IsEnabled" value="true" checked="@Model.Entitlements[key].IsEnabled" /> @key</label>
+                <input class="form-control" name="Entitlements[@key].LimitValue" value="@Model.Entitlements[key].LimitValue" placeholder="vazio = ilimitado" />
+            </div>
+        }
+    </article>
+</section>

@@ -7,10 +7,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OrizonAgents.Application.Accounts;
+using OrizonAgents.Application.Billing;
 using OrizonAgents.Application.Common.Email;
 using OrizonAgents.Application.Common.Security;
 using OrizonAgents.Application.Common.Tenancy;
 using OrizonAgents.Infrastructure.Accounts;
+using OrizonAgents.Infrastructure.Billing;
 using OrizonAgents.Application.Dashboards;
 using OrizonAgents.Infrastructure.Dashboards;
 using OrizonAgents.Infrastructure.Identity;
@@ -41,8 +43,12 @@ internal static class AuthenticationTestFixture
         services.AddScoped<ITenantUserService, TenantUserService>();
         services.AddScoped<IDashboardQueryService, DashboardQueryService>();
         services.AddScoped<ITenantManagementService, TenantManagementService>();
+        services.AddScoped<IBillingService, BillingService>();
+        services.AddScoped<IEntitlementService, EntitlementService>();
+        services.AddScoped<IBillingCycleProcessor, BillingCycleProcessor>();
+        string databaseName = Guid.NewGuid().ToString();
         services.AddDbContext<OrizonAgentsDbContext>(options =>
-            options.UseInMemoryDatabase(Guid.NewGuid().ToString()));
+            options.UseInMemoryDatabase(databaseName));
 
         services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
             {

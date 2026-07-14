@@ -1,0 +1,21 @@
+@model SubscriptionIndexViewModel
+@{ Layout = "_AdminLayout"; ViewData["Title"] = "Assinaturas"; ViewData["Section"] = "Billing"; }
+<section class="admin-card">
+    <div class="card-heading"><div><h3>Assinaturas</h3><p>Visão operacional das assinaturas sem cobrança real.</p></div></div>
+    <form method="get" class="filter-bar">
+        <input asp-for="Search" class="form-control" placeholder="Buscar tenant" />
+        <select asp-for="PlanId" class="form-select"><option value="">Todos os planos</option>@foreach (var plan in Model.Plans){<option value="@plan.Id">@plan.Name</option>}</select>
+        <select asp-for="Status" class="form-select"><option value="">Todos os status</option>@foreach (string status in Enum.GetNames<SubscriptionStatus>()){<option>@status</option>}</select>
+        <button class="btn btn-outline-primary">Filtrar</button>
+    </form>
+    @if (Model.Result?.Items.Count > 0)
+    {
+        <div class="table-wrap"><table><thead><tr><th>Tenant</th><th>Plano</th><th>Status</th><th>Período</th><th></th></tr></thead><tbody>
+        @foreach (var item in Model.Result.Items)
+        {
+            <tr><td>@item.TenantName</td><td>@item.PlanName</td><td><span class="status-badge">@item.Status</span></td><td>@item.CurrentPeriodEndUtc.ToLocalTime().ToString("dd/MM/yyyy")</td><td><a asp-action="Details" asp-route-id="@item.Id">Detalhes</a></td></tr>
+        }
+        </tbody></table></div>
+    }
+    else { <div class="empty-state">Nenhuma assinatura encontrada.</div> }
+</section>

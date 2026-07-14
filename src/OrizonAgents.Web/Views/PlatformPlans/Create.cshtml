@@ -1,0 +1,6 @@
+@model PlanFormViewModel
+@{ Layout = "_AdminLayout"; ViewData["Title"] = "Criar plano"; ViewData["Section"] = "Billing"; }
+<form method="post" class="stacked-form">
+    <partial name="_Form" model="Model" />
+    <div class="form-actions"><a class="btn btn-outline-secondary" asp-action="Index">Cancelar</a><button class="btn btn-primary" type="submit">Criar plano</button></div>
+</form>

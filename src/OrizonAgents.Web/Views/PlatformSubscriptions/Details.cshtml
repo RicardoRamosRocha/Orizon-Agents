@@ -1,0 +1,14 @@
+@model SubscriptionDetailsDto
+@{ Layout = "_AdminLayout"; ViewData["Title"] = "Assinatura"; ViewData["Section"] = "Billing"; var history = (IReadOnlyCollection<SubscriptionHistoryDto>)ViewData["History"]!; var plans = (IReadOnlyCollection<PlanListItemDto>)ViewData["Plans"]!; }
+<section class="admin-hero"><div><p class="eyebrow">@Model.TenantName</p><h2>@Model.PlanName</h2><p class="muted">@Model.Status · @Model.BillingCycle</p></div><span class="status-badge">@Model.Status</span></section>
+<section class="admin-grid">
+    <article class="admin-card"><h3>Período</h3><p>@Model.CurrentPeriodStartUtc.ToLocalTime().ToString("dd/MM/yyyy") até @Model.CurrentPeriodEndUtc.ToLocalTime().ToString("dd/MM/yyyy")</p><p class="muted">Trial: @(Model.TrialEndsAtUtc?.ToLocalTime().ToString("dd/MM/yyyy") ?? "não ativo")</p></article>
+    <article class="admin-card"><h3>Ações</h3>
+        <form asp-action="ChangePlan" asp-route-id="@Model.Id" method="post" class="mb-2"><input type="hidden" name="concurrencyStamp" value="@Model.ConcurrencyStamp" /><select name="planId" class="form-select mb-2">@foreach(var plan in plans){<option value="@plan.Id">@plan.Name</option>}</select><select name="billingCycle" class="form-select mb-2"><option>Monthly</option><option>Yearly</option></select><button class="btn btn-primary">Trocar plano</button></form>
+        <form asp-action="ScheduleCancel" asp-route-id="@Model.Id" method="post" class="mb-2"><input type="hidden" name="concurrencyStamp" value="@Model.ConcurrencyStamp" /><button class="btn btn-outline-warning">Agendar cancelamento</button></form>
+        <form asp-action="Suspend" asp-route-id="@Model.Id" method="post" class="mb-2"><input type="hidden" name="concurrencyStamp" value="@Model.ConcurrencyStamp" /><button class="btn btn-outline-danger">Suspender</button></form>
+        <form asp-action="Reactivate" asp-route-id="@Model.Id" method="post"><input type="hidden" name="concurrencyStamp" value="@Model.ConcurrencyStamp" /><button class="btn btn-outline-primary">Reativar</button></form>
+    </article>
+</section>
+<section class="admin-card"><h3>Uso e limites</h3>@foreach(var usage in Model.Usage){<div class="usage-row"><strong>@usage.FeatureKey</strong><progress max="@(usage.LimitValue ?? Math.Max(usage.Used, 1))" value="@usage.Used"></progress><span>@usage.Used / @(usage.IsUnlimited ? "Ilimitado" : usage.LimitValue)</span></div>}</section>
+<section class="admin-card"><h3>Histórico</h3>@foreach(var item in history){<div class="setup-item is-complete"><span></span><div><strong>@item.Event</strong><p>@item.Description · @item.OccurredAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p></div></div>}</section>

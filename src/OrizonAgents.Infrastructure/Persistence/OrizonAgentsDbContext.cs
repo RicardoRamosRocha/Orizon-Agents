@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using OrizonAgents.Application.Common.Tenancy;
+using OrizonAgents.Domain.Billing;
 using OrizonAgents.Domain.Common;
 using OrizonAgents.Domain.Tenants;
 using OrizonAgents.Infrastructure.Identity;
@@ -23,6 +24,14 @@ public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, A
     public DbSet<Tenant> Tenants => Set<Tenant>();
 
     public DbSet<TenantSettings> TenantSettings => Set<TenantSettings>();
+
+    public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+
+    public DbSet<PlanEntitlement> PlanEntitlements => Set<PlanEntitlement>();
+
+    public DbSet<TenantSubscription> TenantSubscriptions => Set<TenantSubscription>();
+
+    public DbSet<SubscriptionHistory> SubscriptionHistories => Set<SubscriptionHistory>();
 
     public override int SaveChanges()
     {

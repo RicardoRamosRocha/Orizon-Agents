@@ -5,11 +5,13 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using OrizonAgents.Application.Accounts;
+using OrizonAgents.Application.Billing;
 using OrizonAgents.Application.Common.Email;
 using OrizonAgents.Application.Common.Security;
 using OrizonAgents.Application.Common.Tenancy;
 using OrizonAgents.Application.Common.Users;
 using OrizonAgents.Infrastructure.Accounts;
+using OrizonAgents.Infrastructure.Billing;
 using OrizonAgents.Application.Dashboards;
 using OrizonAgents.Infrastructure.Email;
 using OrizonAgents.Infrastructure.Dashboards;
@@ -27,7 +29,8 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        bool addWebSecurity = true)
     {
         string connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is required.");
@@ -46,6 +49,9 @@ public static class DependencyInjection
         services.AddScoped<ITenantUserService, TenantUserService>();
         services.AddScoped<IDashboardQueryService, DashboardQueryService>();
         services.AddScoped<ITenantManagementService, TenantManagementService>();
+        services.AddScoped<IBillingService, BillingService>();
+        services.AddScoped<IEntitlementService, EntitlementService>();
+        services.AddScoped<IBillingCycleProcessor, BillingCycleProcessor>();
 
         services.AddDbContext<OrizonAgentsDbContext>(options =>
         {
@@ -93,17 +99,20 @@ public static class DependencyInjection
             options.ExpireTimeSpan = TimeSpan.FromHours(8);
         });
 
-        services.AddAntiforgery(options =>
+        if (addWebSecurity)
         {
-            options.HeaderName = "X-CSRF-TOKEN";
-        });
+            services.AddAntiforgery(options =>
+            {
+                options.HeaderName = "X-CSRF-TOKEN";
+            });
 
-        services.AddAuthorization(options =>
-        {
-            options.AddPolicy("PlatformAdminOnly", policy => policy.RequireRole(OrizonRoles.PlatformAdmin));
-            options.AddPolicy("TenantAdminOnly", policy => policy.RequireRole(OrizonRoles.TenantAdmin));
-            options.AddPolicy("AuthenticatedAccount", policy => policy.RequireAuthenticatedUser());
-        });
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy("PlatformAdminOnly", policy => policy.RequireRole(OrizonRoles.PlatformAdmin));
+                options.AddPolicy("TenantAdminOnly", policy => policy.RequireRole(OrizonRoles.TenantAdmin));
+                options.AddPolicy("AuthenticatedAccount", policy => policy.RequireAuthenticatedUser());
+            });
+        }
 
         services.AddHealthChecks()
             .AddDbContextCheck<OrizonAgentsDbContext>(
