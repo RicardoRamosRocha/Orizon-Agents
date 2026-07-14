@@ -33,6 +33,10 @@
                         <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
                         Visão da plataforma
                     </a>
+                    <a asp-controller="PlatformTenants" asp-action="Index">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconUsers")</span>
+                        Organizações
+                    </a>
                 }
                 @if (isTenantAdmin)
                 {
@@ -43,6 +47,13 @@
                     <a asp-controller="TenantUsers" asp-action="Index">
                         <span class="admin-icon">@await Html.PartialAsync("_IconUsers")</span>
                         Usuários
+                    </a>
+                }
+                @if (!isPlatformAdmin)
+                {
+                    <a asp-controller="Organization" asp-action="Index">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconHome")</span>
+                        Organização
                     </a>
                 }
                 <a asp-controller="Home" asp-action="Welcome">

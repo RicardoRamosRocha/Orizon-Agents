@@ -25,6 +25,16 @@ public sealed class TenantConfiguration : IEntityTypeConfiguration<Tenant>
             .HasMaxLength(32)
             .IsRequired();
 
+        builder.Property(tenant => tenant.SuspensionReason)
+            .HasMaxLength(Tenant.SuspensionReasonMaxLength);
+
+        builder.Property(tenant => tenant.SuspendedAtUtc);
+
+        builder.Property(tenant => tenant.ConcurrencyStamp)
+            .HasMaxLength(32)
+            .IsConcurrencyToken()
+            .IsRequired();
+
         builder.Property(tenant => tenant.CreatedAtUtc)
             .IsRequired();
 

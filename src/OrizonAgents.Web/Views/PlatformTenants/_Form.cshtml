@@ -1,0 +1,81 @@
+@model TenantFormViewModel
+
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+<input asp-for="Id" type="hidden" />
+<input asp-for="ConcurrencyStamp" type="hidden" />
+
+<div class="admin-grid">
+    <section class="admin-card">
+        <h3>Dados principais</h3>
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label"></label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Slug" class="form-label"></label>
+            <input asp-for="Slug" class="form-control" />
+            <span asp-validation-for="Slug" class="text-danger"></span>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label asp-for="Culture" class="form-label"></label>
+                <input asp-for="Culture" class="form-control" />
+                <span asp-validation-for="Culture" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label asp-for="TimeZone" class="form-label"></label>
+                <input asp-for="TimeZone" class="form-control" />
+                <span asp-validation-for="TimeZone" class="text-danger"></span>
+            </div>
+        </div>
+    </section>
+
+    <section class="admin-card">
+        <h3>Contato</h3>
+        <div class="mb-3">
+            <label asp-for="ContactName" class="form-label"></label>
+            <input asp-for="ContactName" class="form-control" />
+            <span asp-validation-for="ContactName" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="ContactEmail" class="form-label"></label>
+            <input asp-for="ContactEmail" class="form-control" />
+            <span asp-validation-for="ContactEmail" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="ContactPhone" class="form-label"></label>
+            <input asp-for="ContactPhone" class="form-control" />
+            <span asp-validation-for="ContactPhone" class="text-danger"></span>
+        </div>
+    </section>
+</div>
+
+@if (!Model.Id.HasValue)
+{
+    <section class="admin-card">
+        <h3>Primeiro administrador</h3>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label asp-for="AdminFullName" class="form-label"></label>
+                <input asp-for="AdminFullName" class="form-control" />
+                <span asp-validation-for="AdminFullName" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label asp-for="AdminEmail" class="form-label"></label>
+                <input asp-for="AdminEmail" class="form-control" />
+                <span asp-validation-for="AdminEmail" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label asp-for="AdminPassword" class="form-label"></label>
+                <input asp-for="AdminPassword" class="form-control" />
+                <span asp-validation-for="AdminPassword" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label asp-for="AdminConfirmPassword" class="form-label"></label>
+                <input asp-for="AdminConfirmPassword" class="form-control" />
+                <span asp-validation-for="AdminConfirmPassword" class="text-danger"></span>
+            </div>
+        </div>
+    </section>
+}

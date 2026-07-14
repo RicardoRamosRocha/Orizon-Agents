@@ -137,6 +137,21 @@ public sealed class AccountService : IAccountService
             return OperationResult.Failure("Sua conta está inativa. Fale com o administrador da organização.");
         }
 
+        bool isPlatformAdmin = await _userManager.IsInRoleAsync(user, OrizonRoles.PlatformAdmin);
+        if (!isPlatformAdmin && user.TenantId.HasValue)
+        {
+            bool tenantSuspended = await _dbContext.Tenants
+                .AsNoTracking()
+                .AnyAsync(
+                    tenant => tenant.Id == user.TenantId.Value && tenant.Status == TenantStatus.Suspended,
+                    cancellationToken);
+
+            if (tenantSuspended)
+            {
+                return OperationResult.Failure("Sua organização está temporariamente suspensa.");
+            }
+        }
+
         SignInResult result = await _signInManager.PasswordSignInAsync(
             user,
             request.Password,

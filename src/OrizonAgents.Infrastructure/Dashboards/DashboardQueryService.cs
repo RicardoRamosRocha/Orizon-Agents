@@ -35,7 +35,8 @@ public sealed class DashboardQueryService : IDashboardQueryService
                 candidate.Slug,
                 Status = candidate.Status.ToString(),
                 candidate.Settings.Culture,
-                candidate.Settings.TimeZone
+                candidate.Settings.TimeZone,
+                candidate.Settings.ContactEmail
             })
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -86,6 +87,10 @@ public sealed class DashboardQueryService : IDashboardQueryService
                 "Configurações regionais definidas",
                 "Cultura e fuso horário estão preenchidos.",
                 !string.IsNullOrWhiteSpace(tenant.Culture) && !string.IsNullOrWhiteSpace(tenant.TimeZone)),
+            new SetupChecklistItemDto(
+                "Contato da organização informado",
+                "Há um e-mail de contato cadastrado para a organização.",
+                !string.IsNullOrWhiteSpace(tenant.ContactEmail)),
             new SetupChecklistItemDto(
                 "Usuário adicional cadastrado",
                 "Há pelo menos um usuário além do administrador inicial.",
