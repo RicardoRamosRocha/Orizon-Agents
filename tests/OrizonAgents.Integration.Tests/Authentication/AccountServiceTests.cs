@@ -47,6 +47,20 @@ public class AccountServiceTests
     }
 
     [Fact]
+    public async Task RegisterOrganizationAsync_WithoutAcceptedTerms_DoesNotCreateTenant()
+    {
+        await using ServiceProvider provider = AuthenticationTestFixture.CreateServiceProvider();
+        var service = provider.GetRequiredService<IAccountService>();
+        var dbContext = provider.GetRequiredService<OrizonAgentsDbContext>();
+
+        OperationResult<Guid> result = await service.RegisterOrganizationAsync(CreateRegisterRequest(acceptedTerms: false));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("aceitar os termos", result.FirstError);
+        Assert.Empty(dbContext.Tenants);
+    }
+
+    [Fact]
     public async Task PasswordSignInAsync_WithActiveUser_Succeeds()
     {
         await using ServiceProvider provider = AuthenticationTestFixture.CreateServiceProvider();
@@ -103,7 +117,8 @@ public class AccountServiceTests
 
     private static RegisterOrganizationRequest CreateRegisterRequest(
         string organizationName = "Orizon Test",
-        string slug = "orizon-test")
+        string slug = "orizon-test",
+        bool acceptedTerms = true)
     {
         return new RegisterOrganizationRequest(
             organizationName,
@@ -112,6 +127,6 @@ public class AccountServiceTests
             "admin@orizon.test",
             AuthenticationTestFixture.ValidPassword,
             AuthenticationTestFixture.ValidPassword,
-            true);
+            acceptedTerms);
     }
 }

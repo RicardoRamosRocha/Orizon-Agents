@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using OrizonAgents.Web.Validation;
 
 namespace OrizonAgents.Web.Models.Account;
 
@@ -36,7 +37,7 @@ public sealed class RegisterOrganizationViewModel
     [Display(Name = "Confirmar senha")]
     public string ConfirmPassword { get; set; } = string.Empty;
 
-    [Range(typeof(bool), "true", "true", ErrorMessage = "Você precisa aceitar os termos.")]
+    [MustBeTrue(ErrorMessage = "Você precisa aceitar os termos.")]
     [Display(Name = "Aceito os termos")]
     public bool AcceptedTerms { get; set; }
 }
