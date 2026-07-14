@@ -1,0 +1,30 @@
+@model WhatsAppMessagesViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Mensagens WhatsApp";
+    ViewData["Section"] = "WhatsApp";
+}
+
+<section class="admin-hero">
+    <div><p class="eyebrow">Mensagens técnicas</p><h2>Eventos e envios</h2><p class="muted">Visão operacional sem conversa completa ou atendimento humano.</p></div>
+</section>
+
+<section class="metric-grid">
+    <article class="metric-card metric-card--primary"><span>Uso mensal</span><strong>@(Model.Usage?.MonthlyMessagesUsed ?? 0)</strong><small>Limite: @(Model.Usage?.MonthlyMessageLimit?.ToString() ?? "Ilimitado")</small></article>
+</section>
+
+<article class="admin-card">
+    @if (Model.Result?.Items.Count > 0)
+    {
+        <div class="table-wrap"><table><thead><tr><th>Data</th><th>Direção</th><th>Tipo</th><th>Status</th><th>De</th><th>Para</th><th>Erro</th></tr></thead><tbody>
+        @foreach (var item in Model.Result.Items)
+        {
+            <tr><td>@item.CreatedAtUtc.ToString("g")</td><td>@item.Direction</td><td>@item.Type</td><td>@item.Status</td><td>@item.Sender</td><td>@item.Recipient</td><td>@item.ErrorMessage</td></tr>
+        }
+        </tbody></table></div>
+    }
+    else
+    {
+        <div class="empty-state">Nenhuma mensagem técnica registrada.</div>
+    }
+</article>

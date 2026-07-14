@@ -45,6 +45,10 @@
                         <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
                         Assinaturas
                     </a>
+                    <a asp-controller="PlatformWhatsApp" asp-action="Index">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        WhatsApp
+                    </a>
                 }
                 @if (isTenantAdmin)
                 {
@@ -55,6 +59,10 @@
                     <a asp-controller="TenantUsers" asp-action="Index">
                         <span class="admin-icon">@await Html.PartialAsync("_IconUsers")</span>
                         Usuários
+                    </a>
+                    <a asp-controller="WhatsApp" asp-action="Index">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        WhatsApp
                     </a>
                 }
                 @if (!isPlatformAdmin)

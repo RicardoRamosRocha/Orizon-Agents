@@ -1,0 +1,38 @@
+@model WhatsAppTemplatesViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Templates WhatsApp";
+    ViewData["Section"] = "WhatsApp";
+}
+
+<section class="admin-hero">
+    <div><p class="eyebrow">Templates</p><h2>Modelos sincronizados</h2><p class="muted">Somente metadados aprovados pela Meta.</p></div>
+</section>
+
+<article class="admin-card">
+    <div class="card-heading">
+        <div><h3>Templates</h3><p>Filtre e sincronize por conexão.</p></div>
+        @if (Model.Connections.Count > 0)
+        {
+            <form asp-action="SyncTemplates" method="post">
+                <select name="connectionId">
+                    @foreach (var connection in Model.Connections) { <option value="@connection.Id">@connection.Name</option> }
+                </select>
+                <button type="submit">Sincronizar</button>
+            </form>
+        }
+    </div>
+    @if (Model.Result?.Items.Count > 0)
+    {
+        <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Idioma</th><th>Categoria</th><th>Status</th><th>Conexão</th></tr></thead><tbody>
+        @foreach (var item in Model.Result.Items)
+        {
+            <tr><td>@item.Name</td><td>@item.Language</td><td>@item.Category</td><td>@item.Status</td><td>@item.ConnectionName</td></tr>
+        }
+        </tbody></table></div>
+    }
+    else
+    {
+        <div class="empty-state">Nenhum template sincronizado.</div>
+    }
+</article>

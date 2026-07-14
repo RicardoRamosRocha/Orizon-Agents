@@ -5,6 +5,7 @@ using OrizonAgents.Application.Common.Tenancy;
 using OrizonAgents.Domain.Billing;
 using OrizonAgents.Domain.Common;
 using OrizonAgents.Domain.Tenants;
+using OrizonAgents.Domain.WhatsApp;
 using OrizonAgents.Infrastructure.Identity;
 
 namespace OrizonAgents.Infrastructure.Persistence;
@@ -32,6 +33,20 @@ public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, A
     public DbSet<TenantSubscription> TenantSubscriptions => Set<TenantSubscription>();
 
     public DbSet<SubscriptionHistory> SubscriptionHistories => Set<SubscriptionHistory>();
+
+    public DbSet<WhatsAppConnection> WhatsAppConnections => Set<WhatsAppConnection>();
+
+    public DbSet<WhatsAppMessage> WhatsAppMessages => Set<WhatsAppMessage>();
+
+    public DbSet<WhatsAppTemplate> WhatsAppTemplates => Set<WhatsAppTemplate>();
+
+    public DbSet<WhatsAppMedia> WhatsAppMedia => Set<WhatsAppMedia>();
+
+    public DbSet<WhatsAppInboxEvent> WhatsAppInboxEvents => Set<WhatsAppInboxEvent>();
+
+    public DbSet<WhatsAppOutboxMessage> WhatsAppOutboxMessages => Set<WhatsAppOutboxMessage>();
+
+    public DbSet<WhatsAppMonthlyUsage> WhatsAppMonthlyUsage => Set<WhatsAppMonthlyUsage>();
 
     public override int SaveChanges()
     {

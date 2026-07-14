@@ -71,8 +71,27 @@ public sealed class EntitlementService : IEntitlementService
 
     private async Task<int> GetUsageCountAsync(Guid tenantId, string featureKey, CancellationToken cancellationToken)
     {
-        return featureKey == PlanFeatureKeys.Users
-            ? await _dbContext.Users.AsNoTracking().CountAsync(user => user.TenantId == tenantId && user.IsActive, cancellationToken)
-            : 0;
+        if (featureKey == PlanFeatureKeys.Users)
+        {
+            return await _dbContext.Users.AsNoTracking().CountAsync(user => user.TenantId == tenantId && user.IsActive, cancellationToken);
+        }
+
+        if (featureKey == PlanFeatureKeys.WhatsAppNumbers)
+        {
+            return await _dbContext.WhatsAppConnections.AsNoTracking().CountAsync(
+                connection => connection.TenantId == tenantId && connection.Status != OrizonAgents.Domain.WhatsApp.WhatsAppConnectionStatus.Disconnected,
+                cancellationToken);
+        }
+
+        if (featureKey == PlanFeatureKeys.MonthlyMessages)
+        {
+            DateTime utcNow = DateTime.UtcNow;
+            return await _dbContext.WhatsAppMonthlyUsage.AsNoTracking()
+                .Where(usage => usage.TenantId == tenantId && usage.Year == utcNow.Year && usage.Month == utcNow.Month)
+                .Select(usage => usage.OutgoingAcceptedCount)
+                .SingleOrDefaultAsync(cancellationToken);
+        }
+
+        return 0;
     }
 }
