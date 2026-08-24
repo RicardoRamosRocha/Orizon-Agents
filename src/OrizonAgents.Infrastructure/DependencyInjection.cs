@@ -1,16 +1,20 @@
-using Microsoft.AspNetCore.Antiforgery;
+﻿using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using OrizonAgents.Application.Accounts;
+using OrizonAgents.Application.Agents.Execution;
+using OrizonAgents.Application.Agents;
 using OrizonAgents.Application.Billing;
 using OrizonAgents.Application.Common.Email;
 using OrizonAgents.Application.Common.Security;
 using OrizonAgents.Application.Common.Tenancy;
 using OrizonAgents.Application.Common.Users;
 using OrizonAgents.Infrastructure.Accounts;
+using OrizonAgents.Infrastructure.Agents;
+using OrizonAgents.Infrastructure.Agents.Execution;
 using OrizonAgents.Infrastructure.Billing;
 using OrizonAgents.Application.Dashboards;
 using OrizonAgents.Infrastructure.Email;
@@ -48,6 +52,13 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUser, HttpCurrentUser>();
         services.AddScoped<IEmailSender, DevelopmentEmailSender>();
         services.AddScoped<IAccountService, AccountService>();
+        services.AddScoped<IAiAgentService, AiAgentService>();
+        services.AddScoped<IAiAgentRunner, AiAgentRunner>();
+        services.AddHttpClient<IAiChatProvider, GroqChatProvider>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.groq.com/");
+            client.Timeout = TimeSpan.FromSeconds(60);
+        });
         services.AddScoped<ITenantUserService, TenantUserService>();
         services.AddScoped<IDashboardQueryService, DashboardQueryService>();
         services.AddScoped<ITenantManagementService, TenantManagementService>();
@@ -137,3 +148,5 @@ public static class DependencyInjection
         return services;
     }
 }
+
+

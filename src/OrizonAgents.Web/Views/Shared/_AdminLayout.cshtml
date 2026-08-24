@@ -1,4 +1,4 @@
-@using System.Security.Claims
+﻿@using System.Security.Claims
 @{
     string title = ViewData["Title"]?.ToString() ?? "Orizon Agents";
     string currentSection = ViewData["Section"]?.ToString() ?? "Administração";
@@ -6,106 +6,308 @@
     string initial = string.IsNullOrWhiteSpace(fullName) ? "U" : fullName[..1].ToUpperInvariant();
     bool isPlatformAdmin = User.IsInRole(OrizonRoles.PlatformAdmin);
     bool isTenantAdmin = User.IsInRole(OrizonRoles.TenantAdmin);
+
+    string currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+
+    string Active(string controller) =>
+        string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase)
+            ? "active"
+            : "";
 }
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
     <title>@title - Orizon Agents</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/css/admin.css" asp-append-version="true" />
+
+    <link rel="stylesheet"
+          href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+
+    <link rel="stylesheet"
+          href="~/css/admin.css"
+          asp-append-version="true" />
 </head>
+
 <body class="admin-shell">
-    <div class="admin-layout">
-        <aside class="admin-sidebar" aria-label="Navegação administrativa">
-            <a class="admin-brand" asp-controller="Home" asp-action="Welcome">
+
+<div class="admin-layout" id="adminLayout">
+
+    <aside class="admin-sidebar">
+
+        <div class="admin-sidebar__top">
+
+            <a class="admin-brand"
+               asp-controller="Home"
+               asp-action="Welcome">
+
                 <span class="admin-brand__mark">O</span>
-                <span>
+
+                <span class="admin-brand__text">
                     <strong>Orizon Agents</strong>
                     <small>Orizon Platform</small>
                 </span>
+
             </a>
-            <nav class="admin-nav">
-                @if (isPlatformAdmin)
-                {
-                    <a asp-controller="PlatformDashboard" asp-action="Index">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
-                        Visão da plataforma
-                    </a>
-                    <a asp-controller="PlatformTenants" asp-action="Index">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconUsers")</span>
-                        Organizações
-                    </a>
-                    <a asp-controller="PlatformPlans" asp-action="Index">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
-                        Planos
-                    </a>
-                    <a asp-controller="PlatformSubscriptions" asp-action="Index">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
-                        Assinaturas
-                    </a>
-                    <a asp-controller="PlatformWhatsApp" asp-action="Index">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
-                        WhatsApp
-                    </a>
-                }
-                @if (isTenantAdmin)
-                {
-                    <a asp-controller="AdminDashboard" asp-action="Index">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
-                        Visão geral
-                    </a>
-                    <a asp-controller="TenantUsers" asp-action="Index">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconUsers")</span>
-                        Usuários
-                    </a>
-                    <a asp-controller="WhatsApp" asp-action="Index">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
-                        WhatsApp
-                    </a>
-                }
-                @if (!isPlatformAdmin)
-                {
-                    <a asp-controller="Billing" asp-action="Index">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
-                        Meu plano
-                    </a>
-                    <a asp-controller="Organization" asp-action="Index">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconHome")</span>
-                        Organização
-                    </a>
-                }
-                <a asp-controller="Home" asp-action="Welcome">
-                    <span class="admin-icon">@await Html.PartialAsync("_IconHome")</span>
-                    Início
-                </a>
-                <a asp-controller="MyAccount" asp-action="Index">
-                    <span class="admin-icon">@await Html.PartialAsync("_IconUser")</span>
-                    Minha conta
-                </a>
-            </nav>
-        </aside>
-        <div class="admin-main">
-            <header class="admin-topbar">
-                <div>
-                    <p class="admin-breadcrumb">Orizon / @currentSection</p>
-                    <h1>@title</h1>
-                </div>
-                <div class="admin-user">
-                    <span class="admin-avatar">@initial</span>
-                    <span>@fullName</span>
-                    <form asp-controller="Account" asp-action="Logout" method="post">
-                        <button type="submit" class="admin-logout">Sair</button>
-                    </form>
-                </div>
-            </header>
-            <main class="admin-content">
-                @RenderBody()
-            </main>
+
+            <button type="button"
+                    class="admin-sidebar__toggle"
+                    id="sidebarToggle"
+                    aria-label="Recolher menu"
+                    title="Recolher menu">
+                ‹
+            </button>
+
         </div>
+
+        <nav class="admin-nav">
+
+            @if (isPlatformAdmin)
+            {
+                <div class="admin-nav__group">
+                    <span class="admin-nav__label">PLATAFORMA</span>
+
+                    <a class="@Active("PlatformDashboard")"
+                       asp-controller="PlatformDashboard"
+                       asp-action="Index"
+                       title="Visão da plataforma">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        <span class="admin-nav__text">Visão da plataforma</span>
+                    </a>
+
+                    <a class="@Active("PlatformTenants")"
+                       asp-controller="PlatformTenants"
+                       asp-action="Index"
+                       title="Organizações">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconUsers")</span>
+                        <span class="admin-nav__text">Organizações</span>
+                    </a>
+
+                    <a class="@Active("PlatformPlans")"
+                       asp-controller="PlatformPlans"
+                       asp-action="Index"
+                       title="Planos">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        <span class="admin-nav__text">Planos</span>
+                    </a>
+
+                    <a class="@Active("PlatformSubscriptions")"
+                       asp-controller="PlatformSubscriptions"
+                       asp-action="Index"
+                       title="Assinaturas">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        <span class="admin-nav__text">Assinaturas</span>
+                    </a>
+
+                    <a class="@Active("PlatformWhatsApp")"
+                       asp-controller="PlatformWhatsApp"
+                       asp-action="Index"
+                       title="WhatsApp">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        <span class="admin-nav__text">WhatsApp</span>
+                    </a>
+                </div>
+            }
+
+            @if (isTenantAdmin)
+            {
+                <div class="admin-nav__group">
+                    <span class="admin-nav__label">WORKSPACE</span>
+
+                    <a class="@Active("AdminDashboard")"
+                       asp-controller="AdminDashboard"
+                       asp-action="Index"
+                       title="Visão geral">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        <span class="admin-nav__text">Visão geral</span>
+                    </a>
+
+                    <a class="@Active("Agents")"
+                       asp-controller="Agents"
+                       asp-action="Index"
+                       title="Agentes de IA">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconAgent")</span>
+                        <span class="admin-nav__text">Agentes de IA</span>
+                    </a>
+
+                    <a class="@Active("WhatsApp")"
+                       asp-controller="WhatsApp"
+                       asp-action="Index"
+                       title="WhatsApp">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        <span class="admin-nav__text">WhatsApp</span>
+                    </a>
+                </div>
+
+                <div class="admin-nav__group">
+                    <span class="admin-nav__label">GESTÃO</span>
+
+                    <a class="@Active("TenantUsers")"
+                       asp-controller="TenantUsers"
+                       asp-action="Index"
+                       title="Usuários">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconUsers")</span>
+                        <span class="admin-nav__text">Usuários</span>
+                    </a>
+
+                    <a class="@Active("Organization")"
+                       asp-controller="Organization"
+                       asp-action="Index"
+                       title="Organização">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconHome")</span>
+                        <span class="admin-nav__text">Organização</span>
+                    </a>
+
+                    <a class="@Active("Billing")"
+                       asp-controller="Billing"
+                       asp-action="Index"
+                       title="Meu plano">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        <span class="admin-nav__text">Meu plano</span>
+                    </a>
+                </div>
+            }
+            else if (!isPlatformAdmin)
+            {
+                <div class="admin-nav__group">
+                    <span class="admin-nav__label">GESTÃO</span>
+
+                    <a class="@Active("Billing")"
+                       asp-controller="Billing"
+                       asp-action="Index">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        <span class="admin-nav__text">Meu plano</span>
+                    </a>
+
+                    <a class="@Active("Organization")"
+                       asp-controller="Organization"
+                       asp-action="Index">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconHome")</span>
+                        <span class="admin-nav__text">Organização</span>
+                    </a>
+                </div>
+            }
+
+            <div class="admin-nav__group">
+                <span class="admin-nav__label">CONTA</span>
+
+                <a class="@Active("Home")"
+                   asp-controller="Home"
+                   asp-action="Welcome"
+                   title="Início">
+                    <span class="admin-icon">@await Html.PartialAsync("_IconHome")</span>
+                    <span class="admin-nav__text">Início</span>
+                </a>
+
+                <a class="@Active("MyAccount")"
+                   asp-controller="MyAccount"
+                   asp-action="Index"
+                   title="Minha conta">
+                    <span class="admin-icon">@await Html.PartialAsync("_IconUser")</span>
+                    <span class="admin-nav__text">Minha conta</span>
+                </a>
+            </div>
+
+        </nav>
+
+        <div class="admin-sidebar__footer">
+
+            <div class="admin-sidebar__profile">
+
+                <span class="admin-sidebar__avatar">
+                    @initial
+                </span>
+
+                <div class="admin-sidebar__profile-text">
+                    <strong>@fullName</strong>
+                    <small>
+                        @(isPlatformAdmin ? "Administrador da plataforma" :
+                          isTenantAdmin ? "Administrador" :
+                          "Usuário")
+                    </small>
+                </div>
+
+            </div>
+
+        </div>
+
+    </aside>
+
+    <div class="admin-main">
+
+        <header class="admin-topbar">
+
+            <div>
+                <p class="admin-breadcrumb">
+                    Orizon / @currentSection
+                </p>
+
+                <h1>@title</h1>
+            </div>
+
+            <div class="admin-user">
+
+                <span class="admin-avatar">
+                    @initial
+                </span>
+
+                <span>@fullName</span>
+
+                <form asp-controller="Account"
+                      asp-action="Logout"
+                      method="post">
+
+                    <button type="submit"
+                            class="admin-logout">
+                        Sair
+                    </button>
+
+                </form>
+
+            </div>
+
+        </header>
+
+        <main class="admin-content">
+            @RenderBody()
+        </main>
+
     </div>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    @await RenderSectionAsync("Scripts", required: false)
+
+</div>
+
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+(() => {
+    const layout = document.getElementById("adminLayout");
+    const toggle = document.getElementById("sidebarToggle");
+
+    if (!layout || !toggle) {
+        return;
+    }
+
+    const storageKey = "orizon-agents-sidebar-collapsed";
+    const collapsed = localStorage.getItem(storageKey) === "true";
+
+    if (collapsed) {
+        layout.classList.add("admin-layout--collapsed");
+        toggle.textContent = "›";
+    }
+
+    toggle.addEventListener("click", () => {
+        const isCollapsed =
+            layout.classList.toggle("admin-layout--collapsed");
+
+        localStorage.setItem(storageKey, isCollapsed.toString());
+        toggle.textContent = isCollapsed ? "›" : "‹";
+    });
+})();
+</script>
+
+@await RenderSectionAsync("Scripts", required: false)
+
 </body>
 </html>

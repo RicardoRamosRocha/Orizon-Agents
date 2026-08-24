@@ -1,0 +1,126 @@
+﻿@model OrizonAgents.Web.Models.Agents.AiAgentTestViewModel
+
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Testar Agente";
+    ViewData["Section"] = "Inteligência Artificial";
+}
+
+<div class="mb-4">
+    <a asp-action="Index"
+       class="text-decoration-none small">
+        ← Meus Agentes
+    </a>
+
+    <div class="d-flex align-items-center gap-2 mt-3">
+        <h1 class="h3 mb-0">@Model.AgentName</h1>
+        <span class="badge text-bg-success">Em teste</span>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.AgentDescription))
+    {
+        <p class="text-muted mt-1 mb-0">
+            @Model.AgentDescription
+        </p>
+    }
+</div>
+
+<div class="row">
+    <div class="col-xl-8">
+
+        @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger">
+                @Model.ErrorMessage
+            </div>
+        }
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+
+                <div class="mb-4"
+                     style="min-height: 300px; max-height: 520px; overflow-y: auto;">
+
+                    @if (Model.Messages.Count == 0)
+                    {
+                        <div class="text-center text-muted py-5">
+                            <div class="fw-semibold mb-2">
+                                Converse com @Model.AgentName
+                            </div>
+
+                            <div class="small">
+                                Envie uma mensagem para testar como seu agente responde.
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var message in Model.Messages)
+                        {
+                            if (message.Role == "user")
+                            {
+                                <div class="d-flex justify-content-end mb-3">
+                                    <div class="bg-primary text-white rounded-3 px-3 py-2"
+                                         style="max-width: 75%;">
+                                        <div class="small opacity-75 mb-1">
+                                            Você
+                                        </div>
+                                        <div style="white-space: pre-wrap;">@message.Content</div>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="d-flex justify-content-start mb-3">
+                                    <div class="bg-light border rounded-3 px-3 py-2"
+                                         style="max-width: 75%;">
+                                        <div class="small text-muted mb-1">
+                                            @Model.AgentName
+                                        </div>
+                                        <div style="white-space: pre-wrap;">@message.Content</div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    }
+                </div>
+
+                <form method="post">
+                    <input type="hidden" asp-for="AgentId" />
+
+                    @for (int i = 0; i < Model.Messages.Count; i++)
+                    {
+                        <input type="hidden"
+                               name="Messages[@i].Role"
+                               value="@Model.Messages[i].Role" />
+
+                        <input type="hidden"
+                               name="Messages[@i].Content"
+                               value="@Model.Messages[i].Content" />
+                    }
+
+                    <div class="input-group">
+                        <textarea asp-for="Message"
+                                  class="form-control"
+                                  rows="2"
+                                  placeholder="Digite sua mensagem..."></textarea>
+
+                        <button type="submit"
+                                class="btn btn-primary px-4">
+                            Enviar
+                        </button>
+                    </div>
+
+                    <span asp-validation-for="Message"
+                          class="text-danger small"></span>
+                </form>
+
+            </div>
+        </div>
+
+        <div class="text-muted small mt-3">
+            Esta conversa é apenas um teste e ainda não é salva.
+        </div>
+
+    </div>
+</div>

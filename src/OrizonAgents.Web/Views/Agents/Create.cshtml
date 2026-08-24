@@ -1,0 +1,310 @@
+﻿@model OrizonAgents.Web.Models.Agents.AiAgentFormViewModel
+
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Novo Agente";
+    ViewData["Section"] = "Inteligência Artificial";
+}
+
+<div class="mb-4">
+    <a asp-action="Index" class="text-decoration-none small">
+        ← Meus Agentes
+    </a>
+
+    <h1 class="h3 mt-3 mb-1">Criar novo agente</h1>
+
+    <p class="text-muted mb-0">
+        Escolha o tipo de agente. O Orizon prepara a configuração para você.
+    </p>
+</div>
+
+<div class="row">
+    <div class="col-xl-9">
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+
+                <h2 class="h5 mb-1">O que seu agente vai fazer?</h2>
+
+                <p class="text-muted small mb-4">
+                    Escolha uma opção para começar.
+                </p>
+
+                <div class="row g-3">
+
+                    <div class="col-md-6 col-xl-4">
+                        <button type="button"
+                                class="btn btn-light border w-100 text-start p-3 h-100 agent-template"
+                                data-template="commercial">
+                            <div class="fs-4 mb-2">💼</div>
+                            <strong>Comercial</strong>
+                            <div class="small text-muted mt-1">
+                                Atende interessados e identifica oportunidades.
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="col-md-6 col-xl-4">
+                        <button type="button"
+                                class="btn btn-light border w-100 text-start p-3 h-100 agent-template"
+                                data-template="service">
+                            <div class="fs-4 mb-2">💬</div>
+                            <strong>Atendimento</strong>
+                            <div class="small text-muted mt-1">
+                                Faz o primeiro atendimento aos clientes.
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="col-md-6 col-xl-4">
+                        <button type="button"
+                                class="btn btn-light border w-100 text-start p-3 h-100 agent-template"
+                                data-template="support">
+                            <div class="fs-4 mb-2">🛠️</div>
+                            <strong>Suporte</strong>
+                            <div class="small text-muted mt-1">
+                                Ajuda clientes com dúvidas e problemas.
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="col-md-6 col-xl-4">
+                        <button type="button"
+                                class="btn btn-light border w-100 text-start p-3 h-100 agent-template"
+                                data-template="scheduling">
+                            <div class="fs-4 mb-2">📅</div>
+                            <strong>Agendamento</strong>
+                            <div class="small text-muted mt-1">
+                                Conduz conversas para marcar atendimentos.
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="col-md-6 col-xl-4">
+                        <button type="button"
+                                class="btn btn-light border w-100 text-start p-3 h-100 agent-template"
+                                data-template="custom">
+                            <div class="fs-4 mb-2">✨</div>
+                            <strong>Personalizado</strong>
+                            <div class="small text-muted mt-1">
+                                Comece do zero e defina seu próprio agente.
+                            </div>
+                        </button>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4 p-lg-5">
+
+                <form method="post">
+
+                    <div asp-validation-summary="ModelOnly"
+                         class="text-danger mb-3"></div>
+
+                    <div class="mb-4">
+                        <label asp-for="Name"
+                               class="form-label fw-semibold">
+                            Nome do agente
+                        </label>
+
+                        <input asp-for="Name"
+                               class="form-control form-control-lg"
+                               placeholder="Ex.: Assistente Comercial" />
+
+                        <span asp-validation-for="Name"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="Description"
+                               class="form-label fw-semibold">
+                            O que ele fará?
+                        </label>
+
+                        <input asp-for="Description"
+                               class="form-control"
+                               placeholder="Descreva resumidamente a função deste agente." />
+
+                        <span asp-validation-for="Description"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="SystemPrompt"
+                               class="form-label fw-semibold">
+                            Como ele deve se comportar?
+                        </label>
+
+                        <textarea asp-for="SystemPrompt"
+                                  class="form-control"
+                                  rows="10"
+                                  placeholder="Escolha um modelo acima ou escreva as instruções do agente."></textarea>
+
+                        <div class="form-text">
+                            O Orizon preparou estas instruções. Você pode personalizá-las livremente.
+                        </div>
+
+                        <span asp-validation-for="SystemPrompt"
+                              class="text-danger"></span>
+                    </div>
+
+                    <input type="hidden" asp-for="Provider" />
+                    <input type="hidden" asp-for="Model" />
+                    <input type="hidden" asp-for="Temperature" />
+
+                    <div class="d-flex gap-2">
+                        <button type="submit"
+                                class="btn btn-primary btn-lg">
+                            Criar e testar
+                        </button>
+
+                        <a asp-action="Index"
+                           class="btn btn-light btn-lg">
+                            Cancelar
+                        </a>
+                    </div>
+
+                </form>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const templates = {
+        commercial: {
+            name: "Assistente Comercial",
+            description: "Realiza o primeiro atendimento de potenciais clientes e identifica oportunidades.",
+            prompt: `Você é um assistente comercial virtual.
+
+Seu objetivo é realizar o primeiro atendimento de potenciais clientes de forma cordial, profissional e objetiva.
+
+Durante a conversa:
+- Cumprimente o cliente de maneira natural.
+- Procure entender o que ele está buscando antes de oferecer uma solução.
+- Faça perguntas curtas e relevantes.
+- Identifique necessidades e oportunidades.
+- Explique as informações de maneira simples.
+- Não pressione o cliente para comprar.
+- Nunca invente preços, condições, produtos, prazos ou informações.
+- Quando não souber alguma informação, diga claramente que não possui essa informação.
+- Quando o cliente demonstrar interesse em avançar, ofereça encaminhamento para atendimento humano.
+
+Mantenha sempre um tom educado, prestativo e profissional.`
+        },
+
+        service: {
+            name: "Assistente de Atendimento",
+            description: "Realiza o primeiro atendimento e orienta clientes de forma rápida e cordial.",
+            prompt: `Você é um assistente virtual de atendimento ao cliente.
+
+Seu objetivo é receber o cliente, compreender sua necessidade e oferecer a melhor orientação possível.
+
+Durante a conversa:
+- Cumprimente de maneira cordial.
+- Pergunte como pode ajudar.
+- Entenda a necessidade antes de responder.
+- Utilize linguagem simples e objetiva.
+- Faça uma pergunta de cada vez quando precisar de mais informações.
+- Nunca invente informações.
+- Quando não puder resolver a solicitação, informe isso claramente.
+- Quando necessário, encaminhe o cliente para atendimento humano.
+
+Mantenha um atendimento educado, paciente e acolhedor.`
+        },
+
+        support: {
+            name: "Assistente de Suporte",
+            description: "Ajuda clientes a identificar e resolver dúvidas ou problemas.",
+            prompt: `Você é um assistente virtual de suporte.
+
+Seu objetivo é ajudar o cliente a compreender e resolver dúvidas ou problemas.
+
+Durante a conversa:
+- Primeiro identifique claramente o problema.
+- Faça perguntas objetivas para obter as informações necessárias.
+- Oriente o cliente passo a passo.
+- Apresente uma instrução de cada vez quando o procedimento for complexo.
+- Confirme se a orientação resolveu o problema.
+- Nunca invente procedimentos ou informações.
+- Quando não souber resolver, informe claramente e recomende atendimento humano.
+
+Mantenha um tom paciente, claro e profissional.`
+        },
+
+        scheduling: {
+            name: "Assistente de Agendamento",
+            description: "Atende clientes e conduz a conversa para realização de agendamentos.",
+            prompt: `Você é um assistente virtual responsável por ajudar clientes com agendamentos.
+
+Seu objetivo é compreender qual atendimento o cliente deseja e reunir as informações necessárias para o agendamento.
+
+Durante a conversa:
+- Cumprimente cordialmente.
+- Identifique qual serviço ou atendimento o cliente deseja.
+- Solicite somente as informações necessárias.
+- Faça perguntas curtas, preferencialmente uma de cada vez.
+- Confirme as informações antes de concluir.
+- Nunca invente datas, horários ou disponibilidade.
+- Se não possuir acesso à agenda, explique isso claramente.
+- Quando necessário, encaminhe para atendimento humano.
+
+Mantenha um tom cordial, simples e eficiente.`
+        },
+
+        custom: {
+            name: "",
+            description: "",
+            prompt: ""
+        }
+    };
+
+    const nameInput = document.getElementById("Name");
+    const descriptionInput = document.getElementById("Description");
+    const promptInput = document.getElementById("SystemPrompt");
+
+    document.querySelectorAll(".agent-template").forEach(button => {
+
+        button.addEventListener("click", function () {
+
+            const selected = templates[this.dataset.template];
+
+            if (!selected) {
+                return;
+            }
+
+            nameInput.value = selected.name;
+            descriptionInput.value = selected.description;
+            promptInput.value = selected.prompt;
+
+            document.querySelectorAll(".agent-template")
+                .forEach(item => {
+                    item.classList.remove(
+                        "border-primary",
+                        "bg-primary-subtle"
+                    );
+                });
+
+            this.classList.add(
+                "border-primary",
+                "bg-primary-subtle"
+            );
+
+            nameInput.focus();
+        });
+
+    });
+
+});
+</script>
+}
+
