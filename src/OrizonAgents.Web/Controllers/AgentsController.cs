@@ -176,12 +176,29 @@ public sealed class AgentsController : Controller
             return NotFound();
         }
 
+        IReadOnlyList<AiConversationListItemDto> conversations =
+            await _aiConversationService.ListAsync(
+                id,
+                cancellationToken);
+
         var viewModel = new AiAgentTestViewModel
         {
             AgentId = agent.Id,
             AgentName = agent.Name,
             AgentDescription = agent.Description,
-            ConversationId = conversationId
+            ConversationId = conversationId,
+            Conversations = conversations
+                .Select(conversation =>
+                    new AiAgentTestConversationViewModel
+                    {
+                        Id = conversation.Id,
+                        Title = string.IsNullOrWhiteSpace(conversation.Title)
+                            ? "Nova conversa"
+                            : conversation.Title,
+                        CreatedAtUtc = conversation.CreatedAtUtc,
+                        UpdatedAtUtc = conversation.UpdatedAtUtc
+                    })
+                .ToList()
         };
 
         if (conversationId.HasValue)

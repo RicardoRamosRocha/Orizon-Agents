@@ -16,6 +16,25 @@ public sealed class AiConversationService : IAiConversationService
         _dbContext = dbContext;
     }
 
+    public async Task<IReadOnlyList<AiConversationListItemDto>> ListAsync(
+        Guid agentId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.AiConversations
+            .AsNoTracking()
+            .Where(conversation => conversation.AgentId == agentId)
+            .OrderByDescending(conversation =>
+                conversation.UpdatedAtUtc ?? conversation.CreatedAtUtc)
+            .Select(conversation =>
+                new AiConversationListItemDto(
+                    conversation.Id,
+                    conversation.AgentId,
+                    conversation.Title,
+                    conversation.CreatedAtUtc,
+                    conversation.UpdatedAtUtc))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<AiConversationDto?> GetAsync(
         Guid conversationId,
         Guid agentId,

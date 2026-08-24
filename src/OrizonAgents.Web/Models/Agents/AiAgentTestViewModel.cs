@@ -18,6 +18,8 @@ public sealed class AiAgentTestViewModel
 
     public List<AiAgentTestMessageViewModel> Messages { get; set; } = new();
 
+    public List<AiAgentTestConversationViewModel> Conversations { get; set; } = new();
+
     public string? ErrorMessage { get; set; }
 }
 
@@ -28,3 +30,14 @@ public sealed class AiAgentTestMessageViewModel
     public string Content { get; set; } = string.Empty;
 }
 
+
+public sealed class AiAgentTestConversationViewModel
+{
+    public Guid Id { get; set; }
+
+    public string Title { get; set; } = string.Empty;
+
+    public DateTime CreatedAtUtc { get; set; }
+
+    public DateTime? UpdatedAtUtc { get; set; }
+}
