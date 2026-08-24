@@ -739,3 +739,446 @@ td {
     justify-content: flex-start;
   }
 }
+
+/* =========================================================
+   ORIZON AGENTS 2.0 — VISUAL FOUNDATION
+   ========================================================= */
+
+:root {
+  --admin-bg: #f6f7fb;
+  --admin-panel: rgba(255, 255, 255, 0.96);
+  --admin-ink: #111827;
+  --admin-muted: #6b7280;
+  --admin-line: #e6e9f0;
+
+  --admin-blue: #4f46e5;
+  --admin-violet: #7c3aed;
+  --admin-cyan: #2563eb;
+
+  --admin-success: #059669;
+  --admin-warning: #d97706;
+
+  --admin-radius: 16px;
+  --admin-radius-sm: 11px;
+
+  --admin-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.03),
+    0 8px 28px rgba(15, 23, 42, 0.055);
+}
+
+/* Shell */
+
+body.admin-shell {
+  background:
+    radial-gradient(circle at 80% -10%, rgba(79, 70, 229, 0.07), transparent 28rem),
+    #f6f7fb;
+  color: var(--admin-ink);
+  letter-spacing: -0.01em;
+}
+
+/* Sidebar */
+
+.admin-sidebar {
+  background:
+    radial-gradient(circle at 30% -5%, rgba(99, 102, 241, 0.23), transparent 16rem),
+    radial-gradient(circle at 100% 65%, rgba(124, 58, 237, 0.08), transparent 18rem),
+    linear-gradient(180deg, #0b1020 0%, #0a0f1d 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.admin-brand__mark {
+  border-radius: 13px;
+  background:
+    linear-gradient(135deg, #6366f1 0%, #7c3aed 55%, #2563eb 100%);
+  box-shadow:
+    0 8px 28px rgba(99, 102, 241, 0.30),
+    inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.admin-brand__text strong {
+  font-size: 0.98rem;
+  letter-spacing: -0.025em;
+}
+
+.admin-brand__text small {
+  color: #74809b;
+}
+
+.admin-nav__label {
+  color: #59657f;
+  font-size: 0.62rem;
+}
+
+.admin-nav a {
+  border-radius: 12px;
+  color: #929db6;
+}
+
+.admin-nav a:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(255, 255, 255, 0.055);
+}
+
+.admin-nav a.active {
+  color: #fff;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(99, 102, 241, 0.25),
+      rgba(124, 58, 237, 0.08)
+    );
+  border-color: rgba(129, 140, 248, 0.16);
+  box-shadow:
+    inset 3px 0 0 #818cf8,
+    0 6px 22px rgba(0, 0, 0, 0.08);
+}
+
+/* Main workspace */
+
+.admin-main {
+  background:
+    radial-gradient(circle at 88% 0%, rgba(99, 102, 241, 0.065), transparent 26rem);
+}
+
+/* Topbar */
+
+.admin-topbar {
+  min-height: 86px;
+  padding: 18px 34px;
+  background: rgba(255, 255, 255, 0.76);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.85);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.admin-breadcrumb,
+.eyebrow {
+  color: #8a94a6;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+}
+
+.admin-topbar h1 {
+  color: #111827;
+  font-size: 1.42rem;
+  font-weight: 750;
+  letter-spacing: -0.035em;
+}
+
+.admin-user {
+  gap: 11px;
+  color: #374151;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.admin-avatar,
+.avatar {
+  background:
+    linear-gradient(135deg, #eef2ff, #ede9fe);
+  color: #4f46e5;
+  border: 1px solid #e0e7ff;
+}
+
+.admin-logout {
+  border: 1px solid #e5e7eb;
+  background: rgba(255,255,255,0.8);
+  color: #6b7280;
+  border-radius: 10px;
+  transition: 0.18s ease;
+}
+
+.admin-logout:hover {
+  background: #fff;
+  color: #111827;
+  border-color: #d1d5db;
+}
+
+/* Content */
+
+.admin-content {
+  padding: 32px 34px 44px;
+  gap: 22px;
+}
+
+/* Surfaces */
+
+.admin-hero,
+.admin-card,
+.metric-card {
+  background: var(--admin-panel);
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  border-radius: var(--admin-radius);
+  box-shadow: var(--admin-shadow);
+}
+
+.admin-card,
+.metric-card {
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.admin-card:hover,
+.metric-card:hover {
+  border-color: #d9deea;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.03),
+    0 12px 34px rgba(15, 23, 42, 0.07);
+}
+
+.admin-hero {
+  padding: 30px;
+}
+
+.admin-hero h2 {
+  font-weight: 760;
+  letter-spacing: -0.045em;
+}
+
+.admin-card {
+  padding: 24px;
+}
+
+.admin-card h3,
+.card-heading h3 {
+  color: #172033;
+  font-size: 1rem;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+}
+
+/* Metrics */
+
+.metric-card {
+  padding: 22px;
+}
+
+.metric-card strong {
+  font-size: 2.1rem;
+  font-weight: 760;
+  letter-spacing: -0.04em;
+}
+
+.metric-card span,
+.metric-card small,
+.muted {
+  color: #7b8495;
+}
+
+/* Forms */
+
+.form-control,
+.form-select {
+  min-height: 44px;
+  border: 1px solid #dfe3eb;
+  border-radius: 11px;
+  background: #fff;
+  color: #172033;
+  box-shadow: none;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+textarea.form-control {
+  min-height: auto;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.11);
+}
+
+.form-label {
+  color: #4b5563;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+/* Buttons */
+
+.btn {
+  border-radius: 11px;
+  font-weight: 650;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    background 0.16s ease;
+}
+
+.btn-primary {
+  border-color: transparent;
+  background:
+    linear-gradient(135deg, #4f46e5 0%, #6366f1 55%, #7c3aed 100%);
+  box-shadow: 0 7px 18px rgba(79, 70, 229, 0.18);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  border-color: transparent;
+  background:
+    linear-gradient(135deg, #4338ca 0%, #5855e7 55%, #6d28d9 100%);
+  box-shadow: 0 9px 24px rgba(79, 70, 229, 0.25);
+  transform: translateY(-1px);
+}
+
+.btn-outline-secondary {
+  border-color: #dfe3eb;
+  color: #596274;
+  background: #fff;
+}
+
+.btn-outline-secondary:hover {
+  border-color: #d3d8e2;
+  background: #f8fafc;
+  color: #172033;
+}
+
+/* Tables */
+
+.table-wrap {
+  border-radius: 12px;
+}
+
+th {
+  color: #7b8495;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+td {
+  color: #374151;
+}
+
+th,
+td {
+  padding: 14px 12px;
+  border-color: #edf0f4;
+}
+
+/* Empty states */
+
+.empty-state {
+  padding: 28px;
+  background:
+    linear-gradient(135deg, #fafbff, #f8f9fc);
+  border: 1px dashed #d8deea;
+  border-radius: 14px;
+}
+
+/* Status */
+
+.status-badge {
+  border-radius: 999px;
+  font-size: 0.76rem;
+}
+
+/* Mobile */
+
+@media (max-width: 900px) {
+  .admin-content {
+    padding: 22px 18px 32px;
+  }
+
+  .admin-topbar {
+    padding: 18px;
+  }
+
+  .admin-sidebar {
+    padding: 18px;
+  }
+}
+
+
+/* =========================================================
+   ORIZON AGENTS — ELECTRIC BLUE IDENTITY
+   ========================================================= */
+
+:root {
+  --admin-blue: #1677ff;
+  --admin-violet: #00a9d6;
+  --admin-cyan: #00b8d9;
+}
+
+/* Primary actions */
+
+.btn-primary {
+  color: #fff;
+  border-color: #1677ff;
+  background: #1677ff;
+  box-shadow:
+    0 7px 20px rgba(22, 119, 255, 0.22);
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+  color: #fff !important;
+  border-color: #0867e8 !important;
+  background: #0867e8 !important;
+  box-shadow:
+    0 9px 25px rgba(22, 119, 255, 0.30) !important;
+}
+
+/* Brand */
+
+.admin-brand__mark {
+  background:
+    linear-gradient(145deg, #168cff 0%, #006fee 58%, #00b8d9 100%);
+  box-shadow:
+    0 9px 28px rgba(22, 119, 255, 0.28),
+    inset 0 1px 0 rgba(255,255,255,0.24);
+}
+
+/* Active navigation */
+
+.admin-nav a.active {
+  color: #fff;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(22, 119, 255, 0.24),
+      rgba(0, 184, 217, 0.06)
+    );
+  border-color: rgba(51, 153, 255, 0.18);
+  box-shadow:
+    inset 3px 0 0 #2997ff,
+    0 6px 22px rgba(0, 0, 0, 0.08);
+}
+
+/* Avatars */
+
+.admin-sidebar__avatar {
+  background:
+    linear-gradient(145deg, #168cff, #006fee);
+  box-shadow: 0 7px 20px rgba(22, 119, 255, 0.25);
+}
+
+.admin-avatar,
+.avatar {
+  background: #eaf4ff;
+  color: #0878ed;
+  border-color: #d5eaff;
+}
+
+/* Inputs */
+
+.form-control:focus,
+.form-select:focus {
+  border-color: #54a7ff;
+  box-shadow: 0 0 0 4px rgba(22, 119, 255, 0.11);
+}
+
+/* Links */
+
+.quick-actions a,
+.card-heading a {
+  color: #0878ed;
+}
+
