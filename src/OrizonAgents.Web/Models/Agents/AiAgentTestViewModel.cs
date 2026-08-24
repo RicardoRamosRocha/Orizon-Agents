@@ -6,6 +6,8 @@ public sealed class AiAgentTestViewModel
 {
     public Guid AgentId { get; set; }
 
+    public Guid? ConversationId { get; set; }
+
     public string AgentName { get; set; } = string.Empty;
 
     public string? AgentDescription { get; set; }
@@ -25,3 +27,4 @@ public sealed class AiAgentTestMessageViewModel
 
     public string Content { get; set; } = string.Empty;
 }
+

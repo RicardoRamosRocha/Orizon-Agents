@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using OrizonAgents.Application.Agents.Execution;
 using OrizonAgents.Application.Agents.Execution.Models;
 using OrizonAgents.Application.Common.Results;
@@ -11,24 +12,27 @@ public sealed class AiAgentRunner : IAiAgentRunner
 {
     private readonly OrizonAgentsDbContext _dbContext;
     private readonly IEnumerable<IAiChatProvider> _providers;
+    private readonly ILogger<AiAgentRunner> _logger;
 
     public AiAgentRunner(
         OrizonAgentsDbContext dbContext,
-        IEnumerable<IAiChatProvider> providers)
+        IEnumerable<IAiChatProvider> providers,
+        ILogger<AiAgentRunner> logger)
     {
         _dbContext = dbContext;
         _providers = providers;
+        _logger = logger;
     }
 
-    public async Task<OperationResult<string>> RunAsync(
+    public async Task<OperationResult<AiAgentRunResult>> RunAsync(
         Guid agentId,
         string userMessage,
-        IReadOnlyList<AiChatMessage>? history = null,
+        Guid? conversationId = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(userMessage))
         {
-            return OperationResult<string>.Failure(
+            return OperationResult<AiAgentRunResult>.Failure(
                 "Digite uma mensagem para o agente.");
         }
 
@@ -40,13 +44,13 @@ public sealed class AiAgentRunner : IAiAgentRunner
 
         if (agent is null)
         {
-            return OperationResult<string>.Failure(
+            return OperationResult<AiAgentRunResult>.Failure(
                 "Agente não encontrado.");
         }
 
         if (!agent.IsActive)
         {
-            return OperationResult<string>.Failure(
+            return OperationResult<AiAgentRunResult>.Failure(
                 "Este agente está desativado.");
         }
 
@@ -59,26 +63,105 @@ public sealed class AiAgentRunner : IAiAgentRunner
 
         if (provider is null)
         {
-            return OperationResult<string>.Failure(
+            return OperationResult<AiAgentRunResult>.Failure(
                 $"O provedor {agent.Provider} ainda não está disponível.");
         }
 
+        AiConversation? conversation = null;
+
+        if (conversationId.HasValue)
+        {
+            conversation = await _dbContext.AiConversations
+                .AsNoTracking()
+                .Include(candidate => candidate.Messages)
+                .SingleOrDefaultAsync(
+                    candidate =>
+                        candidate.Id == conversationId.Value &&
+                        candidate.AgentId == agentId,
+                    cancellationToken);
+
+            if (conversation is null)
+            {
+                return OperationResult<AiAgentRunResult>.Failure(
+                    "Conversa não encontrada.");
+            }
+        }
+
+        if (conversation is null)
+        {
+            string title = CreateConversationTitle(userMessage);
+
+            conversation = new AiConversation(
+                agent.TenantId,
+                agent.Id,
+                title);
+
+            _dbContext.AiConversations.Add(conversation);
+        }
+
+        IReadOnlyList<AiChatMessage> history =
+            conversation.Messages
+                .OrderBy(message => message.CreatedAtUtc)
+                .Select(message => new AiChatMessage(
+                    message.Role == AiMessageRole.User
+                        ? "user"
+                        : "assistant",
+                    message.Content))
+                .ToList();
+
         try
         {
+            string normalizedMessage = userMessage.Trim();
+
             string response = await provider.CompleteAsync(
                 agent.Model,
                 agent.SystemPrompt,
-                userMessage.Trim(),
-                history ?? Array.Empty<AiChatMessage>(),
+                normalizedMessage,
+                history,
                 agent.Temperature,
                 cancellationToken);
 
-            return OperationResult<string>.Success(response);
+            AiConversationMessage userMessageEntity =
+                conversation.AddUserMessage(normalizedMessage);
+
+            AiConversationMessage assistantMessageEntity =
+                conversation.AddAssistantMessage(response);
+
+            if (conversationId.HasValue)
+            {
+                _dbContext.AiConversationMessages.Add(userMessageEntity);
+                _dbContext.AiConversationMessages.Add(assistantMessageEntity);
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            return OperationResult<AiAgentRunResult>.Success(
+                new AiAgentRunResult(
+                    conversation.Id,
+                    response));
         }
-        catch (Exception)
+        catch (Exception exception)
         {
-            return OperationResult<string>.Failure(
+            _logger.LogError(
+                exception,
+                "Erro ao executar agente {AgentId} na conversa {ConversationId}.",
+                agentId,
+                conversation?.Id);
+
+            return OperationResult<AiAgentRunResult>.Failure(
                 "Não foi possível obter uma resposta da Inteligência Artificial.");
         }
     }
+
+    private static string CreateConversationTitle(string message)
+    {
+        string normalized = message.Trim();
+
+        return normalized.Length <= 80
+            ? normalized
+            : normalized[..80];
+    }
 }
+
+
+

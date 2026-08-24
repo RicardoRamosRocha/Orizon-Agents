@@ -18,13 +18,16 @@ public sealed class AgentsController : Controller
 {
     private readonly IAiAgentService _aiAgentService;
     private readonly IAiAgentRunner _aiAgentRunner;
+    private readonly IAiConversationService _aiConversationService;
 
     public AgentsController(
         IAiAgentService aiAgentService,
-        IAiAgentRunner aiAgentRunner)
+        IAiAgentRunner aiAgentRunner,
+        IAiConversationService aiConversationService)
     {
         _aiAgentService = aiAgentService;
         _aiAgentRunner = aiAgentRunner;
+        _aiConversationService = aiConversationService;
     }
 
     [HttpGet("")]
@@ -162,6 +165,7 @@ public sealed class AgentsController : Controller
     [HttpGet("{id:guid}/testar")]
     public async Task<IActionResult> Test(
         Guid id,
+        Guid? conversationId,
         CancellationToken cancellationToken)
     {
         AiAgentDetailsDto? agent =
@@ -172,14 +176,39 @@ public sealed class AgentsController : Controller
             return NotFound();
         }
 
-        return View(new AiAgentTestViewModel
+        var viewModel = new AiAgentTestViewModel
         {
             AgentId = agent.Id,
             AgentName = agent.Name,
-            AgentDescription = agent.Description
-        });
-    }
+            AgentDescription = agent.Description,
+            ConversationId = conversationId
+        };
 
+        if (conversationId.HasValue)
+        {
+            AiConversationDto? conversation =
+                await _aiConversationService.GetAsync(
+                    conversationId.Value,
+                    id,
+                    cancellationToken);
+
+            if (conversation is null)
+            {
+                return NotFound();
+            }
+
+            viewModel.Messages = conversation.Messages
+                .Select(message =>
+                    new AiAgentTestMessageViewModel
+                    {
+                        Role = message.Role,
+                        Content = message.Content
+                    })
+                .ToList();
+        }
+
+        return View(viewModel);
+    }
     [HttpPost("{id:guid}/testar")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Test(
@@ -205,44 +234,24 @@ public sealed class AgentsController : Controller
             return View(form);
         }
 
-        List<AiChatMessage> history = form.Messages
-            .Where(message =>
-                !string.IsNullOrWhiteSpace(message.Content)
-                && (message.Role == "user"
-                    || message.Role == "assistant"))
-            .Select(message =>
-                new AiChatMessage(
-                    message.Role,
-                    message.Content))
-            .ToList();
-
         string userMessage = form.Message.Trim();
 
-        OperationResult<string> result =
+        OperationResult<AiAgentRunResult> result =
             await _aiAgentRunner.RunAsync(
                 id,
                 userMessage,
-                history,
+                form.ConversationId,
                 cancellationToken);
 
-        if (result.Succeeded)
+        if (result.Succeeded && result.Value is not null)
         {
-            form.Messages.Add(
-                new AiAgentTestMessageViewModel
+            return RedirectToAction(
+                nameof(Test),
+                new
                 {
-                    Role = "user",
-                    Content = userMessage
+                    id,
+                    conversationId = result.Value.ConversationId
                 });
-
-            form.Messages.Add(
-                new AiAgentTestMessageViewModel
-                {
-                    Role = "assistant",
-                    Content = result.Value!
-                });
-
-            form.Message = string.Empty;
-            ModelState.Clear();
         }
         else
         {
@@ -269,6 +278,12 @@ public sealed class AgentsController : Controller
         }
     }
 }
+
+
+
+
+
+
 
 
 

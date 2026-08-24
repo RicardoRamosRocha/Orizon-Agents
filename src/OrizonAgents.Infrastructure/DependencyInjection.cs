@@ -54,6 +54,7 @@ public static class DependencyInjection
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<IAiAgentService, AiAgentService>();
         services.AddScoped<IAiAgentRunner, AiAgentRunner>();
+        services.AddScoped<IAiConversationService, AiConversationService>();
         services.AddHttpClient<IAiChatProvider, GroqChatProvider>(client =>
         {
             client.BaseAddress = new Uri("https://api.groq.com/");
@@ -148,5 +149,6 @@ public static class DependencyInjection
         return services;
     }
 }
+
 
 

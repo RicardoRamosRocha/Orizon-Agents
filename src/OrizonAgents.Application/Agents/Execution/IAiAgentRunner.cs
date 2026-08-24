@@ -5,9 +5,9 @@ namespace OrizonAgents.Application.Agents.Execution;
 
 public interface IAiAgentRunner
 {
-    Task<OperationResult<string>> RunAsync(
+    Task<OperationResult<AiAgentRunResult>> RunAsync(
         Guid agentId,
         string userMessage,
-        IReadOnlyList<AiChatMessage>? history = null,
+        Guid? conversationId = null,
         CancellationToken cancellationToken = default);
 }

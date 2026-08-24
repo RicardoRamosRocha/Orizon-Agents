@@ -88,16 +88,7 @@
                 <form method="post">
                     <input type="hidden" asp-for="AgentId" />
 
-                    @for (int i = 0; i < Model.Messages.Count; i++)
-                    {
-                        <input type="hidden"
-                               name="Messages[@i].Role"
-                               value="@Model.Messages[i].Role" />
-
-                        <input type="hidden"
-                               name="Messages[@i].Content"
-                               value="@Model.Messages[i].Content" />
-                    }
+                    <input type="hidden" asp-for="ConversationId" />
 
                     <div class="input-group">
                         <textarea asp-for="Message"
@@ -119,8 +110,9 @@
         </div>
 
         <div class="text-muted small mt-3">
-            Esta conversa é apenas um teste e ainda não é salva.
+            Esta conversa é salva para manter o contexto durante os testes.
         </div>
 
     </div>
 </div>
+

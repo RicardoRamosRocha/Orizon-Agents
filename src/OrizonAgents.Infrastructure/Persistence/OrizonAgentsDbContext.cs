@@ -25,6 +25,10 @@ public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, A
 
     public DbSet<AiAgent> AiAgents => Set<AiAgent>();
 
+    public DbSet<AiConversation> AiConversations => Set<AiConversation>();
+
+    public DbSet<AiConversationMessage> AiConversationMessages => Set<AiConversationMessage>();
+
     public DbSet<Tenant> Tenants => Set<Tenant>();
 
     public DbSet<TenantSettings> TenantSettings => Set<TenantSettings>();
@@ -112,4 +116,5 @@ public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, A
         return entity => !_currentTenant.HasTenant || entity.TenantId == _currentTenant.TenantId;
     }
 }
+
 
