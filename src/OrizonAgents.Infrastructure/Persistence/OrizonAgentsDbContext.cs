@@ -5,6 +5,7 @@ using OrizonAgents.Application.Common.Tenancy;
 using OrizonAgents.Domain.Agents;
 using OrizonAgents.Domain.Billing;
 using OrizonAgents.Domain.Common;
+using OrizonAgents.Domain.Integrations;
 using OrizonAgents.Domain.Tenants;
 using OrizonAgents.Domain.WhatsApp;
 using OrizonAgents.Infrastructure.Identity;
@@ -28,6 +29,8 @@ public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, A
     public DbSet<AiConversation> AiConversations => Set<AiConversation>();
 
     public DbSet<AiConversationMessage> AiConversationMessages => Set<AiConversationMessage>();
+
+    public DbSet<ApiCredential> ApiCredentials => Set<ApiCredential>();
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
 

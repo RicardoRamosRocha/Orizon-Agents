@@ -1,0 +1,55 @@
+@model OrizonAgents.Web.Models.Integrations.ApiCredentialCreateViewModel
+
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Integrações";
+    ViewData["Section"] = "Integrações";
+}
+
+<div class="mb-4">
+    <h1 class="h3 mb-1">Integrações</h1>
+    <p class="text-muted mb-0">
+        Crie credenciais para aplicações que consumirão os agentes do Orizon Agents.
+    </p>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.CreatedApiKey))
+{
+    <div class="alert alert-warning mb-4">
+        <h2 class="h6 fw-bold">API Key criada</h2>
+
+        <p class="mb-2">
+            Copie esta chave agora. Ela não poderá ser visualizada novamente.
+        </p>
+
+        <code class="d-block text-break">@Model.CreatedApiKey</code>
+    </div>
+}
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+        <h2 class="h5 mb-3">Nova credencial</h2>
+
+        <form method="post">
+            <div asp-validation-summary="ModelOnly"
+                 class="text-danger mb-3"></div>
+
+            <div class="mb-3">
+                <label asp-for="Name"
+                       class="form-label"></label>
+
+                <input asp-for="Name"
+                       class="form-control"
+                       placeholder="Ex.: EscalaVendaNova - Desenvolvimento" />
+
+                <span asp-validation-for="Name"
+                      class="text-danger"></span>
+            </div>
+
+            <button type="submit"
+                    class="btn btn-primary">
+                Criar API Key
+            </button>
+        </form>
+    </div>
+</div>

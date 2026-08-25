@@ -1,5 +1,6 @@
 using OrizonAgents.Infrastructure;
 using OrizonAgents.Infrastructure.Tenancy;
+using OrizonAgents.API.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +25,7 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseCurrentTenant();
+app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();

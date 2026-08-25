@@ -21,6 +21,8 @@ using OrizonAgents.Infrastructure.Email;
 using OrizonAgents.Infrastructure.Dashboards;
 using OrizonAgents.Infrastructure.Health;
 using OrizonAgents.Infrastructure.Identity;
+using OrizonAgents.Application.Integrations;
+using OrizonAgents.Infrastructure.Integrations;
 using OrizonAgents.Infrastructure.Persistence;
 using OrizonAgents.Infrastructure.Tenancy;
 using OrizonAgents.Application.Tenants;
@@ -66,6 +68,7 @@ public static class DependencyInjection
             client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
             client.Timeout = TimeSpan.FromSeconds(60);
         });
+        services.AddScoped<IApiCredentialService, ApiCredentialService>();
         services.AddScoped<ITenantUserService, TenantUserService>();
         services.AddScoped<IDashboardQueryService, DashboardQueryService>();
         services.AddScoped<ITenantManagementService, TenantManagementService>();
