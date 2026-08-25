@@ -1,192 +1,319 @@
-@model OrizonAgents.Web.Models.Agents.AiAgentTestViewModel
+﻿@model OrizonAgents.Web.Models.Agents.AiAgentTestViewModel
 
 @{
     Layout = "_AdminLayout";
-    ViewData["Title"] = "Testar Agente";
+    ViewData["Title"] = "Conversar";
     ViewData["Section"] = "Inteligência Artificial";
 }
 
-<div class="mb-4">
-    <a asp-action="Index" class="text-decoration-none small">
-        ← Meus Agentes
-    </a>
+<section class="ai-chat-page">
 
-    <div class="d-flex align-items-center gap-2 mt-3">
-        <h1 class="h3 mb-0">@Model.AgentName</h1>
-        <span class="badge text-bg-success">Em teste</span>
-    </div>
+    <header class="ai-chat-page__header">
+        <div>
+            <a asp-action="Index" class="ai-chat-back">
+                ← Meus Agentes
+            </a>
 
-    @if (!string.IsNullOrWhiteSpace(Model.AgentDescription))
+            <div class="ai-chat-agent">
+                <div class="ai-chat-agent__avatar">
+                    <span>✦</span>
+                    <i></i>
+                </div>
+
+                <div>
+                    <div class="ai-chat-agent__title">
+                        <h1>@Model.AgentName</h1>
+                        <span>Ativo</span>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(Model.AgentDescription))
+                    {
+                        <p>@Model.AgentDescription</p>
+                    }
+                    else
+                    {
+                        <p>Assistente de Inteligência Artificial</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
     {
-        <p class="text-muted mt-1 mb-0">
-            @Model.AgentDescription
-        </p>
+        <div class="alert alert-danger">
+            @Model.ErrorMessage
+        </div>
     }
-</div>
 
-@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
-{
-    <div class="alert alert-danger">
-        @Model.ErrorMessage
-    </div>
-}
+    <div class="ai-chat-workspace">
 
-<div class="card border-0 shadow-sm overflow-hidden">
-    <div class="row g-0">
+        <aside class="ai-chat-history">
 
-        <aside class="col-lg-3 border-end bg-light">
-            <div class="p-3 p-lg-4">
+            <div class="ai-chat-history__header">
+                <div>
+                    <span class="ai-chat-history__eyebrow">CONVERSAS</span>
+                    <h2>Histórico</h2>
+                </div>
 
                 <a asp-action="Test"
                    asp-route-id="@Model.AgentId"
-                   class="btn btn-primary w-100 mb-4">
-                    + Nova conversa
+                   class="ai-chat-new"
+                   title="Nova conversa">
+                    +
                 </a>
+            </div>
 
-                <div class="small text-uppercase fw-semibold text-muted mb-2">
-                    Conversas anteriores
+            @if (Model.Conversations.Count == 0)
+            {
+                <div class="ai-chat-history__empty">
+                    <div>✦</div>
+                    <p>Nenhuma conversa salva ainda.</p>
+                </div>
+            }
+            else
+            {
+                <div class="ai-chat-history__list">
+
+                    @foreach (var conversation in Model.Conversations)
+                    {
+                        bool isActive =
+                            Model.ConversationId == conversation.Id;
+
+                        DateTime activityDate =
+                            conversation.UpdatedAtUtc
+                            ?? conversation.CreatedAtUtc;
+
+                        <a asp-action="Test"
+                           asp-route-id="@Model.AgentId"
+                           asp-route-conversationId="@conversation.Id"
+                           class="ai-chat-history__item @(isActive ? "is-active" : "")">
+
+                            <span class="ai-chat-history__icon">✦</span>
+
+                            <span class="ai-chat-history__content">
+                                <strong>@conversation.Title</strong>
+
+                                <small>
+                                    @activityDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                </small>
+                            </span>
+
+                        </a>
+                    }
+
+                </div>
+            }
+
+            <div class="ai-chat-history__footer">
+                <span class="ai-chat-context-dot"></span>
+                Memória de contexto ativa
+            </div>
+
+        </aside>
+
+        <section class="ai-chat-conversation">
+
+            <header class="ai-chat-conversation__header">
+                <div>
+                    @if (Model.ConversationId.HasValue)
+                    {
+                        <h2>Conversa com @Model.AgentName</h2>
+                    }
+                    else
+                    {
+                        <h2>Nova conversa</h2>
+                    }
+
+                    <p>O agente mantém o contexto durante esta conversa.</p>
                 </div>
 
-                @if (Model.Conversations.Count == 0)
+                <div class="ai-chat-live">
+                    <span></span>
+                    IA disponível
+                </div>
+            </header>
+
+            <div class="ai-chat-messages">
+
+                @if (Model.Messages.Count == 0)
                 {
-                    <div class="small text-muted py-3">
-                        Nenhuma conversa salva ainda.
+                    <div class="ai-chat-welcome">
+
+                        <div class="ai-chat-welcome__mark">
+                            ✦
+                        </div>
+
+                        <h2>Como posso ajudar?</h2>
+
+                        <p>
+                            Converse com @Model.AgentName.
+                            O contexto será mantido enquanto vocês trabalham juntos.
+                        </p>
+
+                        <div class="ai-chat-suggestions">
+                            <button type="button"
+                                    data-chat-suggestion="Olá! Como você pode me ajudar?">
+                                Conhecer o agente
+                            </button>
+
+                            <button type="button"
+                                    data-chat-suggestion="Quais tarefas você consegue realizar?">
+                                Ver capacidades
+                            </button>
+                        </div>
+
                     </div>
                 }
                 else
                 {
-                    <div class="d-flex flex-column gap-2">
-                        @foreach (var conversation in Model.Conversations)
+                    @foreach (var message in Model.Messages)
+                    {
+                        if (message.Role == "user")
                         {
-                            bool isActive =
-                                Model.ConversationId == conversation.Id;
+                            <div class="ai-message ai-message--user">
 
-                            <a asp-action="Test"
-                               asp-route-id="@Model.AgentId"
-                               asp-route-conversationId="@conversation.Id"
-                               class="text-decoration-none rounded-3 p-3 @(isActive ? "bg-white border shadow-sm" : "text-dark")">
+                                <div class="ai-message__bubble">
+                                    <div class="ai-message__label">
+                                        Você
+                                    </div>
 
-                                <div class="fw-semibold text-truncate">
-                                    @conversation.Title
+                                    <div class="ai-message__content">
+                                        @message.Content
+                                    </div>
                                 </div>
 
-                                <div class="small text-muted mt-1">
-                                    @{
-                                        DateTime activityDate =
-                                            conversation.UpdatedAtUtc
-                                            ?? conversation.CreatedAtUtc;
-                                    }
-
-                                    @activityDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                <div class="ai-message__avatar ai-message__avatar--user">
+                                    EU
                                 </div>
-                            </a>
-                        }
-                    </div>
-                }
 
-            </div>
-        </aside>
-
-        <section class="col-lg-9">
-            <div class="d-flex flex-column" style="min-height: 620px;">
-
-                <div class="border-bottom px-4 py-3">
-                    <div class="fw-semibold">
-                        @if (Model.ConversationId.HasValue)
-                        {
-                            <span>Conversa com @Model.AgentName</span>
+                            </div>
                         }
                         else
                         {
-                            <span>Nova conversa</span>
-                        }
-                    </div>
+                            <div class="ai-message ai-message--agent">
 
-                    <div class="small text-muted">
-                        O agente mantém o contexto desta conversa.
-                    </div>
-                </div>
-
-                <div class="flex-grow-1 p-4"
-                     style="min-height: 390px; max-height: 520px; overflow-y: auto;">
-
-                    @if (Model.Messages.Count == 0)
-                    {
-                        <div class="d-flex align-items-center justify-content-center h-100 text-center">
-                            <div class="text-muted py-5">
-                                <div class="fw-semibold mb-2">
-                                    Converse com @Model.AgentName
+                                <div class="ai-message__avatar">
+                                    ✦
                                 </div>
 
-                                <div class="small">
-                                    Envie uma mensagem para iniciar uma nova conversa.
+                                <div class="ai-message__body">
+                                    <div class="ai-message__label">
+                                        @Model.AgentName
+                                    </div>
+
+                                    <div class="ai-message__content">
+                                        @message.Content
+                                    </div>
                                 </div>
+
                             </div>
-                        </div>
-                    }
-                    else
-                    {
-                        @foreach (var message in Model.Messages)
-                        {
-                            if (message.Role == "user")
-                            {
-                                <div class="d-flex justify-content-end mb-3">
-                                    <div class="bg-primary text-white rounded-3 px-3 py-2"
-                                         style="max-width: 75%;">
-                                        <div class="small opacity-75 mb-1">
-                                            Você
-                                        </div>
-
-                                        <div style="white-space: pre-wrap;">@message.Content</div>
-                                    </div>
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="d-flex justify-content-start mb-3">
-                                    <div class="bg-light border rounded-3 px-3 py-2"
-                                         style="max-width: 75%;">
-                                        <div class="small text-muted mb-1">
-                                            @Model.AgentName
-                                        </div>
-
-                                        <div style="white-space: pre-wrap;">@message.Content</div>
-                                    </div>
-                                </div>
-                            }
                         }
                     }
-
-                </div>
-
-                <div class="border-top p-3 p-lg-4">
-                    <form method="post">
-                        <input type="hidden" asp-for="AgentId" />
-                        <input type="hidden" asp-for="ConversationId" />
-
-                        <div class="input-group">
-                            <textarea asp-for="Message"
-                                      class="form-control"
-                                      rows="2"
-                                      placeholder="Digite sua mensagem..."></textarea>
-
-                            <button type="submit"
-                                    class="btn btn-primary px-4">
-                                Enviar
-                            </button>
-                        </div>
-
-                        <span asp-validation-for="Message"
-                              class="text-danger small"></span>
-                    </form>
-                </div>
+                }
 
             </div>
-        </section>
 
+            <div class="ai-chat-thinking" id="aiChatThinking" hidden>
+    <div class="ai-message__avatar">✦</div>
+
+    <div class="ai-chat-thinking__body">
+        <span>@Model.AgentName está pensando</span>
+
+        <div class="ai-chat-thinking__dots">
+            <i></i>
+            <i></i>
+            <i></i>
+        </div>
     </div>
 </div>
 
-<div class="text-muted small mt-3">
-    As conversas são salvas para manter o contexto durante os testes.
-</div>
+<footer class="ai-chat-composer">
+
+                <form method="post" class="ai-chat-composer__form" id="aiChatForm">
+
+                    <input type="hidden" asp-for="AgentId" />
+                    <input type="hidden" asp-for="ConversationId" />
+
+                    <div class="ai-chat-composer__box">
+
+                        <textarea asp-for="Message"
+                                  rows="2"
+                                  placeholder="Converse com @Model.AgentName..."
+                                  id="aiChatMessage"></textarea>
+
+                        <button type="submit"
+                                class="ai-chat-send"
+                                title="Enviar mensagem">
+                            <span>Enviar</span>
+                            <strong>↑</strong>
+                        </button>
+
+                    </div>
+
+                    <div class="ai-chat-composer__meta">
+                        <span asp-validation-for="Message"
+                              class="text-danger"></span>
+
+                        <small>
+                            Enter para nova linha · suas conversas ficam salvas
+                        </small>
+                    </div>
+
+                </form>
+
+            </footer>
+
+        </section>
+
+    </div>
+
+</section>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll("[data-chat-suggestion]")
+            .forEach(function (button) {
+                button.addEventListener("click", function () {
+                    const input = document.getElementById("aiChatMessage");
+
+                    if (!input) {
+                        return;
+                    }
+
+                    input.value = button.dataset.chatSuggestion || "";
+                    input.focus();
+                });
+            });
+
+        const form = document.getElementById("aiChatForm");
+const thinking = document.getElementById("aiChatThinking");
+const sendButton = form?.querySelector(".ai-chat-send");
+
+if (form) {
+    form.addEventListener("submit", function () {
+        if (thinking) {
+            thinking.hidden = false;
+        }
+
+        if (sendButton) {
+            sendButton.disabled = true;
+        }
+
+        window.setTimeout(function () {
+            thinking?.scrollIntoView({
+                behavior: "smooth",
+                block: "end"
+            });
+        }, 50);
+    });
+}
+
+const messages = document.querySelector(".ai-chat-messages");
+
+        if (messages) {
+            messages.scrollTop = messages.scrollHeight;
+        }
+    </script>
+}
+

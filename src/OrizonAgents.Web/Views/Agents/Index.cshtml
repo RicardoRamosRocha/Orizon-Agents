@@ -7,124 +7,158 @@
     ViewData["Section"] = "Inteligência Artificial";
 }
 
-<div class="d-flex justify-content-between align-items-start gap-3 mb-4">
-    <div>
-        <h1 class="h3 mb-1">Meus Agentes</h1>
-        <p class="text-muted mb-0">
-            Crie, teste e gerencie seus assistentes de Inteligência Artificial.
-        </p>
-    </div>
+<section class="agents-page">
 
-    <a class="btn btn-primary" asp-action="Create">
-        + Novo agente
-    </a>
-</div>
+    <header class="agents-page__header">
+        <div>
+            <div class="agents-page__eyebrow">
+                WORKSPACE DE IA
+            </div>
 
-@if (TempData["StatusMessage"] is string message)
-{
-    <div class="alert alert-info">@message</div>
-}
+            <h1>Seus agentes</h1>
 
-@if (Model.Count == 0)
-{
-    <div class="border rounded bg-white p-5 text-center">
-        <h2 class="h5 mb-2">Crie seu primeiro agente</h2>
+            <p>
+                Crie assistentes inteligentes para trabalhar com você e sua equipe.
+            </p>
+        </div>
 
-        <p class="text-muted mb-4">
-            Configure em poucos passos como seu assistente deve atender.
-        </p>
-
-        <a class="btn btn-primary" asp-action="Create">
-            Criar agente
+        <a class="btn btn-primary agents-new-button"
+           asp-action="Create">
+            <span class="agents-new-button__icon">+</span>
+            Novo agente
         </a>
-    </div>
-}
-else
-{
-    <div class="row g-4">
-        @foreach (AiAgentListItemDto agent in Model)
-        {
-            <div class="col-12 col-xl-6">
-                <div class="card h-100 shadow-sm border-0">
-                    <div class="card-body p-4">
+    </header>
 
-                        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-                            <div>
-                                <div class="d-flex align-items-center gap-2 mb-1">
-                                    <h2 class="h5 mb-0">@agent.Name</h2>
+    @if (TempData["StatusMessage"] is string message)
+    {
+        <div class="alert alert-info">@message</div>
+    }
 
-                                    @if (agent.IsActive)
-                                    {
-                                        <span class="badge text-bg-success">
-                                            Ativo
-                                        </span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge text-bg-secondary">
-                                            Inativo
-                                        </span>
-                                    }
-                                </div>
+    @if (Model.Count == 0)
+    {
+        <section class="agents-empty">
+            <div class="agents-empty__visual">
+                <span>✦</span>
+            </div>
 
-                                <p class="text-muted mb-0">
-                                    @(string.IsNullOrWhiteSpace(agent.Description)
-                                        ? "Assistente de Inteligência Artificial"
-                                        : agent.Description)
-                                </p>
-                            </div>
+            <h2>Crie seu primeiro agente</h2>
+
+            <p>
+                Configure personalidade, instruções e modelo de IA.
+                Seu novo assistente estará pronto para conversar em poucos passos.
+            </p>
+
+            <a class="btn btn-primary"
+               asp-action="Create">
+                + Criar meu primeiro agente
+            </a>
+        </section>
+    }
+    else
+    {
+        <div class="agents-grid">
+            @foreach (AiAgentListItemDto agent in Model)
+            {
+                <article class="agent-product-card">
+
+                    <div class="agent-product-card__top">
+
+                        <div class="agent-product-card__avatar">
+                            <span>✦</span>
+
+                            @if (agent.IsActive)
+                            {
+                                <i class="agent-product-card__online"
+                                   title="Agente ativo"></i>
+                            }
                         </div>
 
-                        <div class="small text-muted mb-4">
-                            @agent.Provider · @agent.Model
-                        </div>
-
-                        <div class="d-flex flex-wrap gap-2">
-
-                            <a class="btn btn-primary"
-                               asp-action="Edit"
-                               asp-route-id="@agent.Id">
-                                Editar
-                            </a>
-
-                            <a class="btn btn-outline-primary"
-                               asp-action="Test"
-                               asp-route-id="@agent.Id">
-                                Testar agente
-                            </a>
-
-                            <form method="post"
-                                  asp-action="ChangeStatus"
-                                  asp-route-id="@agent.Id"
-                                  class="d-inline">
-
-                                @Html.AntiForgeryToken()
-
-                                <input type="hidden"
-                                       name="activate"
-                                       value="@(!agent.IsActive ? "true" : "false")" />
+                        <div class="agent-product-card__identity">
+                            <div class="agent-product-card__title">
+                                <h2>@agent.Name</h2>
 
                                 @if (agent.IsActive)
                                 {
-                                    <button type="submit"
-                                            class="btn btn-outline-secondary">
-                                        Desativar
-                                    </button>
+                                    <span class="agent-status agent-status--active">
+                                        Ativo
+                                    </span>
                                 }
                                 else
                                 {
-                                    <button type="submit"
-                                            class="btn btn-outline-success">
-                                        Ativar
-                                    </button>
+                                    <span class="agent-status agent-status--inactive">
+                                        Inativo
+                                    </span>
                                 }
-                            </form>
+                            </div>
 
+                            <p>
+                                @(string.IsNullOrWhiteSpace(agent.Description)
+                                    ? "Assistente de Inteligência Artificial"
+                                    : agent.Description)
+                            </p>
                         </div>
-                    </div>
-                </div>
-            </div>
-        }
-    </div>
-}
 
+                    </div>
+
+                    <div class="agent-product-card__meta">
+                        <span>
+                            <small>PROVEDOR</small>
+                            <strong>@agent.Provider</strong>
+                        </span>
+
+                        <span>
+                            <small>MODELO</small>
+                            <strong>@agent.Model</strong>
+                        </span>
+                    </div>
+
+                    <div class="agent-product-card__footer">
+
+                        <a class="btn btn-primary agent-conversation-button"
+                           asp-action="Test"
+                           asp-route-id="@agent.Id">
+                            <span>✦</span>
+                            Conversar
+                        </a>
+
+                        <a class="btn btn-outline-secondary"
+                           asp-action="Edit"
+                           asp-route-id="@agent.Id">
+                            Configurar
+                        </a>
+
+                        <form method="post"
+                              asp-action="ChangeStatus"
+                              asp-route-id="@agent.Id">
+
+                            @Html.AntiForgeryToken()
+
+                            <input type="hidden"
+                                   name="activate"
+                                   value="@(!agent.IsActive ? "true" : "false")" />
+
+                            @if (agent.IsActive)
+                            {
+                                <button type="submit"
+                                        class="btn agent-status-button">
+                                    Desativar
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="submit"
+                                        class="btn agent-status-button">
+                                    Ativar
+                                </button>
+                            }
+
+                        </form>
+
+                    </div>
+
+                </article>
+            }
+        </div>
+    }
+
+</section>
