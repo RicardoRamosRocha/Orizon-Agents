@@ -8,6 +8,8 @@ namespace OrizonAgents.API.Controllers;
 [Route("api/agents")]
 public sealed class AgentsController : ControllerBase
 {
+    private const int MaxRequestBytes = 256 * 1024;
+
     private readonly IAiAgentRunner _aiAgentRunner;
 
     public AgentsController(IAiAgentRunner aiAgentRunner)
@@ -16,6 +18,7 @@ public sealed class AgentsController : ControllerBase
     }
 
     [HttpPost("{agentId:guid}/run")]
+    [RequestSizeLimit(MaxRequestBytes)]
     public async Task<IActionResult> Run(
         Guid agentId,
         [FromBody] AgentRunRequest request,
@@ -29,6 +32,14 @@ public sealed class AgentsController : ControllerBase
             });
         }
 
+        if (request.Message.Length > 12000)
+        {
+            return BadRequest(new
+            {
+                error = "A mensagem excede o limite permitido."
+            });
+        }
+
         var result = await _aiAgentRunner.RunAsync(
             agentId,
             request,
@@ -38,7 +49,8 @@ public sealed class AgentsController : ControllerBase
         {
             return BadRequest(new
             {
-                error = result.FirstError ?? "Não foi possível executar o agente."
+                error = result.FirstError
+                    ?? "Não foi possível executar o agente."
             });
         }
 
