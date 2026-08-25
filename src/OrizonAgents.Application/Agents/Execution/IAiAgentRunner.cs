@@ -7,7 +7,6 @@ public interface IAiAgentRunner
 {
     Task<OperationResult<AiAgentRunResult>> RunAsync(
         Guid agentId,
-        string userMessage,
-        Guid? conversationId = null,
+        AgentRunRequest request,
         CancellationToken cancellationToken = default);
 }

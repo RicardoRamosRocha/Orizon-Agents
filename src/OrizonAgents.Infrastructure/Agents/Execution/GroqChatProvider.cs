@@ -28,6 +28,7 @@ public sealed class GroqChatProvider : IAiChatProvider
         string userMessage,
         IReadOnlyList<AiChatMessage> history,
         double temperature,
+        string? operationalContext = null,
         CancellationToken cancellationToken = default)
     {
         string apiKey =
@@ -44,6 +45,17 @@ public sealed class GroqChatProvider : IAiChatProvider
                 content = systemPrompt
             }
         };
+
+        if (!string.IsNullOrWhiteSpace(operationalContext))
+        {
+            messages.Add(new
+            {
+                role = "system",
+                content =
+                    "Contexto operacional fornecido pela aplicação consumidora para esta execução:\n" +
+                    operationalContext
+            });
+        }
 
         foreach (AiChatMessage message in history)
         {

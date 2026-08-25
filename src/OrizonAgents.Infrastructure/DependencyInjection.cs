@@ -60,6 +60,12 @@ public static class DependencyInjection
             client.BaseAddress = new Uri("https://api.groq.com/");
             client.Timeout = TimeSpan.FromSeconds(60);
         });
+
+        services.AddHttpClient<IAiChatProvider, GeminiChatProvider>(client =>
+        {
+            client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
+            client.Timeout = TimeSpan.FromSeconds(60);
+        });
         services.AddScoped<ITenantUserService, TenantUserService>();
         services.AddScoped<IDashboardQueryService, DashboardQueryService>();
         services.AddScoped<ITenantManagementService, TenantManagementService>();

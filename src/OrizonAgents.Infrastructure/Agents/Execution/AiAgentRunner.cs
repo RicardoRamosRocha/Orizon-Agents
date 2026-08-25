@@ -26,11 +26,10 @@ public sealed class AiAgentRunner : IAiAgentRunner
 
     public async Task<OperationResult<AiAgentRunResult>> RunAsync(
         Guid agentId,
-        string userMessage,
-        Guid? conversationId = null,
+        AgentRunRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(userMessage))
+        if (string.IsNullOrWhiteSpace(request.Message))
         {
             return OperationResult<AiAgentRunResult>.Failure(
                 "Digite uma mensagem para o agente.");
@@ -69,14 +68,14 @@ public sealed class AiAgentRunner : IAiAgentRunner
 
         AiConversation? conversation = null;
 
-        if (conversationId.HasValue)
+        if (request.ConversationId.HasValue)
         {
             conversation = await _dbContext.AiConversations
                 .AsNoTracking()
                 .Include(candidate => candidate.Messages)
                 .SingleOrDefaultAsync(
                     candidate =>
-                        candidate.Id == conversationId.Value &&
+                        candidate.Id == request.ConversationId.Value &&
                         candidate.AgentId == agentId,
                     cancellationToken);
 
@@ -89,7 +88,7 @@ public sealed class AiAgentRunner : IAiAgentRunner
 
         if (conversation is null)
         {
-            string title = CreateConversationTitle(userMessage);
+            string title = CreateConversationTitle(request.Message);
 
             conversation = new AiConversation(
                 agent.TenantId,
@@ -111,7 +110,7 @@ public sealed class AiAgentRunner : IAiAgentRunner
 
         try
         {
-            string normalizedMessage = userMessage.Trim();
+            string normalizedMessage = request.Message.Trim();
 
             string response = await provider.CompleteAsync(
                 agent.Model,
@@ -119,6 +118,7 @@ public sealed class AiAgentRunner : IAiAgentRunner
                 normalizedMessage,
                 history,
                 agent.Temperature,
+                request.Context?.GetRawText(),
                 cancellationToken);
 
             AiConversationMessage userMessageEntity =
@@ -127,7 +127,7 @@ public sealed class AiAgentRunner : IAiAgentRunner
             AiConversationMessage assistantMessageEntity =
                 conversation.AddAssistantMessage(response);
 
-            if (conversationId.HasValue)
+            if (request.ConversationId.HasValue)
             {
                 _dbContext.AiConversationMessages.Add(userMessageEntity);
                 _dbContext.AiConversationMessages.Add(assistantMessageEntity);

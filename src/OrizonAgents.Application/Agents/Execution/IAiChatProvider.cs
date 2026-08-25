@@ -12,5 +12,6 @@ public interface IAiChatProvider
         string userMessage,
         IReadOnlyList<AiChatMessage> history,
         double temperature,
+        string? operationalContext = null,
         CancellationToken cancellationToken = default);
 }

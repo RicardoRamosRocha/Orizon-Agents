@@ -256,8 +256,9 @@ public sealed class AgentsController : Controller
         OperationResult<AiAgentRunResult> result =
             await _aiAgentRunner.RunAsync(
                 id,
-                userMessage,
-                form.ConversationId,
+                new AgentRunRequest(
+                    userMessage,
+                    form.ConversationId),
                 cancellationToken);
 
         if (result.Succeeded && result.Value is not null)
