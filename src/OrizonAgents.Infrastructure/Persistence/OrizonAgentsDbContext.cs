@@ -9,6 +9,7 @@ using OrizonAgents.Domain.Integrations;
 using OrizonAgents.Domain.Tenants;
 using OrizonAgents.Domain.WhatsApp;
 using OrizonAgents.Infrastructure.Identity;
+using OrizonAgents.Domain.Tools;
 
 namespace OrizonAgents.Infrastructure.Persistence;
 
@@ -25,6 +26,10 @@ public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, A
     }
 
     public DbSet<AiAgent> AiAgents => Set<AiAgent>();
+
+    public DbSet<AgentTool> AgentTools => Set<AgentTool>();
+
+    public DbSet<AgentToolBinding> AgentToolBindings => Set<AgentToolBinding>();
 
     public DbSet<AiConversation> AiConversations => Set<AiConversation>();
 
