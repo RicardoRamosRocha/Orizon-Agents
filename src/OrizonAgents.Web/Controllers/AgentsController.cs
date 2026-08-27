@@ -8,6 +8,7 @@ using OrizonAgents.Application.Agents.Models;
 using OrizonAgents.Application.Agents.Requests;
 using OrizonAgents.Application.Common.Results;
 using OrizonAgents.Application.Common.Security;
+using OrizonAgents.Application.Tools;
 using OrizonAgents.Web.Models.Agents;
 
 namespace OrizonAgents.Web.Controllers;
@@ -19,15 +20,18 @@ public sealed class AgentsController : Controller
     private readonly IAiAgentService _aiAgentService;
     private readonly IAiAgentRunner _aiAgentRunner;
     private readonly IAiConversationService _aiConversationService;
+    private readonly IAgentToolService _agentToolService;
 
     public AgentsController(
         IAiAgentService aiAgentService,
         IAiAgentRunner aiAgentRunner,
-        IAiConversationService aiConversationService)
+        IAiConversationService aiConversationService,
+        IAgentToolService agentToolService)
     {
         _aiAgentService = aiAgentService;
         _aiAgentRunner = aiAgentRunner;
         _aiConversationService = aiConversationService;
+        _agentToolService = agentToolService;
     }
 
     [HttpGet("")]
@@ -278,6 +282,61 @@ public sealed class AgentsController : Controller
 
         return View(form);
     }
+    [HttpGet("{id:guid}/ferramentas")]
+    public async Task<IActionResult> Tools(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        AiAgentDetailsDto? agent =
+            await _aiAgentService.GetAsync(
+                id,
+                cancellationToken);
+
+        if (agent is null)
+        {
+            return NotFound();
+        }
+
+        var tools =
+            await _agentToolService.ListForAgentAsync(
+                id,
+                cancellationToken);
+
+        ViewBag.AgentId = agent.Id;
+        ViewBag.AgentName = agent.Name;
+
+        return View(tools);
+    }
+
+    [HttpPost("{id:guid}/ferramentas/{toolId:guid}")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangeToolBinding(
+        Guid id,
+        Guid toolId,
+        bool bind,
+        CancellationToken cancellationToken)
+    {
+        OperationResult result = bind
+            ? await _agentToolService.BindAsync(
+                id,
+                toolId,
+                cancellationToken)
+            : await _agentToolService.UnbindAsync(
+                id,
+                toolId,
+                cancellationToken);
+
+        TempData["StatusMessage"] = result.Succeeded
+            ? bind
+                ? "Tool vinculada ao agente."
+                : "Tool removida do agente."
+            : string.Join(" ", result.Errors);
+
+        return RedirectToAction(
+            nameof(Tools),
+            new { id });
+    }
+
     private Guid GetTenantId()
     {
         string? value = User.FindFirstValue(OrizonClaimTypes.TenantId);

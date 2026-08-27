@@ -29,7 +29,11 @@ using OrizonAgents.Application.Tenants;
 using OrizonAgents.Infrastructure.Tenants;
 using OrizonAgents.Infrastructure.Users;
 using OrizonAgents.Application.WhatsApp;
+using OrizonAgents.Application.Tools;
+using OrizonAgents.Application.Tools.Execution;
 using OrizonAgents.Infrastructure.WhatsApp;
+using OrizonAgents.Infrastructure.Tools;
+using OrizonAgents.Infrastructure.Tools.Execution;
 
 namespace OrizonAgents.Infrastructure;
 
@@ -57,6 +61,10 @@ public static class DependencyInjection
         services.AddScoped<IAiAgentService, AiAgentService>();
         services.AddScoped<IAiAgentRunner, AiAgentRunner>();
         services.AddScoped<IAiConversationService, AiConversationService>();
+        services.AddScoped<IAgentToolExecutor, HttpAgentToolExecutor>();
+        services.AddScoped<IAgentModelDecisionParser, AgentModelDecisionParser>();
+        services.AddScoped<IAgentToolCatalog, AgentToolCatalog>();
+        services.AddScoped<IAgentToolService, AgentToolService>();
         services.AddHttpClient<IAiChatProvider, GroqChatProvider>(client =>
         {
             client.BaseAddress = new Uri("https://api.groq.com/");

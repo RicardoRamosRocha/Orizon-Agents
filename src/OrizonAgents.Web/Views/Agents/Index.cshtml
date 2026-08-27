@@ -127,6 +127,13 @@
                             Configurar
                         </a>
 
+                        <a class="btn btn-outline-secondary"
+                           asp-action="Tools"
+                           asp-route-id="@agent.Id">
+                            Ferramentas
+                        </a>
+
+
                         <form method="post"
                               asp-action="ChangeStatus"
                               asp-route-id="@agent.Id">
