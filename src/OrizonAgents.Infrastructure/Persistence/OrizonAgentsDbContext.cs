@@ -6,6 +6,7 @@ using OrizonAgents.Domain.Agents;
 using OrizonAgents.Domain.Billing;
 using OrizonAgents.Domain.Common;
 using OrizonAgents.Domain.Integrations;
+using OrizonAgents.Domain.Knowledge;
 using OrizonAgents.Domain.Tenants;
 using OrizonAgents.Domain.WhatsApp;
 using OrizonAgents.Infrastructure.Identity;
@@ -30,6 +31,14 @@ public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, A
     public DbSet<AgentTool> AgentTools => Set<AgentTool>();
 
     public DbSet<AgentToolBinding> AgentToolBindings => Set<AgentToolBinding>();
+
+    public DbSet<KnowledgeBase> KnowledgeBases => Set<KnowledgeBase>();
+
+    public DbSet<KnowledgeDocument> KnowledgeDocuments => Set<KnowledgeDocument>();
+
+    public DbSet<KnowledgeChunk> KnowledgeChunks => Set<KnowledgeChunk>();
+
+    public DbSet<AgentKnowledgeBinding> AgentKnowledgeBindings => Set<AgentKnowledgeBinding>();
 
     public DbSet<AiConversation> AiConversations => Set<AiConversation>();
 

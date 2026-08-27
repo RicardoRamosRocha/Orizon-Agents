@@ -9,6 +9,7 @@ using OrizonAgents.Application.Agents.Requests;
 using OrizonAgents.Application.Common.Results;
 using OrizonAgents.Application.Common.Security;
 using OrizonAgents.Application.Tools;
+using OrizonAgents.Application.Knowledge;
 using OrizonAgents.Web.Models.Agents;
 
 namespace OrizonAgents.Web.Controllers;
@@ -21,17 +22,20 @@ public sealed class AgentsController : Controller
     private readonly IAiAgentRunner _aiAgentRunner;
     private readonly IAiConversationService _aiConversationService;
     private readonly IAgentToolService _agentToolService;
+    private readonly IKnowledgeService _knowledgeService;
 
     public AgentsController(
         IAiAgentService aiAgentService,
         IAiAgentRunner aiAgentRunner,
         IAiConversationService aiConversationService,
-        IAgentToolService agentToolService)
+        IAgentToolService agentToolService,
+        IKnowledgeService knowledgeService)
     {
         _aiAgentService = aiAgentService;
         _aiAgentRunner = aiAgentRunner;
         _aiConversationService = aiConversationService;
         _agentToolService = agentToolService;
+        _knowledgeService = knowledgeService;
     }
 
     [HttpGet("")]
@@ -334,6 +338,61 @@ public sealed class AgentsController : Controller
 
         return RedirectToAction(
             nameof(Tools),
+            new { id });
+    }
+
+    [HttpGet("{id:guid}/conhecimento")]
+    public async Task<IActionResult> Knowledge(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        AiAgentDetailsDto? agent =
+            await _aiAgentService.GetAsync(
+                id,
+                cancellationToken);
+
+        if (agent is null)
+        {
+            return NotFound();
+        }
+
+        var knowledgeBases =
+            await _knowledgeService.ListForAgentAsync(
+                id,
+                cancellationToken);
+
+        ViewBag.AgentId = agent.Id;
+        ViewBag.AgentName = agent.Name;
+
+        return View(knowledgeBases);
+    }
+
+    [HttpPost("{id:guid}/conhecimento/{knowledgeBaseId:guid}")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangeKnowledgeBinding(
+        Guid id,
+        Guid knowledgeBaseId,
+        bool bind,
+        CancellationToken cancellationToken)
+    {
+        OperationResult result = bind
+            ? await _knowledgeService.BindToAgentAsync(
+                id,
+                knowledgeBaseId,
+                cancellationToken)
+            : await _knowledgeService.UnbindFromAgentAsync(
+                id,
+                knowledgeBaseId,
+                cancellationToken);
+
+        TempData["StatusMessage"] = result.Succeeded
+            ? bind
+                ? "Base de conhecimento vinculada ao agente."
+                : "Base de conhecimento removida do agente."
+            : string.Join(" ", result.Errors);
+
+        return RedirectToAction(
+            nameof(Knowledge),
             new { id });
     }
 

@@ -1,0 +1,154 @@
+@using OrizonAgents.Application.Knowledge.Models
+@using OrizonAgents.Domain.Knowledge
+@model KnowledgeBaseDetailsDto
+
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = Model.Name;
+    ViewData["Section"] = "Conhecimento";
+}
+
+<section class="agents-page">
+    <header class="agents-page__header">
+        <div>
+            <div class="agents-page__eyebrow">BASE DE CONHECIMENTO</div>
+            <h1>@Model.Name</h1>
+            <p>
+                @(string.IsNullOrWhiteSpace(Model.Description)
+                    ? "Documentos e informações desta base."
+                    : Model.Description)
+            </p>
+        </div>
+
+        <a class="btn btn-outline-secondary"
+           asp-action="Index">
+            Voltar
+        </a>
+    </header>
+
+    @if (TempData["StatusMessage"] is string message)
+    {
+        <div class="alert alert-info">@message</div>
+    }
+
+    <article class="agent-product-card mb-4">
+        <div class="agent-product-card__identity mb-3">
+            <h2>Adicionar documento</h2>
+            <p>
+                Nesta primeira versão são aceitos arquivos TXT e Markdown,
+                com até 10 MB.
+            </p>
+        </div>
+
+        <form method="post"
+              enctype="multipart/form-data"
+              asp-action="Upload"
+              asp-route-id="@Model.Id">
+
+            @Html.AntiForgeryToken()
+
+            <input type="hidden"
+                   name="KnowledgeBaseId"
+                   value="@Model.Id" />
+
+            <div class="mb-3">
+                <input type="file"
+                       name="File"
+                       class="form-control"
+                       accept=".txt,.md,.markdown,text/plain,text/markdown"
+                       required />
+            </div>
+
+            <button type="submit"
+                    class="btn btn-primary">
+                Enviar documento
+            </button>
+        </form>
+    </article>
+
+    <header class="mb-3">
+        <h2>Documentos</h2>
+    </header>
+
+    @if (Model.Documents.Count == 0)
+    {
+        <section class="agents-empty">
+            <h2>Nenhum documento</h2>
+            <p>
+                Envie o primeiro arquivo para começar a construir
+                esta base de conhecimento.
+            </p>
+        </section>
+    }
+    else
+    {
+        <div class="agents-grid">
+            @foreach (KnowledgeDocumentDto document in Model.Documents)
+            {
+                <article class="agent-product-card">
+                    <div class="agent-product-card__identity">
+                        <div class="agent-product-card__title">
+                            <h2>@document.FileName</h2>
+
+                            <span class="agent-status @(document.Status == KnowledgeDocumentStatus.Ready ? "agent-status--active" : "agent-status--inactive")">
+                                @document.Status
+                            </span>
+                        </div>
+
+                        <p>@document.ContentType</p>
+                    </div>
+
+                    <div class="agent-product-card__meta">
+                        <span>
+                            <small>TAMANHO</small>
+                            <strong>@Math.Ceiling(document.SizeBytes / 1024d) KB</strong>
+                        </span>
+
+                        <span>
+                            <small>CHUNKS</small>
+                            <strong>@document.ChunkCount</strong>
+                        </span>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(document.ProcessingError))
+                    {
+                        <div class="alert alert-danger mt-3">
+                            @document.ProcessingError
+                        </div>
+                    }
+
+                    <div class="agent-product-card__footer">
+                        @if (document.Status != KnowledgeDocumentStatus.Ready)
+                        {
+                            <form method="post"
+                                  asp-action="Process"
+                                  asp-route-id="@Model.Id"
+                                  asp-route-documentId="@document.Id">
+
+                                @Html.AntiForgeryToken()
+
+                                <button type="submit"
+                                        class="btn btn-primary">
+                                    Processar
+                                </button>
+                            </form>
+                        }
+
+                        <form method="post"
+                              asp-action="DeleteDocument"
+                              asp-route-id="@Model.Id"
+                              asp-route-documentId="@document.Id">
+
+                            @Html.AntiForgeryToken()
+
+                            <button type="submit"
+                                    class="btn btn-outline-secondary">
+                                Excluir
+                            </button>
+                        </form>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</section>

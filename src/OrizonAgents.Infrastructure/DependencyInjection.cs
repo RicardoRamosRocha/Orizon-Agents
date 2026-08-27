@@ -35,6 +35,24 @@ using OrizonAgents.Infrastructure.WhatsApp;
 using OrizonAgents.Infrastructure.Tools;
 using OrizonAgents.Infrastructure.Tools.Execution;
 
+using OrizonAgents.Application.Knowledge.Documents;
+
+using OrizonAgents.Infrastructure.Knowledge.Documents.Storage;
+
+using OrizonAgents.Infrastructure.Knowledge.Documents.Extraction;
+
+using OrizonAgents.Infrastructure.Knowledge.Documents.Chunking;
+
+using OrizonAgents.Infrastructure.Knowledge.Documents.Processing;
+
+using OrizonAgents.Application.Knowledge;
+
+using OrizonAgents.Infrastructure.Knowledge;
+
+using OrizonAgents.Application.Knowledge.Retrieval;
+
+using OrizonAgents.Infrastructure.Knowledge.Retrieval;
+
 namespace OrizonAgents.Infrastructure;
 
 public static class DependencyInjection
@@ -65,6 +83,12 @@ public static class DependencyInjection
         services.AddScoped<IAgentModelDecisionParser, AgentModelDecisionParser>();
         services.AddScoped<IAgentToolCatalog, AgentToolCatalog>();
         services.AddScoped<IAgentToolService, AgentToolService>();
+        services.AddScoped<IKnowledgeFileStorage, LocalKnowledgeFileStorage>();
+        services.AddScoped<IKnowledgeDocumentExtractor, PlainTextDocumentExtractor>();
+        services.AddScoped<IKnowledgeTextChunker, KnowledgeTextChunker>();
+        services.AddScoped<IKnowledgeDocumentProcessor, KnowledgeDocumentProcessor>();
+        services.AddScoped<IKnowledgeService, KnowledgeService>();
+        services.AddScoped<IKnowledgeRetriever, KnowledgeRetriever>();
         services.AddHttpClient<IAiChatProvider, GroqChatProvider>(client =>
         {
             client.BaseAddress = new Uri("https://api.groq.com/");

@@ -132,6 +132,14 @@
                         <span class="admin-nav__text">Agentes de IA</span>
                     </a>
 
+                    <a class="@Active("Knowledge")"
+                       asp-controller="Knowledge"
+                       asp-action="Index"
+                       title="Conhecimento">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconAgent")</span>
+                        <span class="admin-nav__text">Conhecimento</span>
+                    </a>
+
                     <a class="@Active("Tools")"
                        asp-controller="Tools"
                        asp-action="Index"
