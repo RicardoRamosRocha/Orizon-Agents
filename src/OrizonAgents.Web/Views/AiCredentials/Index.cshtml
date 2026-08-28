@@ -1,0 +1,127 @@
+﻿@model OrizonAgents.Web.Models.AiCredentials.AiCredentialsIndexViewModel
+
+@{
+    ViewData["Title"] = "Credenciais de IA";
+}
+
+<div class="admin-page">
+    <div class="admin-page-header">
+        <div>
+            <span class="admin-eyebrow">Inteligência Artificial</span>
+            <h1>Credenciais de IA</h1>
+            <p>
+                Configure as chaves dos provedores utilizados pelos seus agentes.
+                As credenciais são protegidas antes de serem armazenadas.
+            </p>
+        </div>
+    </div>
+
+    @if (TempData["StatusMessage"] is string statusMessage)
+    {
+        <div class="alert alert-success">
+            @statusMessage
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] is string errorMessage)
+    {
+        <div class="alert alert-danger">
+            @errorMessage
+        </div>
+    }
+
+    <div class="admin-grid">
+        @foreach (var provider in Model.Providers)
+        {
+            <section class="admin-card">
+                <div class="admin-card-header">
+                    <div>
+                        <span class="admin-eyebrow">Provedor</span>
+                        <h2>@provider.ProviderName</h2>
+                    </div>
+
+                    @if (provider.IsConfigured)
+                    {
+                        <span class="badge bg-success">
+                            Configurada
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">
+                            Não configurada
+                        </span>
+                    }
+                </div>
+
+                <p>
+                    @if (provider.IsConfigured)
+                    {
+                        <text>
+                            Existe uma credencial ativa para este provedor.
+                            A chave armazenada nunca é exibida novamente.
+                        </text>
+                    }
+                    else
+                    {
+                        <text>
+                            Informe uma chave de API para habilitar este
+                            provedor nos agentes da organização.
+                        </text>
+                    }
+                </p>
+
+                <form asp-controller="AiCredentials"
+                      asp-action="Save"
+                      method="post">
+
+                    @Html.AntiForgeryToken()
+
+                    <input type="hidden"
+                           name="provider"
+                           value="@provider.Provider" />
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            Chave de API
+                        </label>
+
+                        <input type="password"
+                               name="apiKey"
+                               class="form-control"
+                               autocomplete="new-password"
+                               placeholder="Cole a chave do provedor"
+                               required />
+                    </div>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+                        @(provider.IsConfigured
+                            ? "Substituir credencial"
+                            : "Salvar credencial")
+                    </button>
+                </form>
+
+                @if (provider.IsConfigured)
+                {
+                    <form asp-controller="AiCredentials"
+                          asp-action="Remove"
+                          method="post"
+                          class="mt-3">
+
+                        @Html.AntiForgeryToken()
+
+                        <input type="hidden"
+                               name="provider"
+                               value="@provider.Provider" />
+
+                        <button type="submit"
+                                class="btn btn-outline-danger">
+                            Remover credencial
+                        </button>
+                    </form>
+                }
+            </section>
+        }
+    </div>
+</div>

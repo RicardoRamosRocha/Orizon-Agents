@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Antiforgery;
+using OrizonAgents.Application.Agents.Models;
+using OrizonAgents.Application.Agents.Credentials;
+using OrizonAgents.Infrastructure.Agents.Credentials;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -100,6 +103,12 @@ public static class DependencyInjection
             client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
             client.Timeout = TimeSpan.FromSeconds(60);
         });
+        services.AddHttpClient<IAiProviderModelCatalog, GeminiModelCatalog>(client =>
+        {
+            client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
+            client.Timeout = TimeSpan.FromSeconds(60);
+        });
+
         services.AddScoped<IApiCredentialService, ApiCredentialService>();
         services.AddScoped<ITenantUserService, TenantUserService>();
         services.AddScoped<IDashboardQueryService, DashboardQueryService>();
@@ -107,6 +116,8 @@ public static class DependencyInjection
         services.AddScoped<IBillingService, BillingService>();
         services.AddScoped<IEntitlementService, EntitlementService>();
         services.AddScoped<IBillingCycleProcessor, BillingCycleProcessor>();
+        services.AddScoped<IAiProviderCredentialService, AiProviderCredentialService>();
+        services.AddScoped<IAiProviderCredentialProtector, DataProtectionAiProviderCredentialProtector>();
         services.AddScoped<IWhatsAppTokenProtector, DataProtectionWhatsAppTokenProtector>();
         services.AddScoped<IWhatsAppConnectionService, WhatsAppService>();
         services.AddScoped<IWhatsAppMessagingService, WhatsAppService>();
@@ -190,6 +201,3 @@ public static class DependencyInjection
         return services;
     }
 }
-
-
-

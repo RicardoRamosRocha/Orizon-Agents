@@ -1,8 +1,8 @@
-﻿@using System.Security.Claims
+@using System.Security.Claims
 @{
     string title = ViewData["Title"]?.ToString() ?? "Orizon Agents";
-    string currentSection = ViewData["Section"]?.ToString() ?? "Administração";
-    string fullName = User.FindFirstValue(OrizonClaimTypes.FullName) ?? User.Identity?.Name ?? "Usuário";
+    string currentSection = ViewData["Section"]?.ToString() ?? "AdministraÃ§Ã£o";
+    string fullName = User.FindFirstValue(OrizonClaimTypes.FullName) ?? User.Identity?.Name ?? "UsuÃ¡rio";
     string initial = string.IsNullOrWhiteSpace(fullName) ? "U" : fullName[..1].ToUpperInvariant();
     bool isPlatformAdmin = User.IsInRole(OrizonRoles.PlatformAdmin);
     bool isTenantAdmin = User.IsInRole(OrizonRoles.TenantAdmin);
@@ -57,7 +57,7 @@
                     id="sidebarToggle"
                     aria-label="Recolher menu"
                     title="Recolher menu">
-                ‹
+                â€¹
             </button>
 
         </div>
@@ -72,17 +72,17 @@
                     <a class="@Active("PlatformDashboard")"
                        asp-controller="PlatformDashboard"
                        asp-action="Index"
-                       title="Visão da plataforma">
+                       title="VisÃ£o da plataforma">
                         <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
-                        <span class="admin-nav__text">Visão da plataforma</span>
+                        <span class="admin-nav__text">VisÃ£o da plataforma</span>
                     </a>
 
                     <a class="@Active("PlatformTenants")"
                        asp-controller="PlatformTenants"
                        asp-action="Index"
-                       title="Organizações">
+                       title="OrganizaÃ§Ãµes">
                         <span class="admin-icon">@await Html.PartialAsync("_IconUsers")</span>
-                        <span class="admin-nav__text">Organizações</span>
+                        <span class="admin-nav__text">OrganizaÃ§Ãµes</span>
                     </a>
 
                     <a class="@Active("PlatformPlans")"
@@ -119,9 +119,9 @@
                     <a class="@Active("AdminDashboard")"
                        asp-controller="AdminDashboard"
                        asp-action="Index"
-                       title="Visão geral">
+                       title="VisÃ£o geral">
                         <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
-                        <span class="admin-nav__text">Visão geral</span>
+                        <span class="admin-nav__text">VisÃ£o geral</span>
                     </a>
 
                     <a class="@Active("Agents")"
@@ -138,6 +138,14 @@
                        title="Conhecimento">
                         <span class="admin-icon">@await Html.PartialAsync("_IconAgent")</span>
                         <span class="admin-nav__text">Conhecimento</span>
+                    </a>
+
+                    <a class="@Active("AiCredentials")"
+                       asp-controller="AiCredentials"
+                       asp-action="Index"
+                       title="Credenciais de IA">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconAgent")</span>
+                        <span class="admin-nav__text">Credenciais de IA</span>
                     </a>
 
                     <a class="@Active("Tools")"
@@ -158,22 +166,22 @@
                 </div>
 
                 <div class="admin-nav__group">
-                    <span class="admin-nav__label">GESTÃO</span>
+                    <span class="admin-nav__label">GESTÃƒO</span>
 
                     <a class="@Active("TenantUsers")"
                        asp-controller="TenantUsers"
                        asp-action="Index"
-                       title="Usuários">
+                       title="UsuÃ¡rios">
                         <span class="admin-icon">@await Html.PartialAsync("_IconUsers")</span>
-                        <span class="admin-nav__text">Usuários</span>
+                        <span class="admin-nav__text">UsuÃ¡rios</span>
                     </a>
 
                     <a class="@Active("Organization")"
                        asp-controller="Organization"
                        asp-action="Index"
-                       title="Organização">
+                       title="OrganizaÃ§Ã£o">
                         <span class="admin-icon">@await Html.PartialAsync("_IconHome")</span>
-                        <span class="admin-nav__text">Organização</span>
+                        <span class="admin-nav__text">OrganizaÃ§Ã£o</span>
                     </a>
 
                     <a class="@Active("Billing")"
@@ -188,7 +196,7 @@
             else if (!isPlatformAdmin)
             {
                 <div class="admin-nav__group">
-                    <span class="admin-nav__label">GESTÃO</span>
+                    <span class="admin-nav__label">GESTÃƒO</span>
 
                     <a class="@Active("Billing")"
                        asp-controller="Billing"
@@ -201,7 +209,7 @@
                        asp-controller="Organization"
                        asp-action="Index">
                         <span class="admin-icon">@await Html.PartialAsync("_IconHome")</span>
-                        <span class="admin-nav__text">Organização</span>
+                        <span class="admin-nav__text">OrganizaÃ§Ã£o</span>
                     </a>
                 </div>
             }
@@ -212,9 +220,9 @@
                 <a class="@Active("Home")"
                    asp-controller="Home"
                    asp-action="Welcome"
-                   title="Início">
+                   title="InÃ­cio">
                     <span class="admin-icon">@await Html.PartialAsync("_IconHome")</span>
-                    <span class="admin-nav__text">Início</span>
+                    <span class="admin-nav__text">InÃ­cio</span>
                 </a>
 
                 <a class="@Active("MyAccount")"
@@ -241,7 +249,7 @@
                     <small>
                         @(isPlatformAdmin ? "Administrador da plataforma" :
                           isTenantAdmin ? "Administrador" :
-                          "Usuário")
+                          "UsuÃ¡rio")
                     </small>
                 </div>
 
@@ -310,7 +318,7 @@
 
     if (collapsed) {
         layout.classList.add("admin-layout--collapsed");
-        toggle.textContent = "›";
+        toggle.textContent = "â€º";
     }
 
     toggle.addEventListener("click", () => {
@@ -318,7 +326,7 @@
             layout.classList.toggle("admin-layout--collapsed");
 
         localStorage.setItem(storageKey, isCollapsed.toString());
-        toggle.textContent = isCollapsed ? "›" : "‹";
+        toggle.textContent = isCollapsed ? "â€º" : "â€¹";
     });
 })();
 </script>

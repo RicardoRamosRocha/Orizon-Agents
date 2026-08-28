@@ -1,8 +1,9 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using OrizonAgents.Application.Common.Tenancy;
 using OrizonAgents.Domain.Agents;
+using OrizonAgents.Domain.Agents.Credentials;
 using OrizonAgents.Domain.Billing;
 using OrizonAgents.Domain.Common;
 using OrizonAgents.Domain.Integrations;
@@ -27,6 +28,8 @@ public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, A
     }
 
     public DbSet<AiAgent> AiAgents => Set<AiAgent>();
+
+    public DbSet<AiProviderCredential> AiProviderCredentials => Set<AiProviderCredential>();
 
     public DbSet<AgentTool> AgentTools => Set<AgentTool>();
 
@@ -133,5 +136,3 @@ public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, A
         return entity => !_currentTenant.HasTenant || entity.TenantId == _currentTenant.TenantId;
     }
 }
-
-

@@ -2,6 +2,8 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using OrizonAgents.Application.Agents.Execution;
+using OrizonAgents.Application.Agents.Credentials;
+using OrizonAgents.Domain.Agents;
 using OrizonAgents.Application.Agents.Execution.Models;
 
 namespace OrizonAgents.Infrastructure.Agents.Execution;
@@ -10,13 +12,16 @@ public sealed class GeminiChatProvider : IAiChatProvider
 {
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
+    private readonly IAiProviderCredentialService _credentialService;
 
     public GeminiChatProvider(
         HttpClient httpClient,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IAiProviderCredentialService credentialService)
     {
         _httpClient = httpClient;
         _configuration = configuration;
+        _credentialService = credentialService;
     }
 
     public string ProviderName => "GoogleGemini";
@@ -30,19 +35,28 @@ public sealed class GeminiChatProvider : IAiChatProvider
         string? operationalContext = null,
         CancellationToken cancellationToken = default)
     {
-        string apiKey =
+        string? apiKey =
+            await _credentialService.ResolveAsync(
+                AiProvider.GoogleGemini,
+                cancellationToken);
+
+        apiKey ??=
             _configuration["GEMINI_API_KEY"]
-            ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY")
-            ?? throw new InvalidOperationException(
-                "A chave GEMINI_API_KEY não está configurada.");
+            ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new InvalidOperationException(
+                "Nenhuma credencial do Google Gemini está configurada para este tenant.");
+        }
 
         string effectiveSystemPrompt = systemPrompt;
 
         if (!string.IsNullOrWhiteSpace(operationalContext))
         {
             effectiveSystemPrompt +=
-                "\n\nContexto operacional fornecido pela aplicação consumidora " +
-                "para esta execução:\n" +
+                "\n\nContexto operacional fornecido pela aplicaÃƒÂ§ÃƒÂ£o consumidora " +
+                "para esta execuÃƒÂ§ÃƒÂ£o:\n" +
                 operationalContext;
         }
 
@@ -131,7 +145,7 @@ public sealed class GeminiChatProvider : IAiChatProvider
             candidates.GetArrayLength() == 0)
         {
             throw new InvalidOperationException(
-                "O Gemini não retornou nenhuma resposta.");
+                "O Gemini nÃƒÂ£o retornou nenhuma resposta.");
         }
 
         JsonElement parts = candidates[0]
