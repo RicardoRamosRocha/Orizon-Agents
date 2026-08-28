@@ -11,6 +11,7 @@ using OrizonAgents.Application.Common.Security;
 using OrizonAgents.Application.Tools;
 using OrizonAgents.Application.Knowledge;
 using OrizonAgents.Web.Models.Agents;
+using OrizonAgents.Domain.Agents;
 
 namespace OrizonAgents.Web.Controllers;
 
@@ -23,19 +24,22 @@ public sealed class AgentsController : Controller
     private readonly IAiConversationService _aiConversationService;
     private readonly IAgentToolService _agentToolService;
     private readonly IKnowledgeService _knowledgeService;
+    private readonly IAiProviderModelCatalog _modelCatalog;
 
     public AgentsController(
         IAiAgentService aiAgentService,
         IAiAgentRunner aiAgentRunner,
         IAiConversationService aiConversationService,
         IAgentToolService agentToolService,
-        IKnowledgeService knowledgeService)
+        IKnowledgeService knowledgeService,
+        IAiProviderModelCatalog modelCatalog)
     {
         _aiAgentService = aiAgentService;
         _aiAgentRunner = aiAgentRunner;
         _aiConversationService = aiConversationService;
         _agentToolService = agentToolService;
         _knowledgeService = knowledgeService;
+        _modelCatalog = modelCatalog;
     }
 
     [HttpGet("")]
@@ -45,6 +49,29 @@ public sealed class AgentsController : Controller
             await _aiAgentService.ListAsync(cancellationToken);
 
         return View(agents);
+    }
+
+    [HttpGet("modelos")]
+    public async Task<IActionResult> Models(
+        AiProvider provider,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            IReadOnlyList<AiProviderModel> models =
+                await _modelCatalog.ListAsync(
+                    provider,
+                    cancellationToken);
+
+            return Json(models);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new
+            {
+                error = exception.Message
+            });
+        }
     }
 
     [HttpGet("novo")]
@@ -61,6 +88,44 @@ public sealed class AgentsController : Controller
     {
         if (!ModelState.IsValid)
         {
+            return View(form);
+        }
+
+        if (!Enum.TryParse<AiProvider>(
+                form.Provider,
+                ignoreCase: true,
+                out AiProvider provider))
+        {
+            ModelState.AddModelError(
+                nameof(form.Provider),
+                "Provedor de IA inválido.");
+
+            return View(form);
+        }
+
+        try
+        {
+            bool validModel =
+                await _modelCatalog.IsValidAsync(
+                    provider,
+                    form.Model,
+                    cancellationToken);
+
+            if (!validModel)
+            {
+                ModelState.AddModelError(
+                    nameof(form.Model),
+                    "O modelo selecionado não é válido para este provedor.");
+
+                return View(form);
+            }
+        }
+        catch (InvalidOperationException exception)
+        {
+            ModelState.AddModelError(
+                nameof(form.Model),
+                exception.Message);
+
             return View(form);
         }
 
@@ -125,6 +190,44 @@ public sealed class AgentsController : Controller
 
         if (!ModelState.IsValid)
         {
+            return View(form);
+        }
+
+        if (!Enum.TryParse<AiProvider>(
+                form.Provider,
+                ignoreCase: true,
+                out AiProvider provider))
+        {
+            ModelState.AddModelError(
+                nameof(form.Provider),
+                "Provedor de IA inválido.");
+
+            return View(form);
+        }
+
+        try
+        {
+            bool validModel =
+                await _modelCatalog.IsValidAsync(
+                    provider,
+                    form.Model,
+                    cancellationToken);
+
+            if (!validModel)
+            {
+                ModelState.AddModelError(
+                    nameof(form.Model),
+                    "O modelo selecionado não é válido para este provedor.");
+
+                return View(form);
+            }
+        }
+        catch (InvalidOperationException exception)
+        {
+            ModelState.AddModelError(
+                nameof(form.Model),
+                exception.Message);
+
             return View(form);
         }
 

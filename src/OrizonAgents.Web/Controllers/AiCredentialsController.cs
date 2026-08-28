@@ -35,7 +35,7 @@ public sealed class AiCredentialsController : Controller
         CancellationToken cancellationToken)
     {
         var models =
-            await _modelCatalog.ListAsync(cancellationToken);
+            await _modelCatalog.ListAsync(AiProvider.GoogleGemini, cancellationToken);
 
         return Json(models);
     }

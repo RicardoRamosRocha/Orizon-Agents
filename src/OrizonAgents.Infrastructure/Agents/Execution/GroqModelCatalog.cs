@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+using System.Net.Http.Headers;
+using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using OrizonAgents.Application.Agents.Credentials;
 using OrizonAgents.Application.Agents.Models;
@@ -6,13 +7,13 @@ using OrizonAgents.Domain.Agents;
 
 namespace OrizonAgents.Infrastructure.Agents.Execution;
 
-public sealed class GeminiModelCatalog : IAiProviderModelCatalog
+public sealed class GroqModelCatalog : IAiProviderModelCatalog
 {
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
     private readonly IAiProviderCredentialService _credentialService;
 
-    public GeminiModelCatalog(
+    public GroqModelCatalog(
         HttpClient httpClient,
         IConfiguration configuration,
         IAiProviderCredentialService credentialService)
@@ -26,31 +27,35 @@ public sealed class GeminiModelCatalog : IAiProviderModelCatalog
         AiProvider provider,
         CancellationToken cancellationToken = default)
     {
-        if (provider != AiProvider.GoogleGemini)
+        if (provider != AiProvider.Groq)
         {
             return Array.Empty<AiProviderModel>();
         }
 
         string? apiKey =
             await _credentialService.ResolveAsync(
-                AiProvider.GoogleGemini,
+                AiProvider.Groq,
                 cancellationToken);
 
         apiKey ??=
-            _configuration["GEMINI_API_KEY"]
-            ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+            _configuration["GROQ_API_KEY"]
+            ?? Environment.GetEnvironmentVariable("GROQ_API_KEY");
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             throw new InvalidOperationException(
-                "Nenhuma credencial do Google Gemini está configurada para este tenant.");
+                "Nenhuma credencial da Groq está configurada para este tenant.");
         }
 
-        using var request = new HttpRequestMessage(
-            HttpMethod.Get,
-            "v1beta/models");
+        using var request =
+            new HttpRequestMessage(
+                HttpMethod.Get,
+                "openai/v1/models");
 
-        request.Headers.Add("x-goog-api-key", apiKey);
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue(
+                "Bearer",
+                apiKey);
 
         using HttpResponseMessage response =
             await _httpClient.SendAsync(
@@ -64,58 +69,33 @@ public sealed class GeminiModelCatalog : IAiProviderModelCatalog
         if (!response.IsSuccessStatusCode)
         {
             throw new InvalidOperationException(
-                $"Gemini retornou {(int)response.StatusCode} ao consultar modelos: {responseBody}");
+                $"Groq retornou {(int)response.StatusCode} ao consultar modelos: {responseBody}");
         }
 
         using JsonDocument document =
             JsonDocument.Parse(responseBody);
 
         if (!document.RootElement.TryGetProperty(
-                "models",
+                "data",
                 out JsonElement models))
         {
             return Array.Empty<AiProviderModel>();
         }
 
-        var result = new List<AiProviderModel>();
-
-        foreach (JsonElement model in models.EnumerateArray())
-        {
-            if (!SupportsGenerateContent(model))
-            {
-                continue;
-            }
-
-            string? name =
-                model.TryGetProperty("name", out JsonElement nameElement)
-                    ? nameElement.GetString()
-                    : null;
-
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                continue;
-            }
-
-            string id = name.StartsWith(
-                "models/",
-                StringComparison.OrdinalIgnoreCase)
-                    ? name["models/".Length..]
-                    : name;
-
-            string displayName =
+        return models
+            .EnumerateArray()
+            .Select(model =>
                 model.TryGetProperty(
-                    "displayName",
-                    out JsonElement displayNameElement)
-                    ? displayNameElement.GetString() ?? id
-                    : id;
-
-            result.Add(
+                    "id",
+                    out JsonElement idElement)
+                    ? idElement.GetString()
+                    : null)
+            .Where(id =>
+                !string.IsNullOrWhiteSpace(id))
+            .Select(id =>
                 new AiProviderModel(
-                    id,
-                    displayName));
-        }
-
-        return result
+                    id!,
+                    id!))
             .OrderBy(model => model.DisplayName)
             .ToArray();
     }
@@ -125,38 +105,21 @@ public sealed class GeminiModelCatalog : IAiProviderModelCatalog
         string model,
         CancellationToken cancellationToken = default)
     {
-        if (provider != AiProvider.GoogleGemini ||
+        if (provider != AiProvider.Groq ||
             string.IsNullOrWhiteSpace(model))
         {
             return false;
         }
 
         IReadOnlyList<AiProviderModel> models =
-            await ListAsync(provider, cancellationToken);
+            await ListAsync(
+                provider,
+                cancellationToken);
 
         return models.Any(item =>
             string.Equals(
                 item.Id,
                 model.Trim(),
                 StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static bool SupportsGenerateContent(
-        JsonElement model)
-    {
-        if (!model.TryGetProperty(
-                "supportedGenerationMethods",
-                out JsonElement methods))
-        {
-            return false;
-        }
-
-        return methods
-            .EnumerateArray()
-            .Any(method =>
-                string.Equals(
-                    method.GetString(),
-                    "generateContent",
-                    StringComparison.OrdinalIgnoreCase));
     }
 }

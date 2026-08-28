@@ -65,7 +65,20 @@
 
                 <div class="col-md-6 mb-3">
                     <label asp-for="Model" class="form-label"></label>
-                    <input asp-for="Model" class="form-control" />
+
+                    <select asp-for="Model"
+                            class="form-select"
+                            data-current-model="@Model.Model">
+                        <option value="@Model.Model">@Model.Model</option>
+                    </select>
+
+                    <div id="modelHelp"
+                         class="form-text">
+                        Os modelos disponíveis dependem do provedor selecionado.
+                    </div>
+
+                    <span asp-validation-for="Model"
+                          class="text-danger"></span>
                 </div>
 
                 <div class="col-md-6 mb-3">
@@ -92,3 +105,90 @@
     </form>
 </div>
 
+
+@section Scripts {
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const providerSelect = document.getElementById("Provider");
+    const modelSelect = document.getElementById("Model");
+    const modelHelp = document.getElementById("modelHelp");
+
+    if (!providerSelect || !modelSelect) {
+        return;
+    }
+
+    const initialModel = modelSelect.dataset.currentModel || "";
+
+    async function loadModels(preserveCurrent) {
+        const provider = providerSelect.value;
+
+        modelSelect.disabled = true;
+        modelHelp.textContent = "Carregando modelos disponíveis...";
+
+        try {
+            const response = await fetch(
+                `/agentes/modelos?provider=${encodeURIComponent(provider)}`,
+                {
+                    headers: {
+                        "Accept": "application/json"
+                    }
+                });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Não foi possível carregar os modelos.");
+            }
+
+            modelSelect.innerHTML = "";
+
+            if (!Array.isArray(data) || data.length === 0) {
+                const option = document.createElement("option");
+                option.value = "";
+                option.textContent = "Nenhum modelo disponível";
+                modelSelect.appendChild(option);
+
+                modelHelp.textContent =
+                    "Não há modelos disponíveis para este provedor.";
+                return;
+            }
+
+            for (const item of data) {
+                const option = document.createElement("option");
+                option.value = item.id;
+                option.textContent = item.displayName || item.id;
+                modelSelect.appendChild(option);
+            }
+
+            if (preserveCurrent &&
+                initialModel &&
+                data.some(item => item.id === initialModel)) {
+                modelSelect.value = initialModel;
+            }
+
+            modelHelp.textContent =
+                `${data.length} modelo(s) disponível(is) para este provedor.`;
+        }
+        catch (error) {
+            modelSelect.innerHTML = "";
+
+            const option = document.createElement("option");
+            option.value = "";
+            option.textContent = "Modelos indisponíveis";
+            modelSelect.appendChild(option);
+
+            modelHelp.textContent = error.message;
+        }
+        finally {
+            modelSelect.disabled = false;
+        }
+    }
+
+    providerSelect.addEventListener("change", function () {
+        loadModels(false);
+    });
+
+    loadModels(true);
+});
+</script>
+}

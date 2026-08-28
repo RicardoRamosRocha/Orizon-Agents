@@ -152,8 +152,41 @@
                               class="text-danger"></span>
                     </div>
 
-                    <input type="hidden" asp-for="Provider" />
-                    <input type="hidden" asp-for="Model" />
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label asp-for="Provider"
+                                   class="form-label fw-semibold"></label>
+
+                            <select asp-for="Provider"
+                                    class="form-select">
+                                <option value="GoogleGemini">Google Gemini</option>
+                                <option value="Groq">Groq</option>
+                            </select>
+
+                            <span asp-validation-for="Provider"
+                                  class="text-danger"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="Model"
+                                   class="form-label fw-semibold"></label>
+
+                            <select asp-for="Model"
+                                    class="form-select"
+                                    data-current-model="@Model.Model">
+                                <option value="">Carregando modelos...</option>
+                            </select>
+
+                            <div id="modelHelp"
+                                 class="form-text">
+                                Os modelos disponíveis dependem do provedor.
+                            </div>
+
+                            <span asp-validation-for="Model"
+                                  class="text-danger"></span>
+                        </div>
+                    </div>
+
                     <input type="hidden" asp-for="Temperature" />
 
                     <div class="d-flex gap-2">
@@ -267,6 +300,80 @@ Mantenha um tom cordial, simples e eficiente.`
             prompt: ""
         }
     };
+
+    const providerSelect = document.getElementById("Provider");
+    const modelSelect = document.getElementById("Model");
+    const modelHelp = document.getElementById("modelHelp");
+    const initialModel = modelSelect?.dataset.currentModel || "";
+
+    async function loadModels(preserveCurrent) {
+        if (!providerSelect || !modelSelect) {
+            return;
+        }
+
+        modelSelect.disabled = true;
+        modelHelp.textContent = "Carregando modelos disponíveis...";
+
+        try {
+            const response = await fetch(
+                `/agentes/modelos?provider=${encodeURIComponent(providerSelect.value)}`,
+                { headers: { "Accept": "application/json" } });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error || "Não foi possível carregar os modelos.");
+            }
+
+            modelSelect.innerHTML = "";
+
+            if (!Array.isArray(data) || data.length === 0) {
+                const option = document.createElement("option");
+                option.value = "";
+                option.textContent = "Nenhum modelo disponível";
+                modelSelect.appendChild(option);
+                modelHelp.textContent =
+                    "Não há modelos disponíveis para este provedor.";
+                return;
+            }
+
+            for (const item of data) {
+                const option = document.createElement("option");
+                option.value = item.id;
+                option.textContent = item.displayName || item.id;
+                modelSelect.appendChild(option);
+            }
+
+            if (preserveCurrent &&
+                initialModel &&
+                data.some(item => item.id === initialModel)) {
+                modelSelect.value = initialModel;
+            }
+
+            modelHelp.textContent =
+                `${data.length} modelo(s) disponível(is).`;
+        }
+        catch (error) {
+            modelSelect.innerHTML = "";
+
+            const option = document.createElement("option");
+            option.value = "";
+            option.textContent = "Modelos indisponíveis";
+            modelSelect.appendChild(option);
+
+            modelHelp.textContent = error.message;
+        }
+        finally {
+            modelSelect.disabled = false;
+        }
+    }
+
+    providerSelect?.addEventListener("change", function () {
+        loadModels(false);
+    });
+
+    loadModels(true);
 
     const nameInput = document.getElementById("Name");
     const descriptionInput = document.getElementById("Description");
