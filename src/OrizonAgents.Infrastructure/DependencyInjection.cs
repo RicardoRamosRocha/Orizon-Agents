@@ -92,17 +92,23 @@ public static class DependencyInjection
         services.AddScoped<IKnowledgeDocumentProcessor, KnowledgeDocumentProcessor>();
         services.AddScoped<IKnowledgeService, KnowledgeService>();
         services.AddScoped<IKnowledgeRetriever, KnowledgeRetriever>();
-        services.AddHttpClient<IAiChatProvider, GroqChatProvider>(client =>
+        services.AddHttpClient<GroqChatProvider>(client =>
         {
             client.BaseAddress = new Uri("https://api.groq.com/");
             client.Timeout = TimeSpan.FromSeconds(60);
         });
 
-        services.AddHttpClient<IAiChatProvider, GeminiChatProvider>(client =>
+        services.AddHttpClient<GeminiChatProvider>(client =>
         {
             client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
             client.Timeout = TimeSpan.FromSeconds(60);
         });
+
+        services.AddScoped<IAiChatProvider>(provider =>
+            provider.GetRequiredService<GroqChatProvider>());
+
+        services.AddScoped<IAiChatProvider>(provider =>
+            provider.GetRequiredService<GeminiChatProvider>());
         services.AddHttpClient<GeminiModelCatalog>(client =>
         {
             client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");

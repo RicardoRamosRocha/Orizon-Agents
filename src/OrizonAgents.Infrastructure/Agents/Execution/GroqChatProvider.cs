@@ -1,8 +1,10 @@
-﻿using System.Net.Http.Headers;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using OrizonAgents.Application.Agents.Execution;
+using OrizonAgents.Application.Agents.Credentials;
+using OrizonAgents.Domain.Agents;
 using OrizonAgents.Application.Agents.Execution.Models;
 
 namespace OrizonAgents.Infrastructure.Agents.Execution;
@@ -11,13 +13,16 @@ public sealed class GroqChatProvider : IAiChatProvider
 {
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
+    private readonly IAiProviderCredentialService _credentialService;
 
     public GroqChatProvider(
         HttpClient httpClient,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IAiProviderCredentialService credentialService)
     {
         _httpClient = httpClient;
         _configuration = configuration;
+        _credentialService = credentialService;
     }
 
     public string ProviderName => "Groq";
@@ -35,7 +40,7 @@ public sealed class GroqChatProvider : IAiChatProvider
             _configuration["GROQ_API_KEY"]
             ?? Environment.GetEnvironmentVariable("GROQ_API_KEY")
             ?? throw new InvalidOperationException(
-                "A chave GROQ_API_KEY não está configurada.");
+                "A chave GROQ_API_KEY nÃ£o estÃ¡ configurada.");
 
         var messages = new List<object>
         {
@@ -52,7 +57,7 @@ public sealed class GroqChatProvider : IAiChatProvider
             {
                 role = "system",
                 content =
-                    "Contexto operacional fornecido pela aplicação consumidora para esta execução:\n" +
+                    "Contexto operacional fornecido pela aplicaÃ§Ã£o consumidora para esta execuÃ§Ã£o:\n" +
                     operationalContext
             });
         }
@@ -107,7 +112,7 @@ public sealed class GroqChatProvider : IAiChatProvider
         if (!response.IsSuccessStatusCode)
         {
             throw new InvalidOperationException(
-                $"Groq retornou {(int)response.StatusCode}: {responseBody}");
+                $"Groq retornou {(int)response.StatusCode} em {request.RequestUri}: {responseBody}");
         }
 
         using JsonDocument document =
@@ -119,7 +124,7 @@ public sealed class GroqChatProvider : IAiChatProvider
         if (choices.GetArrayLength() == 0)
         {
             throw new InvalidOperationException(
-                "A Groq não retornou nenhuma resposta.");
+                "A Groq nÃ£o retornou nenhuma resposta.");
         }
 
         string? content = choices[0]
