@@ -88,6 +88,7 @@ public static class DependencyInjection
         services.AddScoped<IAgentToolService, AgentToolService>();
         services.AddScoped<IKnowledgeFileStorage, LocalKnowledgeFileStorage>();
         services.AddScoped<IKnowledgeDocumentExtractor, PlainTextDocumentExtractor>();
+        services.AddScoped<IKnowledgeDocumentExtractor, PdfDocumentExtractor>();
         services.AddScoped<IKnowledgeTextChunker, KnowledgeTextChunker>();
         services.AddScoped<IKnowledgeDocumentProcessor, KnowledgeDocumentProcessor>();
         services.AddScoped<IKnowledgeService, KnowledgeService>();

@@ -19,7 +19,8 @@ public sealed class KnowledgeService : IKnowledgeService
         {
             ".txt",
             ".md",
-            ".markdown"
+            ".markdown",
+            ".pdf"
         };
 
     private readonly OrizonAgentsDbContext _dbContext;
@@ -147,7 +148,7 @@ public sealed class KnowledgeService : IKnowledgeService
         if (!SupportedExtensions.Contains(extension))
         {
             return OperationResult<Guid>.Failure(
-                "Formato não suportado. Utilize TXT ou Markdown.");
+                "Formato não suportado. Utilize TXT, Markdown ou PDF.");
         }
 
         KnowledgeBase? knowledgeBase =
@@ -388,6 +389,13 @@ public sealed class KnowledgeService : IKnowledgeService
                 StringComparison.OrdinalIgnoreCase))
         {
             return contentType.Trim();
+        }
+
+        if (extension.Equals(
+                ".pdf",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return "application/pdf";
         }
 
         return extension.Equals(
