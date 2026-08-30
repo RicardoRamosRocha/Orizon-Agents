@@ -1,4 +1,4 @@
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using OrizonAgents.Application.Agents.Credentials;
@@ -7,7 +7,7 @@ using OrizonAgents.Domain.Agents;
 
 namespace OrizonAgents.Infrastructure.Agents.Execution;
 
-public sealed class GroqModelCatalog : IAiProviderModelCatalog
+public sealed class GroqModelCatalog : IAiProviderSpecificModelCatalog
 {
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
@@ -23,14 +23,11 @@ public sealed class GroqModelCatalog : IAiProviderModelCatalog
         _credentialService = credentialService;
     }
 
+    public AiProvider Provider => AiProvider.Groq;
+
     public async Task<IReadOnlyList<AiProviderModel>> ListAsync(
-        AiProvider provider,
         CancellationToken cancellationToken = default)
     {
-        if (provider != AiProvider.Groq)
-        {
-            return Array.Empty<AiProviderModel>();
-        }
 
         string? apiKey =
             await _credentialService.ResolveAsync(
@@ -44,7 +41,7 @@ public sealed class GroqModelCatalog : IAiProviderModelCatalog
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             throw new InvalidOperationException(
-                "Nenhuma credencial da Groq está configurada para este tenant.");
+                "Nenhuma credencial da Groq estÃ¡ configurada para este tenant.");
         }
 
         using var request =
@@ -98,28 +95,5 @@ public sealed class GroqModelCatalog : IAiProviderModelCatalog
                     id!))
             .OrderBy(model => model.DisplayName)
             .ToArray();
-    }
-
-    public async Task<bool> IsValidAsync(
-        AiProvider provider,
-        string model,
-        CancellationToken cancellationToken = default)
-    {
-        if (provider != AiProvider.Groq ||
-            string.IsNullOrWhiteSpace(model))
-        {
-            return false;
-        }
-
-        IReadOnlyList<AiProviderModel> models =
-            await ListAsync(
-                provider,
-                cancellationToken);
-
-        return models.Any(item =>
-            string.Equals(
-                item.Id,
-                model.Trim(),
-                StringComparison.OrdinalIgnoreCase));
     }
 }

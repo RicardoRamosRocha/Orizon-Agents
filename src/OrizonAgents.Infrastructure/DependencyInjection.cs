@@ -103,11 +103,25 @@ public static class DependencyInjection
             client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
             client.Timeout = TimeSpan.FromSeconds(60);
         });
-        services.AddHttpClient<IAiProviderModelCatalog, GeminiModelCatalog>(client =>
+        services.AddHttpClient<GeminiModelCatalog>(client =>
         {
             client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
             client.Timeout = TimeSpan.FromSeconds(60);
         });
+
+        services.AddHttpClient<GroqModelCatalog>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.groq.com/");
+            client.Timeout = TimeSpan.FromSeconds(60);
+        });
+
+        services.AddScoped<IAiProviderSpecificModelCatalog>(provider =>
+            provider.GetRequiredService<GeminiModelCatalog>());
+
+        services.AddScoped<IAiProviderSpecificModelCatalog>(provider =>
+            provider.GetRequiredService<GroqModelCatalog>());
+
+        services.AddScoped<IAiProviderModelCatalog, AiProviderModelCatalog>();
 
         services.AddScoped<IApiCredentialService, ApiCredentialService>();
         services.AddScoped<ITenantUserService, TenantUserService>();

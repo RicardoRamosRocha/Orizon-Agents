@@ -6,7 +6,7 @@ using OrizonAgents.Domain.Agents;
 
 namespace OrizonAgents.Infrastructure.Agents.Execution;
 
-public sealed class GeminiModelCatalog : IAiProviderModelCatalog
+public sealed class GeminiModelCatalog : IAiProviderSpecificModelCatalog
 {
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
@@ -22,14 +22,11 @@ public sealed class GeminiModelCatalog : IAiProviderModelCatalog
         _credentialService = credentialService;
     }
 
+    public AiProvider Provider => AiProvider.GoogleGemini;
+
     public async Task<IReadOnlyList<AiProviderModel>> ListAsync(
-        AiProvider provider,
         CancellationToken cancellationToken = default)
     {
-        if (provider != AiProvider.GoogleGemini)
-        {
-            return Array.Empty<AiProviderModel>();
-        }
 
         string? apiKey =
             await _credentialService.ResolveAsync(
@@ -120,29 +117,7 @@ public sealed class GeminiModelCatalog : IAiProviderModelCatalog
             .ToArray();
     }
 
-    public async Task<bool> IsValidAsync(
-        AiProvider provider,
-        string model,
-        CancellationToken cancellationToken = default)
-    {
-        if (provider != AiProvider.GoogleGemini ||
-            string.IsNullOrWhiteSpace(model))
-        {
-            return false;
-        }
-
-        IReadOnlyList<AiProviderModel> models =
-            await ListAsync(provider, cancellationToken);
-
-        return models.Any(item =>
-            string.Equals(
-                item.Id,
-                model.Trim(),
-                StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static bool SupportsGenerateContent(
-        JsonElement model)
+    private static bool SupportsGenerateContent(JsonElement model)
     {
         if (!model.TryGetProperty(
                 "supportedGenerationMethods",
