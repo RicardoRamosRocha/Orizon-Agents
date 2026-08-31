@@ -1,8 +1,8 @@
 @using System.Security.Claims
 @{
     string title = ViewData["Title"]?.ToString() ?? "Orizon Agents";
-    string currentSection = ViewData["Section"]?.ToString() ?? "AdministraÃ§Ã£o";
-    string fullName = User.FindFirstValue(OrizonClaimTypes.FullName) ?? User.Identity?.Name ?? "UsuÃ¡rio";
+    string currentSection = ViewData["Section"]?.ToString() ?? "Administração";
+    string fullName = User.FindFirstValue(OrizonClaimTypes.FullName) ?? User.Identity?.Name ?? "Usuário";
     string initial = string.IsNullOrWhiteSpace(fullName) ? "U" : fullName[..1].ToUpperInvariant();
     bool isPlatformAdmin = User.IsInRole(OrizonRoles.PlatformAdmin);
     bool isTenantAdmin = User.IsInRole(OrizonRoles.TenantAdmin);
@@ -35,7 +35,14 @@
 
 <div class="admin-layout" id="adminLayout">
 
-    <aside class="admin-sidebar">
+    <button type="button"
+            class="admin-sidebar-backdrop"
+            id="sidebarBackdrop"
+            aria-label="Fechar menu"
+            aria-hidden="true"
+            tabindex="-1"></button>
+
+    <aside class="admin-sidebar" id="adminSidebar">
 
         <div class="admin-sidebar__top">
 
@@ -57,7 +64,7 @@
                     id="sidebarToggle"
                     aria-label="Recolher menu"
                     title="Recolher menu">
-                â€¹
+                ‹
             </button>
 
         </div>
@@ -72,24 +79,24 @@
                     <a class="@Active("PlatformDashboard")"
                        asp-controller="PlatformDashboard"
                        asp-action="Index"
-                       title="VisÃ£o da plataforma">
+                       title="Visão da plataforma">
                         <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
-                        <span class="admin-nav__text">VisÃ£o da plataforma</span>
+                        <span class="admin-nav__text">Visão da plataforma</span>
                     </a>
 
                     <a class="@Active("PlatformTenants")"
                        asp-controller="PlatformTenants"
                        asp-action="Index"
-                       title="OrganizaÃ§Ãµes">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconUsers")</span>
-                        <span class="admin-nav__text">OrganizaÃ§Ãµes</span>
+                       title="Organizações">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconOrganization")</span>
+                        <span class="admin-nav__text">Organizações</span>
                     </a>
 
                     <a class="@Active("PlatformPlans")"
                        asp-controller="PlatformPlans"
                        asp-action="Index"
                        title="Planos">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        <span class="admin-icon">@await Html.PartialAsync("_IconPlan")</span>
                         <span class="admin-nav__text">Planos</span>
                     </a>
 
@@ -97,7 +104,7 @@
                        asp-controller="PlatformSubscriptions"
                        asp-action="Index"
                        title="Assinaturas">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        <span class="admin-icon">@await Html.PartialAsync("_IconSubscription")</span>
                         <span class="admin-nav__text">Assinaturas</span>
                     </a>
 
@@ -105,7 +112,7 @@
                        asp-controller="PlatformWhatsApp"
                        asp-action="Index"
                        title="WhatsApp">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        <span class="admin-icon">@await Html.PartialAsync("_IconWhatsApp")</span>
                         <span class="admin-nav__text">WhatsApp</span>
                     </a>
                 </div>
@@ -119,9 +126,9 @@
                     <a class="@Active("AdminDashboard")"
                        asp-controller="AdminDashboard"
                        asp-action="Index"
-                       title="VisÃ£o geral">
+                       title="Visão geral">
                         <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
-                        <span class="admin-nav__text">VisÃ£o geral</span>
+                        <span class="admin-nav__text">Visão geral</span>
                     </a>
 
                     <a class="@Active("Agents")"
@@ -136,7 +143,7 @@
                        asp-controller="Knowledge"
                        asp-action="Index"
                        title="Conhecimento">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconAgent")</span>
+                        <span class="admin-icon">@await Html.PartialAsync("_IconKnowledge")</span>
                         <span class="admin-nav__text">Conhecimento</span>
                     </a>
 
@@ -144,51 +151,51 @@
                        asp-controller="AiCredentials"
                        asp-action="Index"
                        title="Credenciais de IA">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconAgent")</span>
+                        <span class="admin-icon">@await Html.PartialAsync("_IconCredential")</span>
                         <span class="admin-nav__text">Credenciais de IA</span>
                     </a>
 
                     <a class="@Active("Tools")"
                        asp-controller="Tools"
                        asp-action="Index"
-                       title="Tools">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconAgent")</span>
-                        <span class="admin-nav__text">Tools</span>
+                       title="Ferramentas">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconTools")</span>
+                        <span class="admin-nav__text">Ferramentas</span>
                     </a>
 
                     <a class="@Active("WhatsApp")"
                        asp-controller="WhatsApp"
                        asp-action="Index"
                        title="WhatsApp">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        <span class="admin-icon">@await Html.PartialAsync("_IconWhatsApp")</span>
                         <span class="admin-nav__text">WhatsApp</span>
                     </a>
                 </div>
 
                 <div class="admin-nav__group">
-                    <span class="admin-nav__label">GESTÃƒO</span>
+                    <span class="admin-nav__label">GESTÃO</span>
 
                     <a class="@Active("TenantUsers")"
                        asp-controller="TenantUsers"
                        asp-action="Index"
-                       title="UsuÃ¡rios">
+                       title="Usuários">
                         <span class="admin-icon">@await Html.PartialAsync("_IconUsers")</span>
-                        <span class="admin-nav__text">UsuÃ¡rios</span>
+                        <span class="admin-nav__text">Usuários</span>
                     </a>
 
                     <a class="@Active("Organization")"
                        asp-controller="Organization"
                        asp-action="Index"
-                       title="OrganizaÃ§Ã£o">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconHome")</span>
-                        <span class="admin-nav__text">OrganizaÃ§Ã£o</span>
+                       title="Organização">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconOrganization")</span>
+                        <span class="admin-nav__text">Organização</span>
                     </a>
 
                     <a class="@Active("Billing")"
                        asp-controller="Billing"
                        asp-action="Index"
                        title="Meu plano">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        <span class="admin-icon">@await Html.PartialAsync("_IconPlan")</span>
                         <span class="admin-nav__text">Meu plano</span>
                     </a>
                 </div>
@@ -196,20 +203,20 @@
             else if (!isPlatformAdmin)
             {
                 <div class="admin-nav__group">
-                    <span class="admin-nav__label">GESTÃƒO</span>
+                    <span class="admin-nav__label">GESTÃO</span>
 
                     <a class="@Active("Billing")"
                        asp-controller="Billing"
                        asp-action="Index">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconDashboard")</span>
+                        <span class="admin-icon">@await Html.PartialAsync("_IconPlan")</span>
                         <span class="admin-nav__text">Meu plano</span>
                     </a>
 
                     <a class="@Active("Organization")"
                        asp-controller="Organization"
                        asp-action="Index">
-                        <span class="admin-icon">@await Html.PartialAsync("_IconHome")</span>
-                        <span class="admin-nav__text">OrganizaÃ§Ã£o</span>
+                        <span class="admin-icon">@await Html.PartialAsync("_IconOrganization")</span>
+                        <span class="admin-nav__text">Organização</span>
                     </a>
                 </div>
             }
@@ -220,9 +227,9 @@
                 <a class="@Active("Home")"
                    asp-controller="Home"
                    asp-action="Welcome"
-                   title="InÃ­cio">
+                   title="Início">
                     <span class="admin-icon">@await Html.PartialAsync("_IconHome")</span>
-                    <span class="admin-nav__text">InÃ­cio</span>
+                    <span class="admin-nav__text">Início</span>
                 </a>
 
                 <a class="@Active("MyAccount")"
@@ -249,7 +256,7 @@
                     <small>
                         @(isPlatformAdmin ? "Administrador da plataforma" :
                           isTenantAdmin ? "Administrador" :
-                          "UsuÃ¡rio")
+                          "Usuário")
                     </small>
                 </div>
 
@@ -263,21 +270,41 @@
 
         <header class="admin-topbar">
 
-            <div>
-                <p class="admin-breadcrumb">
-                    Orizon / @currentSection
-                </p>
+            <div class="admin-topbar__heading">
+                <button type="button"
+                        class="admin-mobile-toggle"
+                        id="mobileNavToggle"
+                        aria-controls="adminSidebar"
+                        aria-expanded="false"
+                        aria-label="Abrir menu">
+                    <span aria-hidden="true"></span>
+                    <span aria-hidden="true"></span>
+                    <span aria-hidden="true"></span>
+                </button>
 
-                <h1>@title</h1>
+                <div>
+                    <p class="admin-breadcrumb">
+                        Orizon / @currentSection
+                    </p>
+
+                    <h1>@title</h1>
+                </div>
             </div>
 
-            <div class="admin-user">
+            <div class="admin-operations" aria-label="Status e conta do usuário">
+
+                <div class="admin-system-status" role="status" aria-label="Sistema operacional">
+                    <span class="admin-system-status__dot" aria-hidden="true"></span>
+                    <span>Sistema operacional</span>
+                </div>
+
+                <div class="admin-user">
 
                 <span class="admin-avatar">
                     @initial
                 </span>
 
-                <span>@fullName</span>
+                <span class="admin-user__name">@fullName</span>
 
                 <form asp-controller="Account"
                       asp-action="Logout"
@@ -289,6 +316,8 @@
                     </button>
 
                 </form>
+
+                </div>
 
             </div>
 
@@ -307,9 +336,14 @@
 <script>
 (() => {
     const layout = document.getElementById("adminLayout");
-    const toggle = document.getElementById("sidebarToggle");
+    const sidebar = document.getElementById("adminSidebar");
+    const desktopToggle = document.getElementById("sidebarToggle");
+    const mobileToggle = document.getElementById("mobileNavToggle");
+    const backdrop = document.getElementById("sidebarBackdrop");
+    const navLinks = sidebar?.querySelectorAll("a") ?? [];
+    const mobileQuery = window.matchMedia("(max-width: 900px)");
 
-    if (!layout || !toggle) {
+    if (!layout || !sidebar || !desktopToggle || !mobileToggle || !backdrop) {
         return;
     }
 
@@ -318,16 +352,77 @@
 
     if (collapsed) {
         layout.classList.add("admin-layout--collapsed");
-        toggle.textContent = "â€º";
+        desktopToggle.textContent = "›";
+        desktopToggle.setAttribute("aria-label", "Expandir menu");
+        desktopToggle.setAttribute("title", "Expandir menu");
     }
 
-    toggle.addEventListener("click", () => {
+    const setDrawer = (open, restoreFocus = false) => {
+        const isOpen = mobileQuery.matches && open;
+
+        layout.classList.toggle("admin-layout--drawer-open", isOpen);
+        document.body.classList.toggle("admin-drawer-open", isOpen);
+        mobileToggle.setAttribute("aria-expanded", isOpen.toString());
+        mobileToggle.setAttribute("aria-label", isOpen ? "Fechar menu" : "Abrir menu");
+        sidebar.inert = mobileQuery.matches && !isOpen;
+
+        if (mobileQuery.matches) {
+            sidebar.setAttribute("aria-hidden", (!isOpen).toString());
+        } else {
+            sidebar.removeAttribute("aria-hidden");
+        }
+
+        backdrop.setAttribute("aria-hidden", (!isOpen).toString());
+        backdrop.tabIndex = isOpen ? 0 : -1;
+
+        if (!isOpen && restoreFocus) {
+            mobileToggle.focus();
+        }
+    };
+
+    const syncViewport = () => setDrawer(false);
+
+    desktopToggle.addEventListener("click", () => {
+        if (mobileQuery.matches) {
+            return;
+        }
+
         const isCollapsed =
             layout.classList.toggle("admin-layout--collapsed");
 
         localStorage.setItem(storageKey, isCollapsed.toString());
-        toggle.textContent = isCollapsed ? "â€º" : "â€¹";
+        desktopToggle.textContent = isCollapsed ? "›" : "‹";
+        desktopToggle.setAttribute("aria-label", isCollapsed ? "Expandir menu" : "Recolher menu");
+        desktopToggle.setAttribute("title", isCollapsed ? "Expandir menu" : "Recolher menu");
     });
+
+    mobileToggle.addEventListener("click", () => {
+        setDrawer(!layout.classList.contains("admin-layout--drawer-open"));
+    });
+
+    backdrop.addEventListener("click", () => setDrawer(false, true));
+
+    navLinks.forEach(link => {
+        link.addEventListener("click", () => {
+            if (mobileQuery.matches) {
+                setDrawer(false);
+            }
+        });
+    });
+
+    document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && layout.classList.contains("admin-layout--drawer-open")) {
+            setDrawer(false, true);
+        }
+    });
+
+    if (typeof mobileQuery.addEventListener === "function") {
+        mobileQuery.addEventListener("change", syncViewport);
+    } else {
+        mobileQuery.addListener(syncViewport);
+    }
+
+    syncViewport();
 })();
 </script>
 

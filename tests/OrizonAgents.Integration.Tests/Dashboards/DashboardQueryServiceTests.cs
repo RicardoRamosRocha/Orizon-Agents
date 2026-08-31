@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using OrizonAgents.Application.Common.Security;
 using OrizonAgents.Application.Dashboards;
 using OrizonAgents.Application.Dashboards.Models;
+using OrizonAgents.Domain.Agents;
 using OrizonAgents.Domain.Tenants;
 using OrizonAgents.Infrastructure.Identity;
 using OrizonAgents.Infrastructure.Persistence;
@@ -26,6 +27,10 @@ public class DashboardQueryServiceTests
         ApplicationUser adminA = await CreateUserAsync(userManager, tenantA.Id, "Admin A", "admin-a@orizon.test", OrizonRoles.TenantAdmin);
         await CreateUserAsync(userManager, tenantA.Id, "Member A", "member-a@orizon.test", OrizonRoles.TenantMember);
         await CreateUserAsync(userManager, tenantB.Id, "Member B", "member-b@orizon.test", OrizonRoles.TenantMember);
+        dbContext.AiAgents.AddRange(
+            new AiAgent(tenantA.Id, "Agent A", "You are Agent A.", AiProvider.OpenAI, "gpt-test"),
+            new AiAgent(tenantB.Id, "Agent B", "You are Agent B.", AiProvider.GoogleGemini, "gemini-test"));
+        await dbContext.SaveChangesAsync();
 
         var result = await service.GetTenantDashboardAsync(tenantA.Id, adminA.Id);
 
@@ -33,7 +38,12 @@ public class DashboardQueryServiceTests
         TenantDashboardDto dashboard = result.Value!;
         Assert.Equal("Tenant A", dashboard.TenantName);
         Assert.Equal(2, dashboard.Metrics.Single(metric => metric.Label == "Usuários").Value);
-        Assert.Equal(1, dashboard.Metrics.Single(metric => metric.Label == "Administradores").Value);
+        Assert.Equal(1, dashboard.Metrics.Single(metric => metric.Label == "Agentes").Value);
+        Assert.Single(dashboard.Agents);
+        Assert.Equal("Agent A", dashboard.Agents.Single().Name);
+        Assert.All(
+            dashboard.ConfigurationStates,
+            state => Assert.Equal("Não configurado", state.Status));
         Assert.DoesNotContain(dashboard.RecentUsers, user => user.Email == "member-b@orizon.test");
     }
 

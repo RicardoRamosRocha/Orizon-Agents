@@ -7,20 +7,16 @@
     ViewData["Section"] = "Inteligência Artificial";
 }
 
-<section class="agents-page">
-    <header class="agents-page__header">
+<section class="cockpit-page">
+    <header class="cockpit-page-header">
         <div>
-            <div class="agents-page__eyebrow">KNOWLEDGE</div>
+            <p class="cockpit-eyebrow">Conhecimento</p>
             <h1>Bases de conhecimento</h1>
-            <p>
-                Organize documentos e informações que poderão ser utilizados
-                pelos seus agentes.
-            </p>
+            <p>Documentos e informações disponíveis para seus agentes.</p>
         </div>
 
-        <a class="btn btn-primary agents-new-button"
-           asp-action="Create">
-            <span class="agents-new-button__icon">+</span>
+        <a class="btn btn-primary cockpit-primary-action" asp-action="Create">
+            <span aria-hidden="true">+</span>
             Nova base
         </a>
     </header>
@@ -32,66 +28,50 @@
 
     @if (Model.Count == 0)
     {
-        <section class="agents-empty">
-            <div class="agents-empty__visual">
-                <span>◆</span>
-            </div>
-
+        <section class="cockpit-empty-state">
+            <span class="cockpit-empty-state__icon" aria-hidden="true">◆</span>
             <h2>Crie sua primeira base</h2>
-
-            <p>
-                Adicione documentos para construir o conhecimento
-                especializado dos seus agentes.
-            </p>
-
-            <a class="btn btn-primary"
-               asp-action="Create">
-                + Criar base de conhecimento
-            </a>
+            <p>Adicione documentos para construir o conhecimento dos agentes.</p>
+            <a class="btn btn-primary" asp-action="Create">Criar base</a>
         </section>
     }
     else
     {
-        <div class="agents-grid">
+        <div class="cockpit-resource-grid">
             @foreach (KnowledgeBaseListItemDto item in Model)
             {
-                <article class="agent-product-card">
-                    <div class="agent-product-card__top">
-                        <div class="agent-product-card__avatar">
-                            <span>◆</span>
-                        </div>
-
-                        <div class="agent-product-card__identity">
-                            <div class="agent-product-card__title">
+                <article class="cockpit-resource-card">
+                    <header class="cockpit-resource-card__header">
+                        <span class="cockpit-resource-card__icon cockpit-resource-card__icon--knowledge" aria-hidden="true">◆</span>
+                        <div class="cockpit-resource-card__identity">
+                            <div>
                                 <h2>@item.Name</h2>
-
-                                <span class="agent-status @(item.IsActive ? "agent-status--active" : "agent-status--inactive")">
+                                <span class="cockpit-status cockpit-status--@(item.IsActive ? "success" : "danger")">
                                     @(item.IsActive ? "Ativa" : "Inativa")
                                 </span>
                             </div>
-
                             <p>
                                 @(string.IsNullOrWhiteSpace(item.Description)
                                     ? "Base de conhecimento"
                                     : item.Description)
                             </p>
                         </div>
-                    </div>
+                    </header>
 
-                    <div class="agent-product-card__meta">
-                        <span>
-                            <small>DOCUMENTOS</small>
-                            <strong>@item.DocumentCount</strong>
-                        </span>
-                    </div>
+                    <dl class="cockpit-resource-card__meta cockpit-resource-card__meta--single">
+                        <div>
+                            <dt>Documentos</dt>
+                            <dd>@item.DocumentCount</dd>
+                        </div>
+                    </dl>
 
-                    <div class="agent-product-card__footer">
+                    <footer class="cockpit-actions">
                         <a class="btn btn-primary"
                            asp-action="Details"
                            asp-route-id="@item.Id">
                             Abrir base
                         </a>
-                    </div>
+                    </footer>
                 </article>
             }
         </div>

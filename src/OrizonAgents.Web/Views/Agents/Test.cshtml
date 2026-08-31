@@ -14,16 +14,17 @@
                 ← Meus Agentes
             </a>
 
+            <p class="cockpit-eyebrow">Teste do agente</p>
+
             <div class="ai-chat-agent">
                 <div class="ai-chat-agent__avatar">
                     <span>✦</span>
-                    <i></i>
                 </div>
 
                 <div>
                     <div class="ai-chat-agent__title">
                         <h1>@Model.AgentName</h1>
-                        <span>Ativo</span>
+                        <span>Ambiente de teste</span>
                     </div>
 
                     @if (!string.IsNullOrWhiteSpace(Model.AgentDescription))
@@ -106,8 +107,7 @@
             }
 
             <div class="ai-chat-history__footer">
-                <span class="ai-chat-context-dot"></span>
-                Memória de contexto ativa
+                Conversas salvas no workspace
             </div>
 
         </aside>
@@ -129,8 +129,7 @@
                 </div>
 
                 <div class="ai-chat-live">
-                    <span></span>
-                    IA disponível
+                    Contexto da conversa
                 </div>
             </header>
 

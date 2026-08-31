@@ -5,85 +5,204 @@
     ViewData["Section"] = Model.TenantName;
     int completed = Model.SetupChecklist.Count(item => item.IsComplete);
     int total = Model.SetupChecklist.Count;
+
+    string MetricIcon(string label) => label switch
+    {
+        "Agentes" => "_IconAgent",
+        "Conhecimento" => "_IconDashboard",
+        "Ferramentas" => "_IconAgent",
+        "Usuários" => "_IconUsers",
+        _ => "_IconDashboard"
+    };
 }
 
-<section class="admin-hero">
-    <div>
-        <p class="eyebrow">Organização</p>
-        <h2>@Model.TenantName</h2>
-        <p class="muted">@Model.TenantSlug · @Model.Culture · @Model.TimeZone</p>
-    </div>
-    <span class="status-badge status-badge--@Model.TenantStatus.ToLowerInvariant()">@Model.TenantStatus</span>
-</section>
-
-<section class="metric-grid">
-    @foreach (var metric in Model.Metrics)
-    {
-        <article class="metric-card metric-card--@metric.Tone">
-            <span>@metric.Label</span>
-            <strong>@metric.Value</strong>
-            <small>@metric.Description</small>
-        </article>
-    }
-</section>
-
-<section class="admin-grid">
-    <article class="admin-card">
-        <div class="card-heading">
-            <div>
-                <h3>Progresso inicial</h3>
-                <p>@completed de @total etapas concluídas</p>
-            </div>
+<div class="dashboard-cockpit">
+    <header class="cockpit-header">
+        <div class="cockpit-header__copy">
+            <p class="cockpit-eyebrow">Cockpit Orizon</p>
+            <h2>Central operacional</h2>
+            <p>Acompanhe seus agentes e recursos de IA.</p>
         </div>
-        <div class="setup-list">
-            @foreach (var item in Model.SetupChecklist)
+
+        <div class="cockpit-tenant" aria-label="Organização atual">
+            <div>
+                <span>Organização</span>
+                <strong>@Model.TenantName</strong>
+            </div>
+            <span class="status-badge status-badge--@Model.TenantStatus.ToLowerInvariant()">
+                @Model.TenantStatus
+            </span>
+        </div>
+    </header>
+
+    <section class="cockpit-metrics" aria-label="Indicadores do workspace">
+        @foreach (var metric in Model.Metrics)
+        {
+            <article class="cockpit-metric cockpit-metric--@metric.Tone">
+                <div class="cockpit-metric__top">
+                    <span class="cockpit-metric__label">@metric.Label</span>
+                    <span class="cockpit-metric__icon" aria-hidden="true">
+                        @await Html.PartialAsync(MetricIcon(metric.Label))
+                    </span>
+                </div>
+                <strong>@metric.Value</strong>
+                <div class="cockpit-metric__meta">
+                    <span class="cockpit-signal" aria-hidden="true"></span>
+                    <small>@metric.Description</small>
+                </div>
+            </article>
+        }
+    </section>
+
+    <section class="cockpit-primary-grid">
+        <article class="cockpit-panel cockpit-agents-panel">
+            <header class="cockpit-panel__header">
+                <div>
+                    <p class="cockpit-eyebrow">Operação</p>
+                    <h3>Meus agentes</h3>
+                </div>
+                <a asp-controller="Agents" asp-action="Index" class="cockpit-link">Ver todos</a>
+            </header>
+
+            @if (Model.Agents.Count == 0)
             {
-                <div class="setup-item @(item.IsComplete ? "is-complete" : "")">
-                    <span></span>
-                    <div>
-                        <strong>@item.Label</strong>
-                        <p>@item.Description</p>
-                    </div>
+                <div class="cockpit-empty">
+                    <strong>Nenhum agente configurado</strong>
+                    <p>Crie seu primeiro agente para iniciar a operação do workspace.</p>
+                    <a asp-controller="Agents" asp-action="Create" class="btn btn-primary">Criar agente</a>
                 </div>
             }
-        </div>
-    </article>
+            else
+            {
+                <div class="cockpit-agent-list">
+                    @foreach (var agent in Model.Agents)
+                    {
+                        <div class="cockpit-agent-row">
+                            <span class="cockpit-agent-row__avatar" aria-hidden="true">
+                                @(string.IsNullOrWhiteSpace(agent.Name) ? "A" : agent.Name[..1].ToUpperInvariant())
+                            </span>
 
-    <article class="admin-card">
-        <div class="card-heading">
-            <div>
-                <h3>Usuários recentes</h3>
-                <p>Contas criadas no tenant</p>
-            </div>
-            <a asp-controller="TenantUsers" asp-action="Index">Gerenciar</a>
-        </div>
-        @if (Model.RecentUsers.Count == 0)
-        {
-            <div class="empty-state">Nenhum usuário cadastrado ainda.</div>
-        }
-        else
-        {
-            <div class="user-list">
-                @foreach (var user in Model.RecentUsers)
-                {
-                    <div class="user-row">
-                        <span class="avatar">@(string.IsNullOrWhiteSpace(user.FullName) ? "U" : user.FullName[..1].ToUpperInvariant())</span>
-                        <div>
-                            <strong>@user.FullName</strong>
-                            <p>@user.Email</p>
+                            <div class="cockpit-agent-row__identity">
+                                <div>
+                                    <strong>@agent.Name</strong>
+                                    <span class="cockpit-state cockpit-state--@(agent.IsActive ? "success" : "danger")">
+                                        @(agent.IsActive ? "Ativo" : "Inativo")
+                                    </span>
+                                </div>
+                                <p>@agent.Provider · @agent.Model</p>
+                            </div>
+
+                            <div class="cockpit-agent-row__resources" aria-label="Recursos vinculados">
+                                <span class="cockpit-resource @(agent.KnowledgeBaseCount > 0 ? "is-configured" : "is-missing")">
+                                    <strong>@agent.KnowledgeBaseCount</strong> knowledge
+                                </span>
+                                <span class="cockpit-resource @(agent.ToolCount > 0 ? "is-configured" : "is-missing")">
+                                    <strong>@agent.ToolCount</strong> tools
+                                </span>
+                            </div>
                         </div>
-                        <span class="status-dot @(user.IsActive ? "active" : "inactive")"></span>
+                    }
+                </div>
+            }
+        </article>
+
+        <aside class="cockpit-panel cockpit-core-panel">
+            <header class="cockpit-panel__header">
+                <div>
+                    <p class="cockpit-eyebrow">Orizon Core</p>
+                    <h3>Saúde da configuração</h3>
+                </div>
+            </header>
+
+            <div class="cockpit-core-visual" aria-hidden="true">
+                <div class="cockpit-core-orbit cockpit-core-orbit--outer"></div>
+                <div class="cockpit-core-orbit cockpit-core-orbit--inner"></div>
+                <div class="cockpit-core-mark">O</div>
+            </div>
+
+            <div class="cockpit-core-list">
+                @foreach (var state in Model.ConfigurationStates)
+                {
+                    <div class="cockpit-core-state">
+                        <span class="cockpit-signal cockpit-signal--@state.Tone" aria-hidden="true"></span>
+                        <div>
+                            <strong>@state.Label</strong>
+                            <small>@state.Detail</small>
+                        </div>
+                        <span class="cockpit-state cockpit-state--@state.Tone">@state.Status</span>
                     </div>
                 }
             </div>
-        }
-    </article>
-</section>
+        </aside>
+    </section>
 
-<section class="quick-actions">
-    <a asp-controller="TenantUsers" asp-action="Index">Gestão de usuários</a>
-    <a asp-controller="WhatsApp" asp-action="Index">Configurar WhatsApp</a>
-    <a asp-controller="Billing" asp-action="Index">Meu plano</a>
-    <a asp-controller="Organization" asp-action="Index">Configurações da organização</a>
-    <a asp-controller="MyAccount" asp-action="Index">Minha conta</a>
-</section>
+    <section class="cockpit-secondary-grid">
+        <article class="cockpit-panel cockpit-setup-panel">
+            <header class="cockpit-panel__header">
+                <div>
+                    <p class="cockpit-eyebrow">Onboarding</p>
+                    <h3>Configuração do workspace</h3>
+                </div>
+                <strong class="cockpit-progress-label">@completed/@total</strong>
+            </header>
+
+            <progress class="cockpit-progress" value="@completed" max="@total">
+                @completed de @total etapas concluídas
+            </progress>
+
+            <div class="cockpit-checklist">
+                @foreach (var item in Model.SetupChecklist)
+                {
+                    <div class="cockpit-checklist__item @(item.IsComplete ? "is-complete" : "")"
+                         title="@item.Description">
+                        <span aria-hidden="true"></span>
+                        <strong>@item.Label</strong>
+                        <small>@(item.IsComplete ? "Concluído" : "Pendente")</small>
+                    </div>
+                }
+            </div>
+        </article>
+
+        <article class="cockpit-panel cockpit-users-panel">
+            <header class="cockpit-panel__header">
+                <div>
+                    <p class="cockpit-eyebrow">Workspace</p>
+                    <h3>Usuários recentes</h3>
+                </div>
+                <a asp-controller="TenantUsers" asp-action="Index" class="cockpit-link">Gerenciar</a>
+            </header>
+
+            @if (Model.RecentUsers.Count == 0)
+            {
+                <div class="cockpit-empty cockpit-empty--compact">Nenhum usuário cadastrado ainda.</div>
+            }
+            else
+            {
+                <div class="cockpit-user-list">
+                    @foreach (var user in Model.RecentUsers)
+                    {
+                        <div class="cockpit-user-row">
+                            <span class="avatar">
+                                @(string.IsNullOrWhiteSpace(user.FullName) ? "U" : user.FullName[..1].ToUpperInvariant())
+                            </span>
+                            <div>
+                                <strong>@user.FullName</strong>
+                                <small>@user.Email</small>
+                            </div>
+                            <span class="cockpit-state cockpit-state--@(user.IsActive ? "success" : "danger")">
+                                @(user.IsActive ? "Ativo" : "Inativo")
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+        </article>
+    </section>
+
+    <nav class="cockpit-shortcuts" aria-label="Atalhos do workspace">
+        <a asp-controller="WhatsApp" asp-action="Index">Configurar WhatsApp</a>
+        <a asp-controller="Billing" asp-action="Index">Meu plano</a>
+        <a asp-controller="Organization" asp-action="Index">Organização</a>
+        <a asp-controller="MyAccount" asp-action="Index">Minha conta</a>
+    </nav>
+</div>

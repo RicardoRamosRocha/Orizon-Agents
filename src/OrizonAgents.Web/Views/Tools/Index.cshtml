@@ -1,127 +1,89 @@
 @model IReadOnlyList<OrizonAgents.Application.Tools.Models.AgentToolListItemDto>
 
 @{
-    ViewData["Title"] = "Tools";
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Ferramentas";
+    ViewData["Section"] = "Inteligência Artificial";
 }
 
-<div class="container py-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+<section class="cockpit-page">
+    <header class="cockpit-page-header">
         <div>
-            <span class="text-uppercase small text-secondary fw-semibold">
-                Capacidades dos agentes
-            </span>
-            <h1 class="display-6 fw-bold mb-1">Tools</h1>
-            <p class="text-secondary mb-0">
-                Conecte seus agentes a APIs e serviços externos.
-            </p>
+            <p class="cockpit-eyebrow">Ferramentas</p>
+            <h1>Ferramentas</h1>
+            <p>Conecte seus agentes a APIs e serviços externos.</p>
         </div>
 
         <a asp-controller="Tools"
            asp-action="Create"
-           class="btn btn-primary px-4">
-            + Nova Tool
+           class="btn btn-primary cockpit-primary-action">
+            <span aria-hidden="true">+</span>
+            Nova ferramenta
         </a>
-    </div>
+    </header>
 
     @if (TempData["StatusMessage"] is string statusMessage)
     {
-        <div class="alert alert-success">
-            @statusMessage
-        </div>
+        <div class="alert alert-success">@statusMessage</div>
     }
 
     @if (Model.Count == 0)
     {
-        <div class="card border-0 shadow-sm">
-            <div class="card-body p-5 text-center">
-                <h2 class="h4 fw-bold">Nenhuma Tool cadastrada</h2>
-                <p class="text-secondary">
-                    Crie a primeira capacidade externa que poderá ser
-                    disponibilizada aos seus agentes.
-                </p>
-
-                <a asp-controller="Tools"
-                   asp-action="Create"
-                   class="btn btn-primary">
-                    Criar primeira Tool
-                </a>
-            </div>
-        </div>
+        <section class="cockpit-empty-state">
+            <h2>Nenhuma ferramenta cadastrada</h2>
+            <p>Crie a primeira capacidade externa para seus agentes.</p>
+            <a asp-controller="Tools" asp-action="Create" class="btn btn-primary">Criar ferramenta</a>
+        </section>
     }
     else
     {
-        <div class="row g-3">
+        <div class="cockpit-resource-grid">
             @foreach (var tool in Model)
             {
-                <div class="col-12 col-xl-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body p-4">
-                            <div class="d-flex justify-content-between gap-3">
-                                <div>
-                                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                                        <h2 class="h5 fw-bold mb-0">
-                                            @tool.Name
-                                        </h2>
-
-                                        <span class="badge text-bg-dark">
-                                            @tool.HttpMethod
-                                        </span>
-
-                                        @if (tool.IsActive)
-                                        {
-                                            <span class="badge text-bg-success">
-                                                Ativa
-                                            </span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge text-bg-secondary">
-                                                Desativada
-                                            </span>
-                                        }
-                                    </div>
-
-                                    <p class="text-secondary mb-3">
-                                        @tool.Description
-                                    </p>
-                                </div>
+                <article class="cockpit-resource-card">
+                    <header class="cockpit-resource-card__header">
+                        <span class="cockpit-resource-card__icon" aria-hidden="true">⌁</span>
+                        <div class="cockpit-resource-card__identity">
+                            <div>
+                                <h2>@tool.Name</h2>
+                                <span class="cockpit-method">@tool.HttpMethod</span>
+                                <span class="cockpit-status cockpit-status--@(tool.IsActive ? "success" : "danger")">
+                                    @(tool.IsActive ? "Ativa" : "Inativa")
+                                </span>
                             </div>
-
-                            <div class="bg-body-tertiary rounded-3 p-3 mb-3">
-                                <small class="text-secondary d-block mb-1">
-                                    Endpoint
-                                </small>
-                                <code class="text-break">@tool.Endpoint</code>
-                            </div>
-
-                            <div class="d-flex flex-wrap gap-2">
-                                <a asp-controller="Tools"
-                                   asp-action="Edit"
-                                   asp-route-id="@tool.Id"
-                                   class="btn btn-outline-primary">
-                                    Editar
-                                </a>
-
-                                <form asp-controller="Tools"
-                                      asp-action="ChangeStatus"
-                                      asp-route-id="@tool.Id"
-                                      method="post">
-                                    @Html.AntiForgeryToken()
-
-                                    <input type="hidden"
-                                           name="activate"
-                                           value="@(!tool.IsActive ? "true" : "false")" />
-
-                                    <button type="submit"
-                                            class="btn btn-outline-secondary">
-                                        @(tool.IsActive ? "Desativar" : "Ativar")
-                                    </button>
-                                </form>
-                            </div>
+                            <p>@tool.Description</p>
                         </div>
+                    </header>
+
+                    <div class="cockpit-endpoint">
+                        <span>Endpoint</span>
+                        <code>@tool.Endpoint</code>
                     </div>
-                </div>
+
+                    <footer class="cockpit-actions">
+                        <a asp-controller="Tools"
+                           asp-action="Edit"
+                           asp-route-id="@tool.Id"
+                           class="btn btn-outline-secondary">
+                            Editar
+                        </a>
+
+                        <form asp-controller="Tools"
+                              asp-action="ChangeStatus"
+                              asp-route-id="@tool.Id"
+                              method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden"
+                                   name="activate"
+                                   value="@(!tool.IsActive ? "true" : "false")" />
+                            <button type="submit"
+                                    class="btn @(tool.IsActive ? "btn-outline-danger" : "btn-outline-secondary")">
+                                @(tool.IsActive ? "Desativar" : "Ativar")
+                            </button>
+                        </form>
+                    </footer>
+                </article>
             }
         </div>
     }
-</div>
+</section>

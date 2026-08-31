@@ -6,10 +6,10 @@
     ViewData["Section"] = "Inteligência Artificial";
 }
 
-<section class="agents-page">
-    <header class="agents-page__header">
+<section class="cockpit-page">
+    <header class="cockpit-page-header">
         <div>
-            <div class="agents-page__eyebrow">KNOWLEDGE</div>
+            <p class="cockpit-eyebrow">Conhecimento</p>
             <h1>Nova base de conhecimento</h1>
             <p>
                 Crie um espaço para organizar documentos e informações
@@ -23,8 +23,8 @@
         </a>
     </header>
 
-    <article class="agent-product-card">
-        <form method="post" asp-action="Create">
+    <article class="cockpit-form-panel cockpit-form-panel--narrow">
+        <form method="post" asp-action="Create" class="cockpit-form">
             @Html.AntiForgeryToken()
 
             <div asp-validation-summary="ModelOnly"
@@ -55,10 +55,10 @@
                       class="text-danger"></span>
             </div>
 
-            <button type="submit"
-                    class="btn btn-primary">
-                Criar base
-            </button>
+            <div class="cockpit-form-actions">
+                <button type="submit" class="btn btn-primary">Criar base</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
         </form>
     </article>
 </section>

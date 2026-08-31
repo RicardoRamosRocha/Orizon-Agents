@@ -1,30 +1,22 @@
-﻿@using OrizonAgents.Application.Agents.Models
+@using OrizonAgents.Application.Agents.Models
 @model IReadOnlyList<AiAgentListItemDto>
 
 @{
     Layout = "_AdminLayout";
-    ViewData["Title"] = "Meus Agentes";
+    ViewData["Title"] = "Agentes de IA";
     ViewData["Section"] = "Inteligência Artificial";
 }
 
-<section class="agents-page">
-
-    <header class="agents-page__header">
+<section class="cockpit-page">
+    <header class="cockpit-page-header">
         <div>
-            <div class="agents-page__eyebrow">
-                WORKSPACE DE IA
-            </div>
-
-            <h1>Seus agentes</h1>
-
-            <p>
-                Crie assistentes inteligentes para trabalhar com você e sua equipe.
-            </p>
+            <p class="cockpit-eyebrow">Agentes</p>
+            <h1>Agentes de IA</h1>
+            <p>Crie, configure e acompanhe os agentes do seu workspace.</p>
         </div>
 
-        <a class="btn btn-primary agents-new-button"
-           asp-action="Create">
-            <span class="agents-new-button__icon">+</span>
+        <a class="btn btn-primary cockpit-primary-action" asp-action="Create">
+            <span aria-hidden="true">+</span>
             Novo agente
         </a>
     </header>
@@ -36,95 +28,63 @@
 
     @if (Model.Count == 0)
     {
-        <section class="agents-empty">
-            <div class="agents-empty__visual">
-                <span>✦</span>
-            </div>
-
+        <section class="cockpit-empty-state">
+            <span class="cockpit-empty-state__icon" aria-hidden="true">
+                @await Html.PartialAsync("_IconAgent")
+            </span>
             <h2>Crie seu primeiro agente</h2>
-
-            <p>
-                Configure personalidade, instruções e modelo de IA.
-                Seu novo assistente estará pronto para conversar em poucos passos.
-            </p>
-
-            <a class="btn btn-primary"
-               asp-action="Create">
-                + Criar meu primeiro agente
-            </a>
+            <p>Configure instruções, provider e modelo para iniciar a operação.</p>
+            <a class="btn btn-primary" asp-action="Create">Criar agente</a>
         </section>
     }
     else
     {
-        <div class="agents-grid">
+        <div class="cockpit-resource-grid">
             @foreach (AiAgentListItemDto agent in Model)
             {
-                <article class="agent-product-card">
+                <article class="cockpit-resource-card">
+                    <header class="cockpit-resource-card__header">
+                        <span class="cockpit-resource-card__icon" aria-hidden="true">
+                            @await Html.PartialAsync("_IconAgent")
+                        </span>
 
-                    <div class="agent-product-card__top">
-
-                        <div class="agent-product-card__avatar">
-                            <span>✦</span>
-
-                            @if (agent.IsActive)
-                            {
-                                <i class="agent-product-card__online"
-                                   title="Agente ativo"></i>
-                            }
-                        </div>
-
-                        <div class="agent-product-card__identity">
-                            <div class="agent-product-card__title">
+                        <div class="cockpit-resource-card__identity">
+                            <div>
                                 <h2>@agent.Name</h2>
-
-                                @if (agent.IsActive)
-                                {
-                                    <span class="agent-status agent-status--active">
-                                        Ativo
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span class="agent-status agent-status--inactive">
-                                        Inativo
-                                    </span>
-                                }
+                                <span class="cockpit-status cockpit-status--@(agent.IsActive ? "success" : "danger")">
+                                    @(agent.IsActive ? "Ativo" : "Inativo")
+                                </span>
                             </div>
-
                             <p>
                                 @(string.IsNullOrWhiteSpace(agent.Description)
                                     ? "Assistente de Inteligência Artificial"
                                     : agent.Description)
                             </p>
                         </div>
+                    </header>
 
-                    </div>
+                    <dl class="cockpit-resource-card__meta">
+                        <div>
+                            <dt>Provider</dt>
+                            <dd>@agent.Provider</dd>
+                        </div>
+                        <div>
+                            <dt>Modelo</dt>
+                            <dd>@agent.Model</dd>
+                        </div>
+                    </dl>
 
-                    <div class="agent-product-card__meta">
-                        <span>
-                            <small>PROVEDOR</small>
-                            <strong>@agent.Provider</strong>
-                        </span>
-
-                        <span>
-                            <small>MODELO</small>
-                            <strong>@agent.Model</strong>
-                        </span>
-                    </div>
-
-                    <div class="agent-product-card__footer">
-
-                        <a class="btn btn-primary agent-conversation-button"
+                    <footer class="cockpit-actions">
+                        <a class="btn btn-primary"
                            asp-action="Test"
                            asp-route-id="@agent.Id">
-                            <span>✦</span>
                             Conversar
                         </a>
 
                         <a class="btn btn-outline-secondary"
                            asp-action="Edit"
                            asp-route-id="@agent.Id">
-                            Configurar
+                            Editar
                         </a>
 
                         <a class="btn btn-outline-secondary"
@@ -139,39 +99,22 @@
                             Conhecimento
                         </a>
 
-
                         <form method="post"
                               asp-action="ChangeStatus"
                               asp-route-id="@agent.Id">
-
                             @Html.AntiForgeryToken()
-
                             <input type="hidden"
                                    name="activate"
                                    value="@(!agent.IsActive ? "true" : "false")" />
 
-                            @if (agent.IsActive)
-                            {
-                                <button type="submit"
-                                        class="btn agent-status-button">
-                                    Desativar
-                                </button>
-                            }
-                            else
-                            {
-                                <button type="submit"
-                                        class="btn agent-status-button">
-                                    Ativar
-                                </button>
-                            }
-
+                            <button type="submit"
+                                    class="btn @(agent.IsActive ? "btn-outline-danger" : "btn-outline-secondary")">
+                                @(agent.IsActive ? "Desativar" : "Ativar")
+                            </button>
                         </form>
-
-                    </div>
-
+                    </footer>
                 </article>
             }
         </div>
     }
-
 </section>

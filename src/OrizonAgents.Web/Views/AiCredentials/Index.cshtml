@@ -1,104 +1,82 @@
-﻿@model OrizonAgents.Web.Models.AiCredentials.AiCredentialsIndexViewModel
+@model OrizonAgents.Web.Models.AiCredentials.AiCredentialsIndexViewModel
 
 @{
-    ViewData["Title"] = "Credenciais de IA";
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Credenciais";
+    ViewData["Section"] = "Provedores de IA";
 }
 
-<div class="admin-page">
-    <div class="admin-page-header">
+<section class="cockpit-page">
+    <header class="cockpit-page-header">
         <div>
-            <span class="admin-eyebrow">Inteligência Artificial</span>
-            <h1>Credenciais de IA</h1>
-            <p>
-                Configure as chaves dos provedores utilizados pelos seus agentes.
-                As credenciais são protegidas antes de serem armazenadas.
-            </p>
+            <p class="cockpit-eyebrow">Provedores de IA</p>
+            <h1>Credenciais</h1>
+            <p>Configure com segurança os providers utilizados pelos agentes.</p>
         </div>
-    </div>
+        <span class="cockpit-security-note">
+            <span aria-hidden="true">●</span>
+            Armazenamento protegido
+        </span>
+    </header>
 
     @if (TempData["StatusMessage"] is string statusMessage)
     {
-        <div class="alert alert-success">
-            @statusMessage
-        </div>
+        <div class="alert alert-success">@statusMessage</div>
     }
 
     @if (TempData["ErrorMessage"] is string errorMessage)
     {
-        <div class="alert alert-danger">
-            @errorMessage
-        </div>
+        <div class="alert alert-danger">@errorMessage</div>
     }
 
-    <div class="admin-grid">
+    <div class="cockpit-provider-grid">
         @foreach (var provider in Model.Providers)
         {
-            <section class="admin-card">
-                <div class="admin-card-header">
+            <article class="cockpit-provider-card">
+                <header class="cockpit-provider-card__header">
+                    <span class="cockpit-provider-card__mark" aria-hidden="true">
+                        @provider.ProviderName[..1].ToUpperInvariant()
+                    </span>
                     <div>
-                        <span class="admin-eyebrow">Provedor</span>
+                        <p class="cockpit-eyebrow">Provider</p>
                         <h2>@provider.ProviderName</h2>
                     </div>
+                    <span class="cockpit-status cockpit-status--@(provider.IsConfigured ? "success" : "neutral")">
+                        @(provider.IsConfigured ? "Configurado" : "Não configurado")
+                    </span>
+                </header>
 
+                <p class="cockpit-provider-card__description">
                     @if (provider.IsConfigured)
                     {
-                        <span class="badge bg-success">
-                            Configurada
-                        </span>
+                        <text>Existe uma credencial ativa. A chave armazenada nunca é exibida novamente.</text>
                     }
                     else
                     {
-                        <span class="badge bg-secondary">
-                            Não configurada
-                        </span>
-                    }
-                </div>
-
-                <p>
-                    @if (provider.IsConfigured)
-                    {
-                        <text>
-                            Existe uma credencial ativa para este provedor.
-                            A chave armazenada nunca é exibida novamente.
-                        </text>
-                    }
-                    else
-                    {
-                        <text>
-                            Informe uma chave de API para habilitar este
-                            provedor nos agentes da organização.
-                        </text>
+                        <text>Informe uma chave de API para habilitar este provider no workspace.</text>
                     }
                 </p>
 
                 <form asp-controller="AiCredentials"
                       asp-action="Save"
-                      method="post">
-
+                      method="post"
+                      class="cockpit-form cockpit-provider-form">
                     @Html.AntiForgeryToken()
+                    <input type="hidden" name="provider" value="@provider.Provider" />
 
-                    <input type="hidden"
-                           name="provider"
-                           value="@provider.Provider" />
-
-                    <div class="mb-3">
-                        <label class="form-label">
-                            Chave de API
-                        </label>
-
+                    <div>
+                        <label class="form-label" for="apiKey-@provider.Provider">Chave de API</label>
                         <input type="password"
+                               id="apiKey-@provider.Provider"
                                name="apiKey"
                                class="form-control"
                                autocomplete="new-password"
-                               placeholder="Cole a chave do provedor"
+                               placeholder="Cole a nova chave do provider"
                                required />
                     </div>
 
-                    <button type="submit"
-                            class="btn btn-primary">
-                        @(provider.IsConfigured
-                            ? "Substituir credencial"
-                            : "Salvar credencial")
+                    <button type="submit" class="btn btn-primary">
+                        @(provider.IsConfigured ? "Substituir credencial" : "Salvar credencial")
                     </button>
                 </form>
 
@@ -107,21 +85,13 @@
                     <form asp-controller="AiCredentials"
                           asp-action="Remove"
                           method="post"
-                          class="mt-3">
-
+                          class="cockpit-provider-remove">
                         @Html.AntiForgeryToken()
-
-                        <input type="hidden"
-                               name="provider"
-                               value="@provider.Provider" />
-
-                        <button type="submit"
-                                class="btn btn-outline-danger">
-                            Remover credencial
-                        </button>
+                        <input type="hidden" name="provider" value="@provider.Provider" />
+                        <button type="submit" class="btn btn-outline-danger">Remover credencial</button>
                     </form>
                 }
-            </section>
+            </article>
         }
     </div>
-</div>
+</section>

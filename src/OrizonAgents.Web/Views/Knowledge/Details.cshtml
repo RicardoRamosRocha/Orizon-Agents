@@ -2,28 +2,48 @@
 @using OrizonAgents.Domain.Knowledge
 @model KnowledgeBaseDetailsDto
 
+@functions {
+    private static string StatusLabel(KnowledgeDocumentStatus status) => status switch
+    {
+        KnowledgeDocumentStatus.Pending => "Pendente",
+        KnowledgeDocumentStatus.Processing => "Processando",
+        KnowledgeDocumentStatus.Ready => "Pronto",
+        KnowledgeDocumentStatus.Failed => "Erro",
+        _ => status.ToString()
+    };
+
+    private static string StatusTone(KnowledgeDocumentStatus status) => status switch
+    {
+        KnowledgeDocumentStatus.Ready => "success",
+        KnowledgeDocumentStatus.Processing => "warning",
+        KnowledgeDocumentStatus.Failed => "danger",
+        _ => "neutral"
+    };
+}
+
 @{
     Layout = "_AdminLayout";
     ViewData["Title"] = Model.Name;
     ViewData["Section"] = "Conhecimento";
 }
 
-<section class="agents-page">
-    <header class="agents-page__header">
+<section class="cockpit-page">
+    <header class="cockpit-page-header">
         <div>
-            <div class="agents-page__eyebrow">BASE DE CONHECIMENTO</div>
-            <h1>@Model.Name</h1>
+            <a asp-action="Index" class="cockpit-back-link">← Voltar para conhecimento</a>
+            <p class="cockpit-eyebrow">Base de conhecimento</p>
+            <div class="cockpit-form-title-row">
+                <h1>@Model.Name</h1>
+                <span class="cockpit-status cockpit-status--@(Model.IsActive ? "success" : "danger")">
+                    @(Model.IsActive ? "Ativa" : "Inativa")
+                </span>
+            </div>
             <p>
                 @(string.IsNullOrWhiteSpace(Model.Description)
                     ? "Documentos e informações desta base."
                     : Model.Description)
             </p>
         </div>
-
-        <a class="btn btn-outline-secondary"
-           asp-action="Index">
-            Voltar
-        </a>
     </header>
 
     @if (TempData["StatusMessage"] is string message)
@@ -31,106 +51,82 @@
         <div class="alert alert-info">@message</div>
     }
 
-    <article class="agent-product-card mb-4">
-        <div class="agent-product-card__identity mb-3">
+    <article class="cockpit-upload-panel">
+        <div>
+            <p class="cockpit-eyebrow">Ingestão</p>
             <h2>Adicionar documento</h2>
-            <p>
-                São aceitos arquivos TXT, Markdown e PDF,
-                com até 10 MB.
-            </p>
+            <p>Arquivos TXT, Markdown e PDF com até 10 MB.</p>
         </div>
 
         <form method="post"
               enctype="multipart/form-data"
               asp-action="Upload"
-              asp-route-id="@Model.Id">
-
+              asp-route-id="@Model.Id"
+              class="cockpit-upload-form">
             @Html.AntiForgeryToken()
-
-            <input type="hidden"
-                   name="KnowledgeBaseId"
-                   value="@Model.Id" />
-
-            <div class="mb-3">
-                <input type="file"
-                       name="File"
-                       class="form-control"
-                       accept=".txt,.md,.markdown,.pdf,text/plain,text/markdown,application/pdf"
-                       required />
-            </div>
-
-            <button type="submit"
-                    class="btn btn-primary">
-                Enviar documento
-            </button>
+            <input type="hidden" name="KnowledgeBaseId" value="@Model.Id" />
+            <input type="file"
+                   name="File"
+                   class="form-control"
+                   accept=".txt,.md,.markdown,.pdf,text/plain,text/markdown,application/pdf"
+                   required />
+            <button type="submit" class="btn btn-primary">Enviar documento</button>
         </form>
     </article>
 
-    <header class="mb-3">
-        <h2>Documentos</h2>
-    </header>
+    <div class="cockpit-section-heading">
+        <div>
+            <p class="cockpit-eyebrow">Conteúdo</p>
+            <h2>Documentos</h2>
+        </div>
+        <span>@Model.Documents.Count arquivo(s)</span>
+    </div>
 
     @if (Model.Documents.Count == 0)
     {
-        <section class="agents-empty">
+        <section class="cockpit-empty-state cockpit-empty-state--compact">
             <h2>Nenhum documento</h2>
-            <p>
-                Envie o primeiro arquivo para começar a construir
-                esta base de conhecimento.
-            </p>
+            <p>Envie o primeiro arquivo para começar a construir esta base.</p>
         </section>
     }
     else
     {
-        <div class="agents-grid">
+        <div class="cockpit-document-list">
             @foreach (KnowledgeDocumentDto document in Model.Documents)
             {
-                <article class="agent-product-card">
-                    <div class="agent-product-card__identity">
-                        <div class="agent-product-card__title">
-                            <h2>@document.FileName</h2>
-
-                            <span class="agent-status @(document.Status == KnowledgeDocumentStatus.Ready ? "agent-status--active" : "agent-status--inactive")">
-                                @document.Status
-                            </span>
+                <article class="cockpit-document-card">
+                    <div class="cockpit-document-card__main">
+                        <span class="cockpit-signal cockpit-signal--@StatusTone(document.Status)" aria-hidden="true"></span>
+                        <div>
+                            <div class="cockpit-document-card__title">
+                                <h3>@document.FileName</h3>
+                                <span class="cockpit-status cockpit-status--@StatusTone(document.Status)">
+                                    @StatusLabel(document.Status)
+                                </span>
+                            </div>
+                            <p>@document.ContentType</p>
                         </div>
-
-                        <p>@document.ContentType</p>
                     </div>
 
-                    <div class="agent-product-card__meta">
-                        <span>
-                            <small>TAMANHO</small>
-                            <strong>@Math.Ceiling(document.SizeBytes / 1024d) KB</strong>
-                        </span>
-
-                        <span>
-                            <small>CHUNKS</small>
-                            <strong>@document.ChunkCount</strong>
-                        </span>
-                    </div>
+                    <dl class="cockpit-document-card__meta">
+                        <div><dt>Tamanho</dt><dd>@Math.Ceiling(document.SizeBytes / 1024d) KB</dd></div>
+                        <div><dt>Chunks</dt><dd>@document.ChunkCount</dd></div>
+                    </dl>
 
                     @if (!string.IsNullOrWhiteSpace(document.ProcessingError))
                     {
-                        <div class="alert alert-danger mt-3">
-                            @document.ProcessingError
-                        </div>
+                        <div class="alert alert-danger">@document.ProcessingError</div>
                     }
 
-                    <div class="agent-product-card__footer">
+                    <div class="cockpit-actions">
                         @if (document.Status != KnowledgeDocumentStatus.Ready)
                         {
                             <form method="post"
                                   asp-action="Process"
                                   asp-route-id="@Model.Id"
                                   asp-route-documentId="@document.Id">
-
                                 @Html.AntiForgeryToken()
-
-                                <button type="submit"
-                                        class="btn btn-primary">
-                                    Processar
-                                </button>
+                                <button type="submit" class="btn btn-primary">Processar</button>
                             </form>
                         }
 
@@ -138,13 +134,8 @@
                               asp-action="DeleteDocument"
                               asp-route-id="@Model.Id"
                               asp-route-documentId="@document.Id">
-
                             @Html.AntiForgeryToken()
-
-                            <button type="submit"
-                                    class="btn btn-outline-secondary">
-                                Excluir
-                            </button>
+                            <button type="submit" class="btn btn-outline-danger">Excluir</button>
                         </form>
                     </div>
                 </article>

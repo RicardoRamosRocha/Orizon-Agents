@@ -6,14 +6,21 @@
     ViewData["Section"] = "Inteligência Artificial";
 }
 
-<div class="mb-4">
-    <h1 class="h4 mb-1">Editar Agente</h1>
-    <p class="text-muted mb-0">
+<div class="cockpit-page-header cockpit-page-header--form">
+    <a asp-action="Index" class="cockpit-back-link">← Voltar para agentes</a>
+    <p class="cockpit-eyebrow">Agentes</p>
+    <div class="cockpit-form-title-row">
+        <h1>Editar agente</h1>
+        <span class="cockpit-status cockpit-status--@(Model.IsActive ? "success" : "danger")">
+            @(Model.IsActive ? "Ativo" : "Inativo")
+        </span>
+    </div>
+    <p>
         Ajuste o comportamento e as configurações do agente.
     </p>
 </div>
 
-<div class="border rounded bg-white p-4 col-xl-8">
+<div class="border rounded bg-white p-4 col-xl-8 cockpit-form-panel cockpit-form-panel--narrow">
     <form method="post">
 
         <div asp-validation-summary="ModelOnly"
@@ -46,7 +53,7 @@
                   class="text-danger"></span>
         </div>
 
-        <details class="mb-4">
+        <details class="mb-4 cockpit-details">
             <summary class="fw-semibold">
                 Configurações avançadas
             </summary>
@@ -94,13 +101,15 @@
             </div>
         </details>
 
-        <button type="submit" class="btn btn-primary">
-            Salvar alterações
-        </button>
+        <div class="cockpit-form-actions">
+            <button type="submit" class="btn btn-primary">
+                Salvar alterações
+            </button>
 
-        <a class="btn btn-link" asp-action="Index">
-            Voltar
-        </a>
+            <a class="btn btn-outline-secondary" asp-action="Index">
+                Cancelar
+            </a>
+        </div>
 
     </form>
 </div>
