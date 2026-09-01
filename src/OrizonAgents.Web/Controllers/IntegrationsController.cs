@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -30,60 +30,159 @@ public sealed class IntegrationsController : Controller
     public async Task<IActionResult> Index(
         CancellationToken cancellationToken)
     {
-        await LoadAgentsAsync(cancellationToken);
+        IntegrationsIndexViewModel model =
+            await BuildViewModelAsync(
+                new ApiCredentialCreateViewModel(),
+                cancellationToken);
 
-        return View(new ApiCredentialCreateViewModel());
+        return View(model);
     }
 
     [HttpPost("")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Index(
-        ApiCredentialCreateViewModel form,
+        IntegrationsIndexViewModel model,
         CancellationToken cancellationToken)
     {
         await LoadAgentsAsync(cancellationToken);
 
         if (!ModelState.IsValid)
         {
-            return View(form);
+            model.Credentials =
+                await _apiCredentialService.ListAsync(
+                    GetTenantId(),
+                    cancellationToken);
+
+            return View(model);
         }
 
         AiAgentDetailsDto? agent =
             await _aiAgentService.GetAsync(
-                form.AgentId!.Value,
+                model.Create.AgentId!.Value,
                 cancellationToken);
 
         if (agent is null)
         {
             ModelState.AddModelError(
-                nameof(form.AgentId),
+                "Create.AgentId",
                 "O agente selecionado não foi encontrado.");
 
-            return View(form);
+            model.Credentials =
+                await _apiCredentialService.ListAsync(
+                    GetTenantId(),
+                    cancellationToken);
+
+            return View(model);
         }
 
         if (!agent.IsActive)
         {
             ModelState.AddModelError(
-                nameof(form.AgentId),
+                "Create.AgentId",
                 "O agente selecionado está inativo.");
 
-            return View(form);
+            model.Credentials =
+                await _apiCredentialService.ListAsync(
+                    GetTenantId(),
+                    cancellationToken);
+
+            return View(model);
         }
 
         CreatedApiCredential credential =
             await _apiCredentialService.CreateAsync(
                 GetTenantId(),
                 agent.Id,
-                form.Name,
+                model.Create.Name,
                 cancellationToken);
 
-        form.Name = string.Empty;
-        form.CreatedApiKey = credential.ApiKey;
+        model = await BuildViewModelAsync(
+            new ApiCredentialCreateViewModel
+            {
+                CreatedApiKey = credential.ApiKey
+            },
+            cancellationToken);
 
+        return View(model);
+    }
+
+    [HttpPost("revogar/{credentialId:guid}")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Revoke(
+        Guid credentialId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _apiCredentialService.RevokeAsync(
+                GetTenantId(),
+                credentialId,
+                cancellationToken);
+
+            TempData["IntegrationSuccess"] =
+                "API Key revogada com sucesso.";
+        }
+        catch (InvalidOperationException)
+        {
+            TempData["IntegrationError"] =
+                "Não foi possível revogar a API Key informada.";
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost("regenerar/{credentialId:guid}")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Regenerate(
+        Guid credentialId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            CreatedApiCredential credential =
+                await _apiCredentialService.RegenerateAsync(
+                    GetTenantId(),
+                    credentialId,
+                    cancellationToken);
+
+            IntegrationsIndexViewModel model =
+                await BuildViewModelAsync(
+                    new ApiCredentialCreateViewModel
+                    {
+                        CreatedApiKey = credential.ApiKey
+                    },
+                    cancellationToken);
+
+            ViewData["IntegrationSuccess"] =
+                "API Key regenerada. Copie a nova chave agora.";
+
+            return View("Index", model);
+        }
+        catch (InvalidOperationException)
+        {
+            TempData["IntegrationError"] =
+                "Não foi possível regenerar a API Key informada.";
+
+            return RedirectToAction(nameof(Index));
+        }
+    }
+
+    private async Task<IntegrationsIndexViewModel> BuildViewModelAsync(
+        ApiCredentialCreateViewModel create,
+        CancellationToken cancellationToken)
+    {
         await LoadAgentsAsync(cancellationToken);
 
-        return View(form);
+        IReadOnlyList<ApiCredentialListItem> credentials =
+            await _apiCredentialService.ListAsync(
+                GetTenantId(),
+                cancellationToken);
+
+        return new IntegrationsIndexViewModel
+        {
+            Create = create,
+            Credentials = credentials
+        };
     }
 
     private async Task LoadAgentsAsync(

@@ -1,69 +1,222 @@
-﻿@model OrizonAgents.Web.Models.Integrations.ApiCredentialCreateViewModel
+@using OrizonAgents.Application.Integrations.Models
+@model OrizonAgents.Web.Models.Integrations.IntegrationsIndexViewModel
 
 @{
     Layout = "_AdminLayout";
     ViewData["Title"] = "Integrações";
-    ViewData["Section"] = "Integrações";
+    ViewData["Section"] = "Publicação e API";
 }
 
-<div class="mb-4">
-    <h1 class="h3 mb-1">Integrações</h1>
-    <p class="text-muted mb-0">
-        Crie credenciais para aplicações que consumirão os agentes do Orizon Agents.
-    </p>
-</div>
+<section class="cockpit-page">
+    <header class="cockpit-page-header">
+        <div>
+            <p class="cockpit-eyebrow">Publicação e API</p>
+            <h1>Integrações</h1>
+            <p>Publique seus agentes com segurança para aplicações externas.</p>
+        </div>
 
-@if (!string.IsNullOrWhiteSpace(Model.CreatedApiKey))
-{
-    <div class="alert alert-warning mb-4">
-        <h2 class="h6 fw-bold">API Key criada</h2>
+        <span class="cockpit-security-note">
+            <span aria-hidden="true">●</span>
+            API Keys protegidas
+        </span>
+    </header>
 
-        <p class="mb-2">
-            Copie esta chave agora. Ela não poderá ser visualizada novamente.
-        </p>
+    @if (TempData["IntegrationSuccess"] is string successMessage)
+    {
+        <div class="alert alert-success mb-4">
+            @successMessage
+        </div>
+    }
 
-        <code class="d-block text-break">@Model.CreatedApiKey</code>
+    @if (ViewData["IntegrationSuccess"] is string viewSuccessMessage)
+    {
+        <div class="alert alert-success mb-4">
+            @viewSuccessMessage
+        </div>
+    }
+
+    @if (TempData["IntegrationError"] is string errorMessage)
+    {
+        <div class="alert alert-danger mb-4">
+            @errorMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Model.Create.CreatedApiKey))
+    {
+        <div class="alert alert-warning mb-4">
+            <h2 class="h6 fw-bold">API Key criada</h2>
+
+            <p class="mb-2">
+                Copie esta chave agora. Por segurança, ela não poderá ser
+                visualizada novamente.
+            </p>
+
+            <code class="d-block text-break">@Model.Create.CreatedApiKey</code>
+        </div>
+    }
+
+    <div class="cockpit-provider-grid">
+        <article class="cockpit-provider-card">
+            <header class="cockpit-provider-card__header">
+                <span class="cockpit-provider-card__mark" aria-hidden="true">
+                    +
+                </span>
+
+                <div>
+                    <p class="cockpit-eyebrow">Nova publicação</p>
+                    <h2>Criar API Key</h2>
+                </div>
+            </header>
+
+            <p class="cockpit-provider-card__description">
+                Vincule uma credencial a um agente para permitir seu consumo
+                por uma aplicação externa.
+            </p>
+
+            <form method="post"
+                  class="cockpit-form cockpit-provider-form">
+                @Html.AntiForgeryToken()
+
+                <div asp-validation-summary="ModelOnly"
+                     class="text-danger"></div>
+
+                <div>
+                    <label asp-for="Create.AgentId"
+                           class="form-label"></label>
+
+                    <select asp-for="Create.AgentId"
+                            asp-items="ViewBag.Agents"
+                            class="form-select">
+                        <option value="">Selecione um agente</option>
+                    </select>
+
+                    <span asp-validation-for="Create.AgentId"
+                          class="text-danger"></span>
+                </div>
+
+                <div>
+                    <label asp-for="Create.Name"
+                           class="form-label"></label>
+
+                    <input asp-for="Create.Name"
+                           class="form-control"
+                           placeholder="Ex.: Sistema comercial - Produção" />
+
+                    <span asp-validation-for="Create.Name"
+                          class="text-danger"></span>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    Criar API Key
+                </button>
+            </form>
+        </article>
     </div>
-}
 
-<div class="card border-0 shadow-sm">
-    <div class="card-body p-4">
-        <h2 class="h5 mb-3">Nova credencial</h2>
+    <header class="cockpit-page-header mt-5">
+        <div>
+            <p class="cockpit-eyebrow">Credenciais publicadas</p>
+            <h2>Aplicações conectadas</h2>
+            <p>
+                Acompanhe quais credenciais podem acessar seus agentes.
+            </p>
+        </div>
+    </header>
 
-        <form method="post">
-            <div asp-validation-summary="ModelOnly"
-                 class="text-danger mb-3"></div>
+    @if (Model.Credentials.Count == 0)
+    {
+        <section class="cockpit-empty-state">
+            <span class="cockpit-empty-state__icon" aria-hidden="true">
+                @await Html.PartialAsync("_IconIntegrations")
+            </span>
 
-            <div class="mb-3">
-                <label asp-for="AgentId"
-                       class="form-label"></label>
+            <h2>Nenhuma integração publicada</h2>
 
-                <select asp-for="AgentId"
-                        asp-items="ViewBag.Agents"
-                        class="form-select">
-                    <option value="">Selecione um agente</option>
-                </select>
+            <p>
+                Crie uma API Key para conectar sua primeira aplicação.
+            </p>
+        </section>
+    }
+    else
+    {
+        <div class="cockpit-resource-grid">
+            @foreach (ApiCredentialListItem credential in Model.Credentials)
+            {
+                <article class="cockpit-resource-card">
+                    <header class="cockpit-resource-card__header">
+                        <span class="cockpit-resource-card__icon"
+                              aria-hidden="true">
+                            @await Html.PartialAsync("_IconIntegrations")
+                        </span>
 
-                <span asp-validation-for="AgentId"
-                      class="text-danger"></span>
-            </div>
+                        <div class="cockpit-resource-card__identity">
+                            <div>
+                                <h2>@credential.Name</h2>
 
-            <div class="mb-3">
-                <label asp-for="Name"
-                       class="form-label"></label>
+                                <span class="cockpit-status cockpit-status--@(credential.IsActive ? "success" : "danger")">
+                                    @(credential.IsActive ? "Ativa" : "Revogada")
+                                </span>
+                            </div>
 
-                <input asp-for="Name"
-                       class="form-control"
-                       placeholder="Ex.: Minha aplicação - Desenvolvimento" />
+                            <p>@credential.AgentName</p>
+                        </div>
+                    </header>
 
-                <span asp-validation-for="Name"
-                      class="text-danger"></span>
-            </div>
+                    <dl class="cockpit-resource-card__meta">
+                        <div>
+                            <dt>Identificador</dt>
+                            <dd>
+                                <code>@credential.KeyIdentifier</code>
+                            </dd>
+                        </div>
 
-            <button type="submit"
-                    class="btn btn-primary">
-                Criar API Key
-            </button>
-        </form>
-    </div>
-</div>
+                        <div>
+                            <dt>Criada em</dt>
+                            <dd>
+                                @credential.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                            </dd>
+                        </div>
+                    </dl>
+
+                    @if (credential.IsActive)
+                    {
+                        <div class="d-flex gap-2 flex-wrap mt-3">
+                            <form asp-action="Regenerate"
+                                  asp-route-credentialId="@credential.Id"
+                                  method="post">
+                                @Html.AntiForgeryToken()
+
+                                <button type="submit"
+                                        class="btn btn-outline-primary btn-sm"
+                                        onclick="return confirm('Regenerar esta API Key? A chave atual deixará de funcionar imediatamente.');">
+                                    Regenerar
+                                </button>
+                            </form>
+
+                            <form asp-action="Revoke"
+                                  asp-route-credentialId="@credential.Id"
+                                  method="post">
+                                @Html.AntiForgeryToken()
+
+                                <button type="submit"
+                                        class="btn btn-outline-danger btn-sm"
+                                        onclick="return confirm('Revogar esta API Key? Ela deixará de funcionar imediatamente.');">
+                                    Revogar
+                                </button>
+                            </form>
+                        </div>
+                    }
+
+                    @if (credential.RevokedAtUtc.HasValue)
+                    {
+                        <p class="text-muted small mb-0">
+                            Revogada em
+                            @credential.RevokedAtUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                        </p>
+                    }
+                </article>
+            }
+        </div>
+    }
+</section>

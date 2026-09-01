@@ -265,6 +265,11 @@ public class AgentApiKeyAuthenticationTests
 
     private sealed class StubApiCredentialService : IApiCredentialService
     {
+        public Task<IReadOnlyList<ApiCredentialListItem>> ListAsync(
+            Guid tenantId,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         private readonly Func<string, ResolvedApiCredential?> _resolve;
 
         public StubApiCredentialService(Func<string, ResolvedApiCredential?> resolve)

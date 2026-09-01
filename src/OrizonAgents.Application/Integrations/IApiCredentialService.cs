@@ -4,6 +4,10 @@ namespace OrizonAgents.Application.Integrations;
 
 public interface IApiCredentialService
 {
+    Task<IReadOnlyList<ApiCredentialListItem>> ListAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken = default);
+
     Task<CreatedApiCredential> CreateAsync(
         Guid tenantId,
         Guid agentId,

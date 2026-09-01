@@ -20,6 +20,31 @@ public sealed class ApiCredentialService : IApiCredentialService
         _dbContext = dbContext;
     }
 
+    public async Task<IReadOnlyList<ApiCredentialListItem>> ListAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateRequiredId(tenantId, nameof(tenantId), "TenantId");
+
+        return await _dbContext.ApiCredentials
+            .AsNoTracking()
+            .Where(credential =>
+                credential.TenantId == tenantId &&
+                credential.AgentId != null &&
+                credential.KeyIdentifier != null)
+            .OrderByDescending(credential => credential.CreatedAtUtc)
+            .Select(credential => new ApiCredentialListItem(
+                credential.Id,
+                credential.AgentId!.Value,
+                credential.Agent!.Name,
+                credential.Name,
+                credential.KeyIdentifier!,
+                credential.IsActive,
+                credential.CreatedAtUtc,
+                credential.RevokedAtUtc))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<CreatedApiCredential> CreateAsync(
         Guid tenantId,
         Guid agentId,
@@ -85,6 +110,13 @@ public sealed class ApiCredentialService : IApiCredentialService
             tenantId,
             credentialId,
             cancellationToken);
+
+        if (!currentCredential.IsActive ||
+            currentCredential.RevokedAtUtc.HasValue)
+        {
+            throw new InvalidOperationException(
+                "A credencial informada já está revogada.");
+        }
 
         currentCredential.Revoke(DateTime.UtcNow);
 
