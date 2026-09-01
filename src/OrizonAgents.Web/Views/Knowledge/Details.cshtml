@@ -55,7 +55,7 @@
         <div>
             <p class="cockpit-eyebrow">Ingestão</p>
             <h2>Adicionar documento</h2>
-            <p>Arquivos TXT, Markdown e PDF com até 10 MB.</p>
+            <p>Arquivos TXT, Markdown, PDF, CSV, Excel (XLSX) e Word (DOCX) com até 10 MB.</p>
         </div>
 
         <form method="post"
@@ -68,7 +68,7 @@
             <input type="file"
                    name="File"
                    class="form-control"
-                   accept=".txt,.md,.markdown,.pdf,text/plain,text/markdown,application/pdf"
+                   accept=".txt,.md,.markdown,.pdf,.csv,.xlsx,.docx,text/plain,text/markdown,application/pdf,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                    required />
             <button type="submit" class="btn btn-primary">Enviar documento</button>
         </form>

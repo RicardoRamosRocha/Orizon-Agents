@@ -20,7 +20,10 @@ public sealed class KnowledgeService : IKnowledgeService
             ".txt",
             ".md",
             ".markdown",
-            ".pdf"
+            ".pdf",
+            ".csv",
+            ".xlsx",
+            ".docx"
         };
 
     private readonly OrizonAgentsDbContext _dbContext;
@@ -148,7 +151,7 @@ public sealed class KnowledgeService : IKnowledgeService
         if (!SupportedExtensions.Contains(extension))
         {
             return OperationResult<Guid>.Failure(
-                "Formato não suportado. Utilize TXT, Markdown ou PDF.");
+                "Formato não suportado. Utilize TXT, Markdown, PDF, CSV, XLSX ou DOCX.");
         }
 
         KnowledgeBase? knowledgeBase =

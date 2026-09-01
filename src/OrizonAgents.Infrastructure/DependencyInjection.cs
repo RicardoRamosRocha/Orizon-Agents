@@ -90,6 +90,9 @@ public static class DependencyInjection
         services.AddScoped<IKnowledgeFileStorage, LocalKnowledgeFileStorage>();
         services.AddScoped<IKnowledgeDocumentExtractor, PlainTextDocumentExtractor>();
         services.AddScoped<IKnowledgeDocumentExtractor, PdfDocumentExtractor>();
+        services.AddScoped<IKnowledgeDocumentExtractor, CsvDocumentExtractor>();
+        services.AddScoped<IKnowledgeDocumentExtractor, ExcelDocumentExtractor>();
+        services.AddScoped<IKnowledgeDocumentExtractor, WordDocumentExtractor>();
         services.AddScoped<IKnowledgeTextChunker, KnowledgeTextChunker>();
         services.AddScoped<IKnowledgeDocumentProcessor, KnowledgeDocumentProcessor>();
         services.AddScoped<IKnowledgeService, KnowledgeService>();
