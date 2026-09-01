@@ -1,4 +1,4 @@
-@model OrizonAgents.Web.Models.Integrations.ApiCredentialCreateViewModel
+﻿@model OrizonAgents.Web.Models.Integrations.ApiCredentialCreateViewModel
 
 @{
     Layout = "_AdminLayout";
@@ -35,12 +35,26 @@
                  class="text-danger mb-3"></div>
 
             <div class="mb-3">
+                <label asp-for="AgentId"
+                       class="form-label"></label>
+
+                <select asp-for="AgentId"
+                        asp-items="ViewBag.Agents"
+                        class="form-select">
+                    <option value="">Selecione um agente</option>
+                </select>
+
+                <span asp-validation-for="AgentId"
+                      class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
                 <label asp-for="Name"
                        class="form-label"></label>
 
                 <input asp-for="Name"
                        class="form-control"
-                       placeholder="Ex.: EscalaVendaNova - Desenvolvimento" />
+                       placeholder="Ex.: Minha aplicação - Desenvolvimento" />
 
                 <span asp-validation-for="Name"
                       class="text-danger"></span>

@@ -163,6 +163,13 @@
                         <span class="admin-nav__text">Ferramentas</span>
                     </a>
 
+                    <a class="@Active("Integrations")"
+                       asp-controller="Integrations"
+                       asp-action="Index"
+                       title="Integrações">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconIntegrations")</span>
+                        <span class="admin-nav__text">Integrações</span>
+                    </a>
                     <a class="@Active("WhatsApp")"
                        asp-controller="WhatsApp"
                        asp-action="Index"

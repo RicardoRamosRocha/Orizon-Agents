@@ -6,6 +6,22 @@ public interface IApiCredentialService
 {
     Task<CreatedApiCredential> CreateAsync(
         Guid tenantId,
+        Guid agentId,
+        string name,
+        CancellationToken cancellationToken = default);
+
+    Task RevokeAsync(
+        Guid tenantId,
+        Guid credentialId,
+        CancellationToken cancellationToken = default);
+
+    Task<CreatedApiCredential> RegenerateAsync(
+        Guid tenantId,
+        Guid credentialId,
+        CancellationToken cancellationToken = default);
+
+    Task<CreatedApiCredential> CreateAsync(
+        Guid tenantId,
         string name,
         CancellationToken cancellationToken = default);
 

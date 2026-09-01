@@ -16,6 +16,8 @@ public sealed class ApiCredentialConfiguration
         builder.Property(credential => credential.TenantId)
             .IsRequired();
 
+        builder.Property(credential => credential.AgentId);
+
         builder.Property(credential => credential.Name)
             .HasMaxLength(ApiCredential.NameMaxLength)
             .IsRequired();
@@ -23,6 +25,9 @@ public sealed class ApiCredentialConfiguration
         builder.Property(credential => credential.KeyHash)
             .HasMaxLength(ApiCredential.KeyHashMaxLength)
             .IsRequired();
+
+        builder.Property(credential => credential.KeyIdentifier)
+            .HasMaxLength(ApiCredential.KeyIdentifierMaxLength);
 
         builder.Property(credential => credential.IsActive)
             .IsRequired();
@@ -32,13 +37,24 @@ public sealed class ApiCredentialConfiguration
 
         builder.Property(credential => credential.UpdatedAtUtc);
 
+        builder.Property(credential => credential.RevokedAtUtc);
+
         builder.HasIndex(credential => credential.KeyHash)
             .IsUnique();
+
+        builder.HasIndex(credential => credential.KeyIdentifier)
+            .IsUnique()
+            .HasFilter("\"KeyIdentifier\" IS NOT NULL");
 
         builder.HasIndex(credential => new
         {
             credential.TenantId,
-            credential.IsActive
+            credential.AgentId
         });
+
+        builder.HasOne(credential => credential.Agent)
+            .WithMany()
+            .HasForeignKey(credential => credential.AgentId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -2,6 +2,7 @@ using OrizonAgents.Application.Agents.Models;
 using OrizonAgents.Application.Agents.Credentials;
 using OrizonAgents.Infrastructure.Agents.Credentials;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -148,7 +149,21 @@ public static class DependencyInjection
         services.AddScoped<IWhatsAppProcessor, WhatsAppProcessor>();
         services.Configure<WhatsAppOptions>(configuration.GetSection(WhatsAppOptions.SectionName));
         services.AddHttpClient<IWhatsAppCloudApiClient, WhatsAppCloudApiClient>();
-        services.AddDataProtection();
+        string dataProtectionKeysPath =
+            configuration["DataProtection:KeysPath"]
+            ?? Path.Combine(
+                Environment.GetFolderPath(
+                    Environment.SpecialFolder.LocalApplicationData),
+                "OrizonAgents",
+                "DataProtection-Keys");
+
+        Directory.CreateDirectory(dataProtectionKeysPath);
+
+        services
+            .AddDataProtection()
+            .SetApplicationName("OrizonAgents")
+            .PersistKeysToFileSystem(
+                new DirectoryInfo(dataProtectionKeysPath));
 
         services.AddDbContext<OrizonAgentsDbContext>(options =>
         {
