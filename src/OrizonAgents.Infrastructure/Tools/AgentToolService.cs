@@ -177,11 +177,24 @@ public sealed class AgentToolService : IAgentToolService
             return Array.Empty<AgentToolBindingDto>();
         }
 
+        Guid? tenantId = await _dbContext.AiAgents
+            .AsNoTracking()
+            .Where(agent => agent.Id == agentId)
+            .Select(agent => (Guid?)agent.TenantId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (tenantId is null)
+        {
+            return Array.Empty<AgentToolBindingDto>();
+        }
+
         return await (
             from tool in _dbContext.AgentTools.AsNoTracking()
+            where tool.TenantId == tenantId.Value
             join binding in _dbContext.AgentToolBindings.AsNoTracking()
                     .Where(candidate =>
-                        candidate.AgentId == agentId)
+                        candidate.AgentId == agentId &&
+                        candidate.TenantId == tenantId.Value)
                 on tool.Id equals binding.ToolId
                 into bindings
             from binding in bindings.DefaultIfEmpty()
@@ -221,6 +234,12 @@ public sealed class AgentToolService : IAgentToolService
         {
             return OperationResult.Failure(
                 "Tool não encontrada.");
+        }
+
+        if (tool.TenantId != agent.TenantId)
+        {
+            return OperationResult.Failure(
+                "A Tool não pertence ao mesmo tenant do agente.");
         }
 
         if (!tool.IsActive)
