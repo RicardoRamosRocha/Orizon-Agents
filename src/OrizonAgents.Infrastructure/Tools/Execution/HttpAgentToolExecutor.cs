@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using OrizonAgents.Application.Tools.Execution;
 using OrizonAgents.Application.Tools.Execution.Models;
 using OrizonAgents.Domain.Tools;
@@ -14,17 +15,20 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
     private readonly OrizonAgentsDbContext _dbContext;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IAgentToolEndpointPolicy _endpointPolicy;
+    private readonly AgentToolHttpOptions _httpOptions;
     private readonly ILogger<HttpAgentToolExecutor> _logger;
 
     public HttpAgentToolExecutor(
         OrizonAgentsDbContext dbContext,
         IHttpClientFactory httpClientFactory,
         IAgentToolEndpointPolicy endpointPolicy,
+        IOptions<AgentToolHttpOptions> httpOptions,
         ILogger<HttpAgentToolExecutor> logger)
     {
         _dbContext = dbContext;
         _httpClientFactory = httpClientFactory;
         _endpointPolicy = endpointPolicy;
+        _httpOptions = httpOptions.Value;
         _logger = logger;
     }
 
@@ -96,9 +100,18 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
                     HttpCompletionOption.ResponseHeadersRead,
                     cancellationToken);
 
-            string content =
-                await response.Content.ReadAsStringAsync(
+            string? content =
+                await ReadResponseContentAsync(
+                    response.Content,
+                    _httpOptions.MaxResponseBytes,
                     cancellationToken);
+
+            if (content is null)
+            {
+                return AgentToolExecutionResult.Failure(
+                    "A resposta da Tool excedeu o tamanho máximo permitido.",
+                    (int)response.StatusCode);
+            }
 
             if (!response.IsSuccessStatusCode)
             {
@@ -129,6 +142,58 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
             return AgentToolExecutionResult.Failure(
                 "Não foi possível executar a Tool.");
         }
+    }
+
+    private static async Task<string?> ReadResponseContentAsync(
+        HttpContent content,
+        int maxResponseBytes,
+        CancellationToken cancellationToken)
+    {
+        if (maxResponseBytes <= 0)
+        {
+            throw new InvalidOperationException(
+                "MaxResponseBytes deve ser maior que zero.");
+        }
+
+        if (content.Headers.ContentLength is long contentLength &&
+            contentLength > maxResponseBytes)
+        {
+            return null;
+        }
+
+        await using Stream stream =
+            await content.ReadAsStreamAsync(cancellationToken);
+
+        using var buffer = new MemoryStream();
+
+        byte[] chunk = new byte[8192];
+        int totalBytes = 0;
+
+        while (true)
+        {
+            int bytesRead =
+                await stream.ReadAsync(
+                    chunk.AsMemory(0, chunk.Length),
+                    cancellationToken);
+
+            if (bytesRead == 0)
+            {
+                break;
+            }
+
+            totalBytes += bytesRead;
+
+            if (totalBytes > maxResponseBytes)
+            {
+                return null;
+            }
+
+            await buffer.WriteAsync(
+                chunk.AsMemory(0, bytesRead),
+                cancellationToken);
+        }
+
+        return Encoding.UTF8.GetString(buffer.ToArray());
     }
 
     private static HttpRequestMessage CreateHttpRequest(

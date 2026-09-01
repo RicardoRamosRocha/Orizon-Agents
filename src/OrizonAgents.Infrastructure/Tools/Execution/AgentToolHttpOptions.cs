@@ -7,4 +7,6 @@ public sealed class AgentToolHttpOptions
     public bool AllowLocalhost { get; set; }
 
     public bool AllowPrivateNetworks { get; set; }
+
+    public int MaxResponseBytes { get; set; } = 256 * 1024;
 }

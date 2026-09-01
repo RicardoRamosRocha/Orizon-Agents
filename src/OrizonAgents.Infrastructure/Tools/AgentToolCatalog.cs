@@ -28,7 +28,11 @@ public sealed class AgentToolCatalog : IAgentToolCatalog
             from binding in _dbContext.AgentToolBindings.AsNoTracking()
             join tool in _dbContext.AgentTools.AsNoTracking()
                 on binding.ToolId equals tool.Id
+            join agent in _dbContext.AiAgents.AsNoTracking()
+                on binding.AgentId equals agent.Id
             where binding.AgentId == agentId
+                  && binding.TenantId == agent.TenantId
+                  && tool.TenantId == agent.TenantId
                   && binding.IsActive
                   && tool.IsActive
             orderby tool.Name

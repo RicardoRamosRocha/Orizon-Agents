@@ -314,6 +314,65 @@ public sealed class HttpAgentToolExecutorTests
     }
 
 
+    [Fact]
+    public async Task ExecuteAsync_RejectsResponseLargerThanMaximumAllowed()
+    {
+        await using ServiceProvider provider = CreateProvider();
+
+        OrizonAgentsDbContext db =
+            provider.GetRequiredService<OrizonAgentsDbContext>();
+
+        Guid tenantId = Guid.NewGuid();
+
+        var agent = CreateAgent(tenantId);
+        var tool = CreateTool(tenantId);
+
+        db.AiAgents.Add(agent);
+        db.AgentTools.Add(tool);
+
+        db.AgentToolBindings.Add(
+            new AgentToolBinding(
+                tenantId,
+                agent.Id,
+                tool.Id));
+
+        await db.SaveChangesAsync();
+
+        string oversizedResponse =
+            new('x', (256 * 1024) + 1);
+
+        var handler =
+            new RecordingHttpMessageHandler(
+                HttpStatusCode.OK,
+                oversizedResponse);
+
+        var httpClientFactory =
+            new StubHttpClientFactory(handler);
+
+        var executor =
+            CreateExecutor(
+                provider,
+                httpClientFactory);
+
+        AgentToolExecutionResult result =
+            await executor.ExecuteAsync(
+                new AgentToolExecutionRequest(
+                    agent.Id,
+                    tool.Id));
+
+        Assert.False(result.Succeeded);
+        Assert.Null(result.Content);
+
+        Assert.Contains(
+            "tamanho máximo",
+            result.Error ?? string.Empty,
+            StringComparison.OrdinalIgnoreCase);
+
+        Assert.Equal(
+            (int)HttpStatusCode.OK,
+            result.StatusCode);
+    }
+
     private static ServiceProvider CreateProvider()
     {
         var services = new ServiceCollection();
@@ -354,6 +413,8 @@ public sealed class HttpAgentToolExecutorTests
             httpClientFactory ??
                 provider.GetRequiredService<IHttpClientFactory>(),
             endpointPolicy,
+            Options.Create(
+                new AgentToolHttpOptions()),
             provider.GetRequiredService<
                 ILogger<HttpAgentToolExecutor>>());
     }
