@@ -13,15 +13,18 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
 {
     private readonly OrizonAgentsDbContext _dbContext;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IAgentToolEndpointPolicy _endpointPolicy;
     private readonly ILogger<HttpAgentToolExecutor> _logger;
 
     public HttpAgentToolExecutor(
         OrizonAgentsDbContext dbContext,
         IHttpClientFactory httpClientFactory,
+        IAgentToolEndpointPolicy endpointPolicy,
         ILogger<HttpAgentToolExecutor> logger)
     {
         _dbContext = dbContext;
         _httpClientFactory = httpClientFactory;
+        _endpointPolicy = endpointPolicy;
         _logger = logger;
     }
 
@@ -45,8 +48,12 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
             from candidateTool in _dbContext.AgentTools.AsNoTracking()
             join binding in _dbContext.AgentToolBindings.AsNoTracking()
                 on candidateTool.Id equals binding.ToolId
+            join agent in _dbContext.AiAgents.AsNoTracking()
+                on binding.AgentId equals agent.Id
             where candidateTool.Id == request.ToolId
-                  && binding.AgentId == request.AgentId
+                  && agent.Id == request.AgentId
+                  && candidateTool.TenantId == agent.TenantId
+                  && binding.TenantId == agent.TenantId
                   && candidateTool.IsActive
                   && binding.IsActive
             select candidateTool)
@@ -67,13 +74,21 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
                 "O endpoint configurado para a Tool é inválido.");
         }
 
+        if (!await _endpointPolicy.IsAllowedAsync(
+                endpoint,
+                cancellationToken))
+        {
+            return AgentToolExecutionResult.Failure(
+                "O endpoint configurado para a Tool não é permitido.");
+        }
+
         try
         {
             using HttpRequestMessage httpRequest =
                 CreateHttpRequest(tool, endpoint, request);
 
             HttpClient client =
-                _httpClientFactory.CreateClient();
+                _httpClientFactory.CreateClient("AgentTools");
 
             using HttpResponseMessage response =
                 await client.SendAsync(

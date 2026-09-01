@@ -87,6 +87,16 @@ public static class DependencyInjection
         services.AddScoped<IAgentModelDecisionParser, AgentModelDecisionParser>();
         services.AddScoped<IAgentToolCatalog, AgentToolCatalog>();
         services.AddScoped<IAgentToolService, AgentToolService>();
+
+        services.Configure<AgentToolHttpOptions>(
+            configuration.GetSection(AgentToolHttpOptions.SectionName));
+
+        services.AddSingleton<IAgentToolEndpointPolicy, AgentToolEndpointPolicy>();
+
+        services.AddHttpClient("AgentTools", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
         services.AddScoped<IKnowledgeFileStorage, LocalKnowledgeFileStorage>();
         services.AddScoped<IKnowledgeDocumentExtractor, PlainTextDocumentExtractor>();
         services.AddScoped<IKnowledgeDocumentExtractor, PdfDocumentExtractor>();
