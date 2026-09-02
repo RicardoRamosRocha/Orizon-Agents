@@ -36,11 +36,20 @@ public sealed class GroqChatProvider : IAiChatProvider
         string? operationalContext = null,
         CancellationToken cancellationToken = default)
     {
-        string apiKey =
+        string? apiKey =
+            await _credentialService.ResolveAsync(
+                AiProvider.Groq,
+                cancellationToken);
+
+        apiKey ??=
             _configuration["GROQ_API_KEY"]
-            ?? Environment.GetEnvironmentVariable("GROQ_API_KEY")
-            ?? throw new InvalidOperationException(
-                "A chave GROQ_API_KEY nÃ£o estÃ¡ configurada.");
+            ?? Environment.GetEnvironmentVariable("GROQ_API_KEY");
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new InvalidOperationException(
+                "Nenhuma credencial da Groq está configurada para este tenant.");
+        }
 
         var messages = new List<object>
         {
