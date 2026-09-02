@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
@@ -100,40 +101,83 @@ public sealed class GeminiChatProvider : IAiChatProvider
             }
         });
 
-        using var request = new HttpRequestMessage(
-            HttpMethod.Post,
-            $"v1beta/models/{model}:generateContent");
+        const int maxAttempts = 3;
+        string? responseBody = null;
+        HttpStatusCode responseStatusCode = default;
 
-        request.Headers.Add("x-goog-api-key", apiKey);
-
-        request.Content = JsonContent.Create(new
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            system_instruction = new
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                $"v1beta/models/{model}:generateContent");
+
+            request.Headers.Add("x-goog-api-key", apiKey);
+
+            request.Content = JsonContent.Create(new
             {
-                parts = new[]
+                system_instruction = new
                 {
-                    new { text = effectiveSystemPrompt }
+                    parts = new[]
+                    {
+                        new { text = effectiveSystemPrompt }
+                    }
+                },
+                contents,
+                generationConfig = new
+                {
+                    temperature
                 }
-            },
-            contents,
-            generationConfig = new
+            });
+
+            try
             {
-                temperature
+                using HttpResponseMessage response =
+                    await _httpClient.SendAsync(
+                        request,
+                        cancellationToken);
+
+                responseBody =
+                    await response.Content.ReadAsStringAsync(cancellationToken);
+
+                responseStatusCode = response.StatusCode;
+
+                if (response.IsSuccessStatusCode)
+                {
+                    break;
+                }
+
+                bool isTransient =
+                    response.StatusCode is
+                        HttpStatusCode.TooManyRequests or
+                        HttpStatusCode.BadGateway or
+                        HttpStatusCode.ServiceUnavailable or
+                        HttpStatusCode.GatewayTimeout;
+
+                if (!isTransient || attempt == maxAttempts)
+                {
+                    throw new InvalidOperationException(
+                        $"Gemini retornou {(int)response.StatusCode}: {responseBody}");
+                }
             }
-        });
+            catch (TaskCanceledException) when (
+                !cancellationToken.IsCancellationRequested)
+            {
+                if (attempt == maxAttempts)
+                {
+                    throw new InvalidOperationException(
+                        "O Gemini não respondeu dentro do tempo limite após múltiplas tentativas.");
+                }
+            }
 
-        using HttpResponseMessage response =
-            await _httpClient.SendAsync(
-                request,
+            await Task.Delay(
+                TimeSpan.FromMilliseconds(500 * attempt),
                 cancellationToken);
+        }
 
-        string responseBody =
-            await response.Content.ReadAsStringAsync(cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
+        if (string.IsNullOrWhiteSpace(responseBody))
         {
             throw new InvalidOperationException(
-                $"Gemini retornou {(int)response.StatusCode}: {responseBody}");
+                $"Gemini retornou {(int)responseStatusCode} sem conteúdo.");
         }
 
         using JsonDocument document =
