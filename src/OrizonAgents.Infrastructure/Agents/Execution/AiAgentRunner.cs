@@ -168,6 +168,9 @@ public sealed class AiAgentRunner : IAiAgentRunner
                 _decisionParser.Parse(modelResponse);
 
             string response = modelResponse;
+            Guid? approvalId = null;
+            AiAgentRunStatus runStatus =
+                AiAgentRunStatus.Completed;
 
             if (decision.Type == AgentModelDecisionType.ToolCall &&
                 decision.ToolCall is not null)
@@ -180,24 +183,44 @@ public sealed class AiAgentRunner : IAiAgentRunner
                             decision.ToolCall.Input),
                         cancellationToken);
 
-                string toolContext = BuildToolResultContext(
-                    decision.ToolCall,
-                    toolResult);
+                if (toolResult.RequiresApproval)
+                {
+                    if (!toolResult.ApprovalId.HasValue)
+                    {
+                        throw new InvalidOperationException(
+                            "A Tool informou que requer aprovação, " +
+                            "mas não retornou ApprovalId.");
+                    }
 
-                string? contextAfterTool =
-                    CombineContexts(
-                        operationalContext,
-                        toolContext);
+                    approvalId = toolResult.ApprovalId.Value;
+                    runStatus =
+                        AiAgentRunStatus.ApprovalRequired;
 
-                response = await provider.CompleteAsync(
-                    agent.Model,
-                    BuildSystemPromptAfterToolExecution(
-                        agent.SystemPrompt),
-                    normalizedMessage,
-                    history,
-                    agent.Temperature,
-                    contextAfterTool,
-                    cancellationToken);
+                    response =
+                        "Esta ação requer aprovação humana antes " +
+                        "de ser executada.";
+                }
+                else
+                {
+                    string toolContext = BuildToolResultContext(
+                        decision.ToolCall,
+                        toolResult);
+
+                    string? contextAfterTool =
+                        CombineContexts(
+                            operationalContext,
+                            toolContext);
+
+                    response = await provider.CompleteAsync(
+                        agent.Model,
+                        BuildSystemPromptAfterToolExecution(
+                            agent.SystemPrompt),
+                        normalizedMessage,
+                        history,
+                        agent.Temperature,
+                        contextAfterTool,
+                        cancellationToken);
+                }
             }
 
             AiConversationMessage userMessageEntity =
@@ -217,7 +240,9 @@ public sealed class AiAgentRunner : IAiAgentRunner
             return OperationResult<AiAgentRunResult>.Success(
                 new AiAgentRunResult(
                     conversation.Id,
-                    response));
+                    response,
+                    runStatus,
+                    approvalId));
         }
         catch (Exception exception)
         {

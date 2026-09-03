@@ -249,6 +249,9 @@ public sealed class HttpAgentToolExecutorTests
 
         Guid tenantId = Guid.NewGuid();
 
+        provider.GetRequiredService<ITenantContextSetter>()
+            .SetTenantId(tenantId);
+
         var agent = CreateAgent(tenantId);
 
         var tool = new AgentTool(
@@ -324,6 +327,9 @@ public sealed class HttpAgentToolExecutorTests
             provider.GetRequiredService<OrizonAgentsDbContext>();
 
         Guid tenantId = Guid.NewGuid();
+
+        provider.GetRequiredService<ITenantContextSetter>()
+            .SetTenantId(tenantId);
 
         var agent = CreateAgent(tenantId);
         var tool = CreateTool(tenantId);
@@ -469,6 +475,214 @@ public sealed class HttpAgentToolExecutorTests
         Assert.Null(handler.RequestUri);
         Assert.Null(handler.RequestBody);
     }
+    [Fact]
+    public async Task ExecuteAsync_SensitiveToolWithoutApproval_BlocksHttpRequest()
+    {
+        await using ServiceProvider provider = CreateProvider();
+
+        Guid tenantId = Guid.NewGuid();
+
+        provider
+            .GetRequiredService<ITenantContextSetter>()
+            .SetTenantId(tenantId);
+
+        OrizonAgentsDbContext db =
+            provider.GetRequiredService<OrizonAgentsDbContext>();
+
+        AiAgent agent = CreateAgent(tenantId);
+
+        AgentTool tool = new(
+            tenantId,
+            "Tool sensível",
+            "Executa uma operação sensível.",
+            "https://example.com/api/sensitive",
+            "POST");
+
+        tool.SetRiskLevel(
+            AgentToolRiskLevel.Sensitive);
+
+        db.AiAgents.Add(agent);
+        db.AgentTools.Add(tool);
+
+        db.AgentToolBindings.Add(
+            new AgentToolBinding(
+                tenantId,
+                agent.Id,
+                tool.Id));
+
+        await db.SaveChangesAsync();
+
+        var handler = new RecordingHttpMessageHandler(
+            HttpStatusCode.OK,
+            """{"executed":true}""");
+
+        var factory =
+            new StubHttpClientFactory(handler);
+
+        HttpAgentToolExecutor executor =
+            CreateExecutor(provider, factory);
+
+        using JsonDocument document =
+            JsonDocument.Parse(
+                """{"amount":100,"account":"ABC"}""");
+
+        AgentToolExecutionResult result =
+            await executor.ExecuteAsync(
+                new AgentToolExecutionRequest(
+                    agent.Id,
+                    tool.Id,
+                    document.RootElement.Clone()));
+
+        Assert.False(result.Succeeded);
+
+        Assert.Equal(
+            AgentToolExecutionStatus.ApprovalRequired,
+            result.Status);
+
+        Assert.True(result.RequiresApproval);
+        Assert.NotNull(result.ApprovalId);
+
+        ToolExecutionApproval approval =
+            await db.ToolExecutionApprovals
+                .SingleAsync();
+
+        Assert.Equal(
+            result.ApprovalId,
+            approval.Id);
+
+        Assert.Equal(
+            ToolExecutionApprovalStatus.Pending,
+            approval.Status);
+
+        Assert.Equal(tenantId, approval.TenantId);
+        Assert.Equal(agent.Id, approval.AgentId);
+        Assert.Equal(tool.Id, approval.ToolId);
+
+        Assert.Null(handler.RequestMethod);
+        Assert.Null(handler.RequestUri);
+        Assert.Null(handler.RequestBody);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ApprovedSensitiveTool_ExecutesHttpAndConsumesApproval()
+    {
+        await using ServiceProvider provider = CreateProvider();
+
+        Guid tenantId = Guid.NewGuid();
+
+        provider
+            .GetRequiredService<ITenantContextSetter>()
+            .SetTenantId(tenantId);
+
+        OrizonAgentsDbContext db =
+            provider.GetRequiredService<OrizonAgentsDbContext>();
+
+        AiAgent agent = CreateAgent(tenantId);
+
+        AgentTool tool = new(
+            tenantId,
+            "Tool sensível aprovada",
+            "Executa uma operação sensível após aprovação.",
+            "https://example.com/api/sensitive",
+            "POST");
+
+        tool.SetRiskLevel(
+            AgentToolRiskLevel.Sensitive);
+
+        db.AiAgents.Add(agent);
+        db.AgentTools.Add(tool);
+
+        db.AgentToolBindings.Add(
+            new AgentToolBinding(
+                tenantId,
+                agent.Id,
+                tool.Id));
+
+        await db.SaveChangesAsync();
+
+        var handler = new RecordingHttpMessageHandler(
+            HttpStatusCode.OK,
+            """{"executed":true}""");
+
+        var factory =
+            new StubHttpClientFactory(handler);
+
+        HttpAgentToolExecutor executor =
+            CreateExecutor(provider, factory);
+
+        JsonElement input;
+
+        using (JsonDocument document =
+            JsonDocument.Parse(
+                """{"amount":100,"account":"ABC"}"""))
+        {
+            input = document.RootElement.Clone();
+        }
+
+        AgentToolExecutionResult pending =
+            await executor.ExecuteAsync(
+                new AgentToolExecutionRequest(
+                    agent.Id,
+                    tool.Id,
+                    input));
+
+        Assert.Equal(
+            AgentToolExecutionStatus.ApprovalRequired,
+            pending.Status);
+
+        Assert.NotNull(pending.ApprovalId);
+
+        Assert.Null(handler.RequestMethod);
+
+        var approvalService =
+            new ToolExecutionApprovalService(
+                db,
+                provider.GetRequiredService<ICurrentTenant>());
+
+        bool approved =
+            await approvalService.ApproveAsync(
+                pending.ApprovalId.Value);
+
+        Assert.True(approved);
+
+        AgentToolExecutionResult executed =
+            await executor.ExecuteAsync(
+                new AgentToolExecutionRequest(
+                    agent.Id,
+                    tool.Id,
+                    input));
+
+        Assert.True(executed.Succeeded);
+
+        Assert.Equal(
+            AgentToolExecutionStatus.Succeeded,
+            executed.Status);
+
+        Assert.Equal(
+            (int)HttpStatusCode.OK,
+            executed.StatusCode);
+
+        Assert.Equal(
+            HttpMethod.Post,
+            handler.RequestMethod);
+
+        Assert.Equal(
+            "https://example.com/api/sensitive",
+            handler.RequestUri?.ToString());
+
+        ToolExecutionApproval approval =
+            await db.ToolExecutionApprovals
+                .SingleAsync(x =>
+                    x.Id == pending.ApprovalId.Value);
+
+        Assert.Equal(
+            ToolExecutionApprovalStatus.Consumed,
+            approval.Status);
+
+        Assert.NotNull(
+            approval.ConsumedAtUtc);
+    }
+
     private static ServiceProvider CreateProvider()
     {
         var services = new ServiceCollection();
@@ -511,6 +725,9 @@ public sealed class HttpAgentToolExecutorTests
             endpointPolicy,
             new StubToolCredentialService(),
             new AgentToolInputValidator(),
+            new ToolExecutionApprovalService(
+                provider.GetRequiredService<OrizonAgentsDbContext>(),
+                provider.GetRequiredService<ICurrentTenant>()),
             Options.Create(
                 new AgentToolHttpOptions()),
             provider.GetRequiredService<

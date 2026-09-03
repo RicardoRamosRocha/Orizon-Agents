@@ -186,6 +186,55 @@ public class AgentRunEndpointContractTests
     }
 
     [Fact]
+    public async Task ApprovalRequired_ReturnsStructuredApprovalMetadata()
+    {
+        Guid approvalId = Guid.NewGuid();
+
+        var runner =
+            StubAgentRunner.ApprovalRequired(
+                "Esta ação requer aprovação humana antes de ser executada.",
+                approvalId);
+
+        AgentsController controller = CreateController(
+            runner,
+            new StubAiAgentService(
+                CreateAgent(TenantId, isActive: true)));
+
+        IActionResult result = await controller.Run(
+            AgentId,
+            new RunAgentRequest("Execute a ação."),
+            CancellationToken.None);
+
+        var ok =
+            Assert.IsType<OkObjectResult>(result);
+
+        var response =
+            Assert.IsType<RunAgentResponse>(ok.Value);
+
+        Assert.True(response.Success);
+
+        Assert.Equal(
+            "approvalRequired",
+            response.Status);
+
+        Assert.Equal(
+            approvalId,
+            response.ApprovalId);
+
+        string json = Serialize(response);
+
+        Assert.Contains(
+            "\"status\":\"approvalRequired\"",
+            json,
+            StringComparison.Ordinal);
+
+        Assert.Contains(
+            approvalId.ToString(),
+            json,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task UntypedRunnerFailure_ReturnsSanitized500()
     {
         var runner = StubAgentRunner.Failure(
@@ -385,6 +434,19 @@ public class AgentRunEndpointContractTests
             return new StubAgentRunner(() => Task.FromResult(
                 OperationResult<AiAgentRunResult>.Success(
                     new AiAgentRunResult(Guid.NewGuid(), response))));
+        }
+
+        public static StubAgentRunner ApprovalRequired(
+            string response,
+            Guid approvalId)
+        {
+            return new StubAgentRunner(() => Task.FromResult(
+                OperationResult<AiAgentRunResult>.Success(
+                    new AiAgentRunResult(
+                        Guid.NewGuid(),
+                        response,
+                        AiAgentRunStatus.ApprovalRequired,
+                        approvalId))));
         }
 
         public static StubAgentRunner Failure(string internalError)

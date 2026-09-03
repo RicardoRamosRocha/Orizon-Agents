@@ -30,6 +30,7 @@ public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, A
     public DbSet<AgentTool> AgentTools => Set<AgentTool>();
     public DbSet<AgentToolBinding> AgentToolBindings => Set<AgentToolBinding>();
     public DbSet<ToolCredential> ToolCredentials => Set<ToolCredential>();
+    public DbSet<ToolExecutionApproval> ToolExecutionApprovals => Set<ToolExecutionApproval>();
     public DbSet<KnowledgeBase> KnowledgeBases => Set<KnowledgeBase>();
     public DbSet<KnowledgeDocument> KnowledgeDocuments => Set<KnowledgeDocument>();
     public DbSet<KnowledgeChunk> KnowledgeChunks => Set<KnowledgeChunk>();

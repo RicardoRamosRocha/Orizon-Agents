@@ -135,7 +135,11 @@ public sealed class AgentsController : ControllerBase
 
             return Ok(new RunAgentResponse(
                 Success: true,
-                result.Value.Response));
+                result.Value.Response,
+                Status: result.Value.RequiresApproval
+                    ? "approvalRequired"
+                    : null,
+                ApprovalId: result.Value.ApprovalId));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

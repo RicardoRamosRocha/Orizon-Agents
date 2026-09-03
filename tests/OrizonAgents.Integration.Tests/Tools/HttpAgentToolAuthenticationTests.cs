@@ -143,6 +143,10 @@ public sealed class HttpAgentToolAuthenticationTests
     {
         OrizonAgentsDbContext db = provider.GetRequiredService<OrizonAgentsDbContext>();
         Guid tenantId = Guid.NewGuid();
+
+        provider.GetRequiredService<ITenantContextSetter>()
+            .SetTenantId(tenantId);
+
         var agent = new AiAgent(
             tenantId,
             "Agente de teste",
@@ -175,6 +179,9 @@ public sealed class HttpAgentToolAuthenticationTests
             new AgentToolEndpointPolicy(Options.Create(new AgentToolHttpOptions())),
             credentialService,
             new AgentToolInputValidator(),
+            new ToolExecutionApprovalService(
+                provider.GetRequiredService<OrizonAgentsDbContext>(),
+                provider.GetRequiredService<ICurrentTenant>()),
             Options.Create(new AgentToolHttpOptions()),
             provider.GetRequiredService<ILogger<HttpAgentToolExecutor>>());
     }

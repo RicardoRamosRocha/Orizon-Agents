@@ -21,6 +21,7 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
     private readonly IAgentToolEndpointPolicy _endpointPolicy;
     private readonly IToolCredentialService _credentialService;
     private readonly IAgentToolInputValidator _inputValidator;
+    private readonly IToolExecutionApprovalService _approvalService;
     private readonly AgentToolHttpOptions _httpOptions;
     private readonly ILogger<HttpAgentToolExecutor> _logger;
 
@@ -30,6 +31,7 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
         IAgentToolEndpointPolicy endpointPolicy,
         IToolCredentialService credentialService,
         IAgentToolInputValidator inputValidator,
+        IToolExecutionApprovalService approvalService,
         IOptions<AgentToolHttpOptions> httpOptions,
         ILogger<HttpAgentToolExecutor> logger)
     {
@@ -38,6 +40,7 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
         _endpointPolicy = endpointPolicy;
         _credentialService = credentialService;
         _inputValidator = inputValidator;
+        _approvalService = approvalService;
         _httpOptions = httpOptions.Value;
         _logger = logger;
     }
@@ -94,6 +97,39 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
             return AgentToolExecutionResult.Failure(
                 "Os argumentos fornecidos para a Tool são inválidos.");
         }
+
+        ToolExecutionAuthorizationResult authorization =
+            await _approvalService.AuthorizeAsync(
+                request.AgentId,
+                tool,
+                request.Input,
+                cancellationToken);
+
+        if (authorization.Status ==
+            ToolExecutionAuthorizationStatus.ApprovalRequired)
+        {
+            if (!authorization.ApprovalId.HasValue)
+            {
+                return AgentToolExecutionResult.Failure(
+                    "Não foi possível criar a solicitação de aprovação.");
+            }
+
+            _logger.LogInformation(
+                "Execução da Tool {ToolId} aguardando aprovação humana. AgentId: {AgentId}.",
+                request.ToolId,
+                request.AgentId);
+
+            return AgentToolExecutionResult.ApprovalRequired(
+                authorization.ApprovalId.Value);
+        }
+
+        if (authorization.Status ==
+            ToolExecutionAuthorizationStatus.Rejected)
+        {
+            return AgentToolExecutionResult.Rejected(
+                authorization.ApprovalId);
+        }
+
         if (!Uri.TryCreate(
                 tool.Endpoint,
                 UriKind.Absolute,
