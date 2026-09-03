@@ -6,7 +6,8 @@ public sealed record CreateAgentToolRequest(
     string Description,
     string Endpoint,
     string HttpMethod,
-    string? InputSchema);
+    string? InputSchema,
+    Guid? ToolCredentialId = null);
 
 public sealed record UpdateAgentToolRequest(
     Guid ToolId,
@@ -14,4 +15,5 @@ public sealed record UpdateAgentToolRequest(
     string Description,
     string Endpoint,
     string HttpMethod,
-    string? InputSchema);
+    string? InputSchema,
+    Guid? ToolCredentialId = null);

@@ -413,6 +413,7 @@ public sealed class HttpAgentToolExecutorTests
             httpClientFactory ??
                 provider.GetRequiredService<IHttpClientFactory>(),
             endpointPolicy,
+            new StubToolCredentialService(),
             Options.Create(
                 new AgentToolHttpOptions()),
             provider.GetRequiredService<

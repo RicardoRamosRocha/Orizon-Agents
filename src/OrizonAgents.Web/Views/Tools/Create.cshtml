@@ -79,6 +79,18 @@
                 </div>
 
                 <div class="mb-4">
+                    <label asp-for="ToolCredentialId" class="form-label fw-semibold"></label>
+                    <select asp-for="ToolCredentialId"
+                            asp-items="Model.CredentialOptions"
+                            class="form-select">
+                        <option value="">Sem autenticação</option>
+                    </select>
+                    <div class="form-text">
+                        A credencial é resolvida com segurança somente durante a execução.
+                    </div>
+                </div>
+
+                <div class="mb-4">
                     <label asp-for="InputSchema"
                            class="form-label fw-semibold"></label>
 

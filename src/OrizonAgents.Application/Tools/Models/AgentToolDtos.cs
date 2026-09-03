@@ -6,7 +6,8 @@ public sealed record AgentToolListItemDto(
     string Description,
     string HttpMethod,
     string Endpoint,
-    bool IsActive);
+    bool IsActive,
+    string? CredentialName = null);
 
 public sealed record AgentToolDetailsDto(
     Guid Id,
@@ -18,7 +19,8 @@ public sealed record AgentToolDetailsDto(
     string? InputSchema,
     bool IsActive,
     DateTime CreatedAtUtc,
-    DateTime? UpdatedAtUtc);
+    DateTime? UpdatedAtUtc,
+    Guid? ToolCredentialId = null);
 
 public sealed record AgentToolBindingDto(
     Guid ToolId,

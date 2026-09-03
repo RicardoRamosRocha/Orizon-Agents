@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace OrizonAgents.Web.Models.Tools;
 
@@ -27,6 +28,12 @@ public sealed class AgentToolFormViewModel
 
     [Display(Name = "Schema de entrada (JSON)")]
     public string? InputSchema { get; set; }
+
+    [Display(Name = "Credencial")]
+    public Guid? ToolCredentialId { get; set; }
+
+    public IReadOnlyList<SelectListItem> CredentialOptions { get; set; } =
+        Array.Empty<SelectListItem>();
 
     public bool IsActive { get; set; } = true;
 }

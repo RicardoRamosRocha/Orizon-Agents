@@ -14,12 +14,15 @@
             <p>Conecte seus agentes a APIs e serviços externos.</p>
         </div>
 
-        <a asp-controller="Tools"
-           asp-action="Create"
-           class="btn btn-primary cockpit-primary-action">
-            <span aria-hidden="true">+</span>
-            Nova ferramenta
-        </a>
+        <div class="d-flex gap-2 flex-wrap">
+            <a asp-controller="ToolCredentials" asp-action="Index" class="btn btn-outline-secondary">
+                Gerenciar credenciais
+            </a>
+            <a asp-controller="Tools" asp-action="Create" class="btn btn-primary cockpit-primary-action">
+                <span aria-hidden="true">+</span>
+                Nova ferramenta
+            </a>
+        </div>
     </header>
 
     @if (TempData["StatusMessage"] is string statusMessage)

@@ -4,9 +4,7 @@ namespace OrizonAgents.Domain.Tools;
 
 public sealed class AgentTool : AuditableEntity, ITenantOwnedEntity
 {
-    private AgentTool()
-    {
-    }
+    private AgentTool() { }
 
     public AgentTool(
         Guid tenantId,
@@ -17,9 +15,7 @@ public sealed class AgentTool : AuditableEntity, ITenantOwnedEntity
     {
         if (tenantId == Guid.Empty)
         {
-            throw new ArgumentException(
-                "TenantId é obrigatório.",
-                nameof(tenantId));
+            throw new ArgumentException("TenantId é obrigatório.", nameof(tenantId));
         }
 
         TenantId = tenantId;
@@ -31,17 +27,13 @@ public sealed class AgentTool : AuditableEntity, ITenantOwnedEntity
     }
 
     public Guid TenantId { get; private set; }
-
     public string Name { get; private set; } = string.Empty;
-
     public string Description { get; private set; } = string.Empty;
-
     public string Endpoint { get; private set; } = string.Empty;
-
     public string HttpMethod { get; private set; } = "POST";
-
     public string? InputSchema { get; private set; }
-
+    public Guid? ToolCredentialId { get; private set; }
+    public ToolCredential? ToolCredential { get; private set; }
     public bool IsActive { get; private set; }
 
     public void Update(
@@ -49,72 +41,53 @@ public sealed class AgentTool : AuditableEntity, ITenantOwnedEntity
         string description,
         string endpoint,
         string httpMethod,
-        string? inputSchema)
+        string? inputSchema,
+        Guid? toolCredentialId = null)
     {
         Name = NormalizeRequired(name, 100, nameof(name));
         Description = NormalizeRequired(description, 500, nameof(description));
         Endpoint = NormalizeRequired(endpoint, 2000, nameof(endpoint));
         HttpMethod = NormalizeHttpMethod(httpMethod);
         InputSchema = NormalizeOptional(inputSchema);
+        SetCredential(toolCredentialId);
     }
 
-    public void Activate()
+    public void SetCredential(Guid? toolCredentialId)
     {
-        IsActive = true;
+        if (toolCredentialId == Guid.Empty)
+        {
+            throw new ArgumentException("ToolCredentialId inválido.", nameof(toolCredentialId));
+        }
+
+        ToolCredentialId = toolCredentialId;
     }
 
-    public void Deactivate()
-    {
-        IsActive = false;
-    }
+    public void Activate() => IsActive = true;
+    public void Deactivate() => IsActive = false;
 
-    private static string NormalizeRequired(
-        string value,
-        int maxLength,
-        string parameterName)
+    private static string NormalizeRequired(string value, int maxLength, string parameterName)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new ArgumentException(
-                "O valor é obrigatório.",
-                parameterName);
+            throw new ArgumentException("O valor é obrigatório.", parameterName);
         }
 
         string normalized = value.Trim();
-
-        if (normalized.Length > maxLength)
-        {
-            throw new ArgumentException(
-                $"O valor excede {maxLength} caracteres.",
-                parameterName);
-        }
-
-        return normalized;
+        return normalized.Length <= maxLength
+            ? normalized
+            : throw new ArgumentException($"O valor excede {maxLength} caracteres.", parameterName);
     }
 
     private static string NormalizeHttpMethod(string value)
     {
-        string normalized =
-            NormalizeRequired(value, 10, nameof(value))
-                .ToUpperInvariant();
-
+        string normalized = NormalizeRequired(value, 10, nameof(value)).ToUpperInvariant();
         return normalized switch
         {
-            "GET" => normalized,
-            "POST" => normalized,
-            "PUT" => normalized,
-            "PATCH" => normalized,
-            "DELETE" => normalized,
-            _ => throw new ArgumentException(
-                "Método HTTP não suportado.",
-                nameof(value))
+            "GET" or "POST" or "PUT" or "PATCH" or "DELETE" => normalized,
+            _ => throw new ArgumentException("Método HTTP não suportado.", nameof(value))
         };
     }
 
-    private static string? NormalizeOptional(string? value)
-    {
-        return string.IsNullOrWhiteSpace(value)
-            ? null
-            : value.Trim();
-    }
+    private static string? NormalizeOptional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

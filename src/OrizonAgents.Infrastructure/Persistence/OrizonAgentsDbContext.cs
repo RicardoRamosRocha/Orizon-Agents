@@ -9,9 +9,9 @@ using OrizonAgents.Domain.Common;
 using OrizonAgents.Domain.Integrations;
 using OrizonAgents.Domain.Knowledge;
 using OrizonAgents.Domain.Tenants;
+using OrizonAgents.Domain.Tools;
 using OrizonAgents.Domain.WhatsApp;
 using OrizonAgents.Infrastructure.Identity;
-using OrizonAgents.Domain.Tools;
 
 namespace OrizonAgents.Infrastructure.Persistence;
 
@@ -19,60 +19,36 @@ public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, A
 {
     private readonly ICurrentTenant _currentTenant;
 
-    public OrizonAgentsDbContext(
-        DbContextOptions<OrizonAgentsDbContext> options,
-        ICurrentTenant currentTenant)
+    public OrizonAgentsDbContext(DbContextOptions<OrizonAgentsDbContext> options, ICurrentTenant currentTenant)
         : base(options)
     {
         _currentTenant = currentTenant;
     }
 
     public DbSet<AiAgent> AiAgents => Set<AiAgent>();
-
     public DbSet<AiProviderCredential> AiProviderCredentials => Set<AiProviderCredential>();
-
     public DbSet<AgentTool> AgentTools => Set<AgentTool>();
-
     public DbSet<AgentToolBinding> AgentToolBindings => Set<AgentToolBinding>();
-
+    public DbSet<ToolCredential> ToolCredentials => Set<ToolCredential>();
     public DbSet<KnowledgeBase> KnowledgeBases => Set<KnowledgeBase>();
-
     public DbSet<KnowledgeDocument> KnowledgeDocuments => Set<KnowledgeDocument>();
-
     public DbSet<KnowledgeChunk> KnowledgeChunks => Set<KnowledgeChunk>();
-
     public DbSet<AgentKnowledgeBinding> AgentKnowledgeBindings => Set<AgentKnowledgeBinding>();
-
     public DbSet<AiConversation> AiConversations => Set<AiConversation>();
-
     public DbSet<AiConversationMessage> AiConversationMessages => Set<AiConversationMessage>();
-
     public DbSet<ApiCredential> ApiCredentials => Set<ApiCredential>();
-
     public DbSet<Tenant> Tenants => Set<Tenant>();
-
     public DbSet<TenantSettings> TenantSettings => Set<TenantSettings>();
-
     public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
-
     public DbSet<PlanEntitlement> PlanEntitlements => Set<PlanEntitlement>();
-
     public DbSet<TenantSubscription> TenantSubscriptions => Set<TenantSubscription>();
-
     public DbSet<SubscriptionHistory> SubscriptionHistories => Set<SubscriptionHistory>();
-
     public DbSet<WhatsAppConnection> WhatsAppConnections => Set<WhatsAppConnection>();
-
     public DbSet<WhatsAppMessage> WhatsAppMessages => Set<WhatsAppMessage>();
-
     public DbSet<WhatsAppTemplate> WhatsAppTemplates => Set<WhatsAppTemplate>();
-
     public DbSet<WhatsAppMedia> WhatsAppMedia => Set<WhatsAppMedia>();
-
     public DbSet<WhatsAppInboxEvent> WhatsAppInboxEvents => Set<WhatsAppInboxEvent>();
-
     public DbSet<WhatsAppOutboxMessage> WhatsAppOutboxMessages => Set<WhatsAppOutboxMessage>();
-
     public DbSet<WhatsAppMonthlyUsage> WhatsAppMonthlyUsage => Set<WhatsAppMonthlyUsage>();
 
     public override int SaveChanges()
@@ -97,7 +73,6 @@ public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, A
     private void ApplyAuditDates()
     {
         DateTime utcNow = DateTime.UtcNow;
-
         foreach (var entry in ChangeTracker.Entries<AuditableEntity>())
         {
             if (entry.State == EntityState.Added)
@@ -124,15 +99,12 @@ public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, A
             var method = typeof(OrizonAgentsDbContext)
                 .GetMethod(nameof(CreateTenantQueryFilter), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
                 .MakeGenericMethod(entityType.ClrType);
-
             var filter = (LambdaExpression)method.Invoke(this, Array.Empty<object>())!;
             entityType.SetQueryFilter(filter);
         }
     }
 
     private Expression<Func<TEntity, bool>> CreateTenantQueryFilter<TEntity>()
-        where TEntity : class, ITenantOwnedEntity
-    {
-        return entity => !_currentTenant.HasTenant || entity.TenantId == _currentTenant.TenantId;
-    }
+        where TEntity : class, ITenantOwnedEntity =>
+        entity => !_currentTenant.HasTenant || entity.TenantId == _currentTenant.TenantId;
 }

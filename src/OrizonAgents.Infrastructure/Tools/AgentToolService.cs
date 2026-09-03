@@ -30,7 +30,8 @@ public sealed class AgentToolService : IAgentToolService
                 tool.Description,
                 tool.HttpMethod,
                 tool.Endpoint,
-                tool.IsActive))
+                tool.IsActive,
+                tool.ToolCredential != null ? tool.ToolCredential.Name : null))
             .ToArrayAsync(cancellationToken);
     }
 
@@ -51,7 +52,8 @@ public sealed class AgentToolService : IAgentToolService
                 tool.InputSchema,
                 tool.IsActive,
                 tool.CreatedAtUtc,
-                tool.UpdatedAtUtc))
+                tool.UpdatedAtUtc,
+                tool.ToolCredentialId))
             .SingleOrDefaultAsync(cancellationToken);
     }
 
@@ -63,6 +65,17 @@ public sealed class AgentToolService : IAgentToolService
         {
             return OperationResult<Guid>.Failure(
                 "Tenant é obrigatório.");
+        }
+
+        if (request.ToolCredentialId.HasValue &&
+            !await _dbContext.ToolCredentials.AnyAsync(
+                credential =>
+                    credential.Id == request.ToolCredentialId.Value &&
+                    credential.TenantId == request.TenantId,
+                cancellationToken))
+        {
+            return OperationResult<Guid>.Failure(
+                "Credencial de Tool não encontrada para o tenant.");
         }
 
         try
@@ -79,7 +92,8 @@ public sealed class AgentToolService : IAgentToolService
                 request.Description,
                 request.Endpoint,
                 request.HttpMethod,
-                request.InputSchema);
+                request.InputSchema,
+                request.ToolCredentialId);
 
             _dbContext.AgentTools.Add(tool);
             await _dbContext.SaveChangesAsync(cancellationToken);
@@ -107,6 +121,17 @@ public sealed class AgentToolService : IAgentToolService
                 "Tool não encontrada.");
         }
 
+        if (request.ToolCredentialId.HasValue &&
+            !await _dbContext.ToolCredentials.AnyAsync(
+                credential =>
+                    credential.Id == request.ToolCredentialId.Value &&
+                    credential.TenantId == tool.TenantId,
+                cancellationToken))
+        {
+            return OperationResult.Failure(
+                "Credencial de Tool não encontrada para o tenant.");
+        }
+
         try
         {
             tool.Update(
@@ -114,7 +139,8 @@ public sealed class AgentToolService : IAgentToolService
                 request.Description,
                 request.Endpoint,
                 request.HttpMethod,
-                request.InputSchema);
+                request.InputSchema,
+                request.ToolCredentialId);
 
             await _dbContext.SaveChangesAsync(cancellationToken);
 

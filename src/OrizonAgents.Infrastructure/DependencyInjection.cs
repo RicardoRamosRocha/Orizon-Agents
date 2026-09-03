@@ -37,6 +37,7 @@ using OrizonAgents.Application.Tools;
 using OrizonAgents.Application.Tools.Execution;
 using OrizonAgents.Infrastructure.WhatsApp;
 using OrizonAgents.Infrastructure.Tools;
+using OrizonAgents.Infrastructure.Tools.Credentials;
 using OrizonAgents.Infrastructure.Tools.Execution;
 
 using OrizonAgents.Application.Knowledge.Documents;
@@ -87,6 +88,8 @@ public static class DependencyInjection
         services.AddScoped<IAgentModelDecisionParser, AgentModelDecisionParser>();
         services.AddScoped<IAgentToolCatalog, AgentToolCatalog>();
         services.AddScoped<IAgentToolService, AgentToolService>();
+        services.AddScoped<IToolCredentialService, ToolCredentialService>();
+        services.AddScoped<IToolCredentialProtector, DataProtectionToolCredentialProtector>();
 
         services.Configure<AgentToolHttpOptions>(
             configuration.GetSection(AgentToolHttpOptions.SectionName));
