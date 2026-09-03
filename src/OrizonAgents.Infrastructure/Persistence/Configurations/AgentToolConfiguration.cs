@@ -15,6 +15,10 @@ public sealed class AgentToolConfiguration : IEntityTypeConfiguration<AgentTool>
         builder.Property(x => x.Description).HasMaxLength(500).IsRequired();
         builder.Property(x => x.Endpoint).HasMaxLength(2000).IsRequired();
         builder.Property(x => x.HttpMethod).HasMaxLength(10).IsRequired();
+        builder.Property(x => x.RiskLevel)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired();
         builder.Property(x => x.InputSchema).HasColumnType("jsonb");
         builder.Property(x => x.IsActive).IsRequired();
         builder.HasOne(x => x.ToolCredential)

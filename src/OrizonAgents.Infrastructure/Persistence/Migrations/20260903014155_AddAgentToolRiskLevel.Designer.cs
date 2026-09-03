@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using OrizonAgents.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using OrizonAgents.Infrastructure.Persistence;
 namespace OrizonAgents.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(OrizonAgentsDbContext))]
-    partial class OrizonAgentsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260903014155_AddAgentToolRiskLevel")]
+    partial class AddAgentToolRiskLevel
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -838,8 +841,10 @@ namespace OrizonAgents.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("RiskLevel")
                         .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Read");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");

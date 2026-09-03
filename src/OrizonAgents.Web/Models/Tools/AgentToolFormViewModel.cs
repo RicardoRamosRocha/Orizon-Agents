@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using OrizonAgents.Domain.Tools;
 
 namespace OrizonAgents.Web.Models.Tools;
 
@@ -25,6 +26,13 @@ public sealed class AgentToolFormViewModel
     [Required]
     [Display(Name = "Método HTTP")]
     public string HttpMethod { get; set; } = "POST";
+
+    [Required]
+    [EnumDataType(
+        typeof(AgentToolRiskLevel),
+        ErrorMessage = "Selecione um nível de risco válido.")]
+    [Display(Name = "Nível de risco")]
+    public AgentToolRiskLevel RiskLevel { get; set; } = AgentToolRiskLevel.Read;
 
     [Display(Name = "Schema de entrada (JSON)")]
     public string? InputSchema { get; set; }

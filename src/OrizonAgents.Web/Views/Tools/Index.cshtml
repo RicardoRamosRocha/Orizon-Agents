@@ -50,6 +50,26 @@
                             <div>
                                 <h2>@tool.Name</h2>
                                 <span class="cockpit-method">@tool.HttpMethod</span>
+                                @{
+                                    var riskLabel = tool.RiskLevel switch
+                                    {
+                                        OrizonAgents.Domain.Tools.AgentToolRiskLevel.Read => "Leitura",
+                                        OrizonAgents.Domain.Tools.AgentToolRiskLevel.Write => "Escrita",
+                                        OrizonAgents.Domain.Tools.AgentToolRiskLevel.Sensitive => "Sensível",
+                                        _ => "Desconhecido"
+                                    };
+
+                                    var riskStatus = tool.RiskLevel switch
+                                    {
+                                        OrizonAgents.Domain.Tools.AgentToolRiskLevel.Read => "success",
+                                        OrizonAgents.Domain.Tools.AgentToolRiskLevel.Write => "warning",
+                                        OrizonAgents.Domain.Tools.AgentToolRiskLevel.Sensitive => "danger",
+                                        _ => "danger"
+                                    };
+                                }
+                                <span class="cockpit-status cockpit-status--@riskStatus">
+                                    @riskLabel
+                                </span>
                                 <span class="cockpit-status cockpit-status--@(tool.IsActive ? "success" : "danger")">
                                     @(tool.IsActive ? "Ativa" : "Inativa")
                                 </span>

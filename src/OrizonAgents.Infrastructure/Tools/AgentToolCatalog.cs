@@ -41,7 +41,8 @@ public sealed class AgentToolCatalog : IAgentToolCatalog
                 tool.Name,
                 tool.Description,
                 tool.HttpMethod,
-                tool.InputSchema))
+                tool.InputSchema,
+                tool.RiskLevel))
             .ToListAsync(cancellationToken);
     }
 }

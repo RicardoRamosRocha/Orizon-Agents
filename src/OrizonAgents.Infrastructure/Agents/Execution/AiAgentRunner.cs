@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using OrizonAgents.Application.Agents.Execution;
 using OrizonAgents.Application.Agents.Execution.Models;
@@ -364,6 +364,7 @@ public sealed class AiAgentRunner : IAiAgentRunner
             builder.AppendLine($"  Id: {tool.Id}");
             builder.AppendLine($"  Descrição: {tool.Description}");
             builder.AppendLine($"  Método HTTP: {tool.HttpMethod}");
+            builder.AppendLine($"  Classificação de risco: {tool.RiskLevel}");
 
             if (!string.IsNullOrWhiteSpace(tool.InputSchema))
             {

@@ -1,3 +1,5 @@
+﻿using OrizonAgents.Domain.Tools;
+
 namespace OrizonAgents.Application.Tools.Models;
 
 public sealed record AgentToolDefinition(
@@ -5,4 +7,5 @@ public sealed record AgentToolDefinition(
     string Name,
     string Description,
     string HttpMethod,
-    string? InputSchema);
+    string? InputSchema,
+    AgentToolRiskLevel RiskLevel);

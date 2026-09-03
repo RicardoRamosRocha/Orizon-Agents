@@ -67,7 +67,25 @@
                         </select>
                     </div>
 
-                    <div class="col-md-9">
+                    <div class="col-md-5">
+                        <label asp-for="RiskLevel"
+                               class="form-label fw-semibold"></label>
+
+                        <select asp-for="RiskLevel"
+                                class="form-select">
+                            <option value="Read">Leitura</option>
+                            <option value="Write">Escrita</option>
+                            <option value="Sensitive">Sensível</option>
+                        </select>
+
+                        <div class="form-text">
+                            Leitura consulta dados; Escrita altera dados; Sensível representa operações de maior impacto.
+                        </div>
+                        <span asp-validation-for="RiskLevel"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="col-md-4">
                         <label asp-for="Endpoint"
                                class="form-label fw-semibold"></label>
                         <input asp-for="Endpoint"

@@ -1,3 +1,5 @@
+using OrizonAgents.Domain.Tools;
+
 namespace OrizonAgents.Application.Tools.Requests;
 
 public sealed record CreateAgentToolRequest(
@@ -7,7 +9,8 @@ public sealed record CreateAgentToolRequest(
     string Endpoint,
     string HttpMethod,
     string? InputSchema,
-    Guid? ToolCredentialId = null);
+    Guid? ToolCredentialId,
+    AgentToolRiskLevel RiskLevel);
 
 public sealed record UpdateAgentToolRequest(
     Guid ToolId,
@@ -16,4 +19,5 @@ public sealed record UpdateAgentToolRequest(
     string Endpoint,
     string HttpMethod,
     string? InputSchema,
-    Guid? ToolCredentialId = null);
+    Guid? ToolCredentialId,
+    AgentToolRiskLevel RiskLevel);

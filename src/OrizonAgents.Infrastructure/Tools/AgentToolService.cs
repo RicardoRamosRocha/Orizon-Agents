@@ -31,7 +31,8 @@ public sealed class AgentToolService : IAgentToolService
                 tool.HttpMethod,
                 tool.Endpoint,
                 tool.IsActive,
-                tool.ToolCredential != null ? tool.ToolCredential.Name : null))
+                tool.ToolCredential != null ? tool.ToolCredential.Name : null,
+                tool.RiskLevel))
             .ToArrayAsync(cancellationToken);
     }
 
@@ -53,7 +54,8 @@ public sealed class AgentToolService : IAgentToolService
                 tool.IsActive,
                 tool.CreatedAtUtc,
                 tool.UpdatedAtUtc,
-                tool.ToolCredentialId))
+                tool.ToolCredentialId,
+                tool.RiskLevel))
             .SingleOrDefaultAsync(cancellationToken);
     }
 
@@ -93,7 +95,8 @@ public sealed class AgentToolService : IAgentToolService
                 request.Endpoint,
                 request.HttpMethod,
                 request.InputSchema,
-                request.ToolCredentialId);
+                request.ToolCredentialId,
+                request.RiskLevel);
 
             _dbContext.AgentTools.Add(tool);
             await _dbContext.SaveChangesAsync(cancellationToken);
@@ -140,7 +143,8 @@ public sealed class AgentToolService : IAgentToolService
                 request.Endpoint,
                 request.HttpMethod,
                 request.InputSchema,
-                request.ToolCredentialId);
+                request.ToolCredentialId,
+                request.RiskLevel);
 
             await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -231,7 +235,8 @@ public sealed class AgentToolService : IAgentToolService
                 tool.Description,
                 tool.HttpMethod,
                 binding != null && binding.IsActive,
-                tool.IsActive))
+                tool.IsActive,
+                tool.RiskLevel))
             .ToArrayAsync(cancellationToken);
     }
 

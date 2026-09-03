@@ -31,6 +31,7 @@ public sealed class AgentTool : AuditableEntity, ITenantOwnedEntity
     public string Description { get; private set; } = string.Empty;
     public string Endpoint { get; private set; } = string.Empty;
     public string HttpMethod { get; private set; } = "POST";
+    public AgentToolRiskLevel RiskLevel { get; private set; } = AgentToolRiskLevel.Read;
     public string? InputSchema { get; private set; }
     public Guid? ToolCredentialId { get; private set; }
     public ToolCredential? ToolCredential { get; private set; }
@@ -42,7 +43,8 @@ public sealed class AgentTool : AuditableEntity, ITenantOwnedEntity
         string endpoint,
         string httpMethod,
         string? inputSchema,
-        Guid? toolCredentialId = null)
+        Guid? toolCredentialId,
+        AgentToolRiskLevel riskLevel)
     {
         Name = NormalizeRequired(name, 100, nameof(name));
         Description = NormalizeRequired(description, 500, nameof(description));
@@ -50,6 +52,20 @@ public sealed class AgentTool : AuditableEntity, ITenantOwnedEntity
         HttpMethod = NormalizeHttpMethod(httpMethod);
         InputSchema = NormalizeOptional(inputSchema);
         SetCredential(toolCredentialId);
+        SetRiskLevel(riskLevel);
+    }
+
+    public void SetRiskLevel(AgentToolRiskLevel riskLevel)
+    {
+        if (!Enum.IsDefined(riskLevel))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(riskLevel),
+                riskLevel,
+                "Nível de risco da Tool inválido.");
+        }
+
+        RiskLevel = riskLevel;
     }
 
     public void SetCredential(Guid? toolCredentialId)

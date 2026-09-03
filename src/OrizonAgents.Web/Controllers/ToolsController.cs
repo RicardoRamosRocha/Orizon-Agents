@@ -61,7 +61,8 @@ public sealed class ToolsController : Controller
                 form.Endpoint,
                 form.HttpMethod,
                 form.InputSchema,
-                form.ToolCredentialId),
+                form.ToolCredentialId,
+                form.RiskLevel),
             cancellationToken);
 
         if (!result.Succeeded)
@@ -91,6 +92,7 @@ public sealed class ToolsController : Controller
             Description = tool.Description,
             Endpoint = tool.Endpoint,
             HttpMethod = tool.HttpMethod,
+            RiskLevel = tool.RiskLevel,
             InputSchema = tool.InputSchema,
             ToolCredentialId = tool.ToolCredentialId,
             IsActive = tool.IsActive
@@ -121,7 +123,8 @@ public sealed class ToolsController : Controller
                 form.Endpoint,
                 form.HttpMethod,
                 form.InputSchema,
-                form.ToolCredentialId),
+                form.ToolCredentialId,
+                form.RiskLevel),
             cancellationToken);
 
         if (!result.Succeeded)

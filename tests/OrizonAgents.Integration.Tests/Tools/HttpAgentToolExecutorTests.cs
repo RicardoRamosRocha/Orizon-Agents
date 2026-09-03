@@ -419,7 +419,9 @@ public sealed class HttpAgentToolExecutorTests
             "Consulta disponibilidade da equipe.",
             "https://example.com/availability",
             "POST",
-            inputSchema);
+            inputSchema,
+            null,
+            AgentToolRiskLevel.Read);
 
         db.AiAgents.Add(agent);
         db.AgentTools.Add(tool);

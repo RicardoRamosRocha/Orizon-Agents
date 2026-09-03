@@ -1,3 +1,5 @@
+using OrizonAgents.Domain.Tools;
+
 namespace OrizonAgents.Application.Tools.Models;
 
 public sealed record AgentToolListItemDto(
@@ -7,7 +9,8 @@ public sealed record AgentToolListItemDto(
     string HttpMethod,
     string Endpoint,
     bool IsActive,
-    string? CredentialName = null);
+    string? CredentialName,
+    AgentToolRiskLevel RiskLevel);
 
 public sealed record AgentToolDetailsDto(
     Guid Id,
@@ -20,7 +23,8 @@ public sealed record AgentToolDetailsDto(
     bool IsActive,
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc,
-    Guid? ToolCredentialId = null);
+    Guid? ToolCredentialId,
+    AgentToolRiskLevel RiskLevel);
 
 public sealed record AgentToolBindingDto(
     Guid ToolId,
@@ -28,4 +32,5 @@ public sealed record AgentToolBindingDto(
     string Description,
     string HttpMethod,
     bool IsBound,
-    bool IsActive);
+    bool IsActive,
+    AgentToolRiskLevel RiskLevel);
