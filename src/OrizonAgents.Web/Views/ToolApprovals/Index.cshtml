@@ -1,0 +1,103 @@
+@model IReadOnlyList<OrizonAgents.Application.Tools.Execution.Models.ToolExecutionApprovalListItemDto>
+
+@{
+    ViewData["Title"] = "Aprovações";
+    Layout = "_AdminLayout";
+}
+
+<div class="admin-page">
+    <div class="admin-page__header">
+        <div>
+            <div class="admin-eyebrow">ORIZON / SEGURANÇA</div>
+            <h1>Aprovações pendentes</h1>
+            <p>
+                Revise operações sensíveis solicitadas pelos agentes
+                antes de permitir sua execução.
+            </p>
+        </div>
+    </div>
+
+    @if (TempData["StatusMessage"] is string message)
+    {
+        <div class="alert alert-info">
+            @message
+        </div>
+    }
+
+    @if (Model.Count == 0)
+    {
+        <div class="admin-card">
+            <h2>Nenhuma aprovação pendente</h2>
+            <p>
+                Quando um agente solicitar uma operação sensível,
+                ela aparecerá aqui para revisão.
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="admin-card">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Agente</th>
+                            <th>Ferramenta</th>
+                            <th>Risco</th>
+                            <th>Solicitada</th>
+                            <th>Expira</th>
+                            <th>Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var approval in Model)
+                    {
+                        <tr>
+                            <td>@approval.AgentName</td>
+                            <td>@approval.ToolName</td>
+                            <td>
+                                <span class="badge">
+                                    Sensível
+                                </span>
+                            </td>
+                            <td>
+                                @approval.RequestedAtUtc
+                                    .ToLocalTime()
+                                    .ToString("dd/MM/yyyy HH:mm")
+                            </td>
+                            <td>
+                                @approval.ExpiresAtUtc
+                                    .ToLocalTime()
+                                    .ToString("dd/MM/yyyy HH:mm")
+                            </td>
+                            <td>
+                                <div style="display:flex;gap:.5rem">
+                                    <form method="post"
+                                          asp-action="Approve"
+                                          asp-route-id="@approval.Id">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit"
+                                                class="btn btn-primary">
+                                            Aprovar
+                                        </button>
+                                    </form>
+
+                                    <form method="post"
+                                          asp-action="Reject"
+                                          asp-route-id="@approval.Id">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit"
+                                                class="btn btn-secondary">
+                                            Rejeitar
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>

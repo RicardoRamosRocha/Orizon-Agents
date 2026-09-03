@@ -163,6 +163,14 @@
                         <span class="admin-nav__text">Ferramentas</span>
                     </a>
 
+                    <a class="@Active("ToolApprovals")"
+                       asp-controller="ToolApprovals"
+                       asp-action="Index"
+                       title="Aprovações">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconTools")</span>
+                        <span class="admin-nav__text">Aprovações</span>
+                    </a>
+
                     <a class="@Active("Integrations")"
                        asp-controller="Integrations"
                        asp-action="Index"
