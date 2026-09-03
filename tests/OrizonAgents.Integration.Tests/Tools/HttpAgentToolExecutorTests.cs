@@ -1,3 +1,4 @@
+using OrizonAgents.Infrastructure.Tools.Validation;
 using System.Net;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -30,14 +31,14 @@ public sealed class HttpAgentToolExecutorTests
         var agent = new AiAgent(
             tenantId,
             "Agente A",
-            "Você é um agente de teste.",
+            "VocÃª Ã© um agente de teste.",
             AiProvider.GoogleGemini,
             "gemini-test");
 
         var otherAgent = new AiAgent(
             tenantId,
             "Agente B",
-            "Você é outro agente.",
+            "VocÃª Ã© outro agente.",
             AiProvider.GoogleGemini,
             "gemini-test");
 
@@ -69,7 +70,7 @@ public sealed class HttpAgentToolExecutorTests
 
         Assert.False(result.Succeeded);
         Assert.Contains(
-            "não vinculada",
+            "nÃ£o vinculada",
             result.Error ?? string.Empty,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -151,7 +152,7 @@ public sealed class HttpAgentToolExecutorTests
 
         Assert.False(result.Succeeded);
         Assert.Contains(
-            "não vinculada",
+            "nÃ£o vinculada",
             result.Error ?? string.Empty,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -192,7 +193,7 @@ public sealed class HttpAgentToolExecutorTests
         Assert.False(result.Succeeded);
 
         Assert.Contains(
-            "não vinculada",
+            "nÃ£o vinculada",
             result.Error ?? string.Empty,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -364,7 +365,7 @@ public sealed class HttpAgentToolExecutorTests
         Assert.Null(result.Content);
 
         Assert.Contains(
-            "tamanho máximo",
+            "tamanho mÃ¡ximo",
             result.Error ?? string.Empty,
             StringComparison.OrdinalIgnoreCase);
 
@@ -373,6 +374,99 @@ public sealed class HttpAgentToolExecutorTests
             result.StatusCode);
     }
 
+
+    [Fact]
+    public async Task ExecuteAsync_RejectsInvalidInputBeforeHttpCall()
+    {
+        await using ServiceProvider provider = CreateProvider();
+
+        OrizonAgentsDbContext db =
+            provider.GetRequiredService<OrizonAgentsDbContext>();
+
+        Guid tenantId = Guid.NewGuid();
+
+        var agent = CreateAgent(tenantId);
+
+        const string inputSchema = """
+        {
+          "type": "object",
+          "properties": {
+            "date": {
+              "type": "string",
+              "format": "date"
+            },
+            "startsAt": {
+              "type": "string"
+            },
+            "endsAt": {
+              "type": "string"
+            }
+          },
+          "required": ["date", "startsAt", "endsAt"],
+          "additionalProperties": false
+        }
+        """;
+
+        var tool = new AgentTool(
+            tenantId,
+            "Consultar disponibilidade",
+            "Consulta disponibilidade da equipe.",
+            "https://example.com/availability",
+            "POST");
+
+        tool.Update(
+            "Consultar disponibilidade",
+            "Consulta disponibilidade da equipe.",
+            "https://example.com/availability",
+            "POST",
+            inputSchema);
+
+        db.AiAgents.Add(agent);
+        db.AgentTools.Add(tool);
+
+        db.AgentToolBindings.Add(
+            new AgentToolBinding(
+                tenantId,
+                agent.Id,
+                tool.Id));
+
+        await db.SaveChangesAsync();
+
+        var handler = new RecordingHttpMessageHandler(
+            HttpStatusCode.OK,
+            """{"shouldNotBeCalled":true}""");
+
+        var executor = CreateExecutor(
+            provider,
+            new StubHttpClientFactory(handler));
+
+        using JsonDocument inputDocument =
+            JsonDocument.Parse(
+                """
+                {
+                  "date": "05/09/2026",
+                  "startsAt": "08:00:00"
+                }
+                """);
+
+        AgentToolExecutionResult result =
+            await executor.ExecuteAsync(
+                new AgentToolExecutionRequest(
+                    agent.Id,
+                    tool.Id,
+                    inputDocument.RootElement.Clone()));
+
+        Assert.False(result.Succeeded);
+
+        Assert.Contains(
+            "argumentos",
+            result.Error ?? string.Empty,
+            StringComparison.OrdinalIgnoreCase);
+
+        Assert.Null(handler.RequestMethod);
+        Assert.Null(handler.RequestUri);
+        Assert.Null(handler.RequestBody);
+    }
     private static ServiceProvider CreateProvider()
     {
         var services = new ServiceCollection();
@@ -414,6 +508,7 @@ public sealed class HttpAgentToolExecutorTests
                 provider.GetRequiredService<IHttpClientFactory>(),
             endpointPolicy,
             new StubToolCredentialService(),
+            new AgentToolInputValidator(),
             Options.Create(
                 new AgentToolHttpOptions()),
             provider.GetRequiredService<
@@ -425,7 +520,7 @@ public sealed class HttpAgentToolExecutorTests
         return new AiAgent(
             tenantId,
             "Agente de teste",
-            "Você é um agente de teste.",
+            "VocÃª Ã© um agente de teste.",
             AiProvider.GoogleGemini,
             "gemini-test");
     }

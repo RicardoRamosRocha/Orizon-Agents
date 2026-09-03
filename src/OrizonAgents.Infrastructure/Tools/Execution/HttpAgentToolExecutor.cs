@@ -8,6 +8,7 @@ using OrizonAgents.Application.Tools;
 using OrizonAgents.Application.Tools.Execution;
 using OrizonAgents.Application.Tools.Execution.Models;
 using OrizonAgents.Application.Tools.Models;
+using OrizonAgents.Application.Tools.Validation;
 using OrizonAgents.Domain.Tools;
 using OrizonAgents.Infrastructure.Persistence;
 
@@ -19,6 +20,7 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IAgentToolEndpointPolicy _endpointPolicy;
     private readonly IToolCredentialService _credentialService;
+    private readonly IAgentToolInputValidator _inputValidator;
     private readonly AgentToolHttpOptions _httpOptions;
     private readonly ILogger<HttpAgentToolExecutor> _logger;
 
@@ -27,6 +29,7 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
         IHttpClientFactory httpClientFactory,
         IAgentToolEndpointPolicy endpointPolicy,
         IToolCredentialService credentialService,
+        IAgentToolInputValidator inputValidator,
         IOptions<AgentToolHttpOptions> httpOptions,
         ILogger<HttpAgentToolExecutor> logger)
     {
@@ -34,6 +37,7 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
         _httpClientFactory = httpClientFactory;
         _endpointPolicy = endpointPolicy;
         _credentialService = credentialService;
+        _inputValidator = inputValidator;
         _httpOptions = httpOptions.Value;
         _logger = logger;
     }
@@ -45,13 +49,13 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
         if (request.AgentId == Guid.Empty)
         {
             return AgentToolExecutionResult.Failure(
-                "AgentId é obrigatório.");
+                "AgentId Ã© obrigatÃ³rio.");
         }
 
         if (request.ToolId == Guid.Empty)
         {
             return AgentToolExecutionResult.Failure(
-                "ToolId é obrigatório.");
+                "ToolId Ã© obrigatÃ³rio.");
         }
 
         AgentTool? tool = await (
@@ -72,16 +76,31 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
         if (tool is null)
         {
             return AgentToolExecutionResult.Failure(
-                "Tool não encontrada, inativa ou não vinculada ao agente.");
+                "Tool nÃ£o encontrada, inativa ou nÃ£o vinculada ao agente.");
         }
 
+        AgentToolInputValidationResult inputValidation =
+            _inputValidator.Validate(
+                tool.InputSchema,
+                request.Input);
+
+        if (!inputValidation.IsValid)
+        {
+            _logger.LogWarning(
+                "Execução da Tool {ToolId} bloqueada por argumentos inválidos. AgentId: {AgentId}.",
+                request.ToolId,
+                request.AgentId);
+
+            return AgentToolExecutionResult.Failure(
+                "Os argumentos fornecidos para a Tool são inválidos.");
+        }
         if (!Uri.TryCreate(
                 tool.Endpoint,
                 UriKind.Absolute,
                 out Uri? endpoint))
         {
             return AgentToolExecutionResult.Failure(
-                "O endpoint configurado para a Tool é inválido.");
+                "O endpoint configurado para a Tool Ã© invÃ¡lido.");
         }
 
         if (!await _endpointPolicy.IsAllowedAsync(
@@ -89,7 +108,7 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
                 cancellationToken))
         {
             return AgentToolExecutionResult.Failure(
-                "O endpoint configurado para a Tool não é permitido.");
+                "O endpoint configurado para a Tool nÃ£o Ã© permitido.");
         }
 
         ResolvedToolCredential? credential = null;
@@ -103,7 +122,7 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
             if (credential is null)
             {
                 return AgentToolExecutionResult.Failure(
-                    "A autenticação configurada para a Tool não está disponível.");
+                    "A autenticaÃ§Ã£o configurada para a Tool nÃ£o estÃ¡ disponÃ­vel.");
             }
         }
 
@@ -132,7 +151,7 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
             if (content is null)
             {
                 return AgentToolExecutionResult.Failure(
-                    "A resposta da Tool excedeu o tamanho máximo permitido.",
+                    "A resposta da Tool excedeu o tamanho mÃ¡ximo permitido.",
                     (int)response.StatusCode);
             }
 
@@ -152,7 +171,7 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
             when (!cancellationToken.IsCancellationRequested)
         {
             return AgentToolExecutionResult.Failure(
-                "A execução da Tool excedeu o tempo limite.");
+                "A execuÃ§Ã£o da Tool excedeu o tempo limite.");
         }
         catch (Exception exception)
         {
@@ -163,7 +182,7 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
                 request.AgentId);
 
             return AgentToolExecutionResult.Failure(
-                "Não foi possível executar a Tool.");
+                "NÃ£o foi possÃ­vel executar a Tool.");
         }
     }
 
@@ -259,7 +278,7 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
                     credential.HeaderName,
                     credential.Secret))
                 {
-                    throw new InvalidOperationException("Header de autenticação de Tool inválido.");
+                    throw new InvalidOperationException("Header de autenticaÃ§Ã£o de Tool invÃ¡lido.");
                 }
                 break;
             case ToolAuthenticationType.BearerToken:
@@ -267,7 +286,7 @@ public sealed class HttpAgentToolExecutor : IAgentToolExecutor
                     new AuthenticationHeaderValue("Bearer", credential.Secret);
                 break;
             default:
-                throw new InvalidOperationException("Tipo de autenticação de Tool inválido.");
+                throw new InvalidOperationException("Tipo de autenticaÃ§Ã£o de Tool invÃ¡lido.");
         }
     }
 }

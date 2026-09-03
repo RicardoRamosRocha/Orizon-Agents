@@ -1,4 +1,6 @@
+using OrizonAgents.Application.Tools.Validation;
 using OrizonAgents.Application.Agents.Models;
+using OrizonAgents.Infrastructure.Tools.Validation;
 using OrizonAgents.Application.Agents.Credentials;
 using OrizonAgents.Infrastructure.Agents.Credentials;
 using Microsoft.AspNetCore.Antiforgery;
@@ -85,6 +87,7 @@ public static class DependencyInjection
         services.AddScoped<IAiAgentRunner, AiAgentRunner>();
         services.AddScoped<IAiConversationService, AiConversationService>();
         services.AddScoped<IAgentToolExecutor, HttpAgentToolExecutor>();
+        services.AddScoped<IAgentToolInputValidator, AgentToolInputValidator>();
         services.AddScoped<IAgentModelDecisionParser, AgentModelDecisionParser>();
         services.AddScoped<IAgentToolCatalog, AgentToolCatalog>();
         services.AddScoped<IAgentToolService, AgentToolService>();

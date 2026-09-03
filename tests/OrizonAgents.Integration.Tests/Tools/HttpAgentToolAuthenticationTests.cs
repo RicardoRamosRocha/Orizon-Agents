@@ -1,3 +1,4 @@
+using OrizonAgents.Infrastructure.Tools.Validation;
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -145,7 +146,7 @@ public sealed class HttpAgentToolAuthenticationTests
         var agent = new AiAgent(
             tenantId,
             "Agente de teste",
-            "Você é um agente de teste.",
+            "VocÃª Ã© um agente de teste.",
             AiProvider.GoogleGemini,
             "gemini-test");
         var tool = new AgentTool(
@@ -173,6 +174,7 @@ public sealed class HttpAgentToolAuthenticationTests
             new StubHttpClientFactory(handler),
             new AgentToolEndpointPolicy(Options.Create(new AgentToolHttpOptions())),
             credentialService,
+            new AgentToolInputValidator(),
             Options.Create(new AgentToolHttpOptions()),
             provider.GetRequiredService<ILogger<HttpAgentToolExecutor>>());
     }
