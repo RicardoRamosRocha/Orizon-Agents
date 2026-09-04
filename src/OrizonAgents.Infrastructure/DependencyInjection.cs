@@ -31,6 +31,8 @@ using OrizonAgents.Application.Integrations;
 using OrizonAgents.Infrastructure.Integrations;
 using OrizonAgents.Application.Integrations.Google;
 using OrizonAgents.Infrastructure.Integrations.Google;
+using OrizonAgents.Application.Integrations.Gmail;
+using OrizonAgents.Infrastructure.Integrations.Gmail;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using OrizonAgents.Infrastructure.Persistence;
 using OrizonAgents.Infrastructure.Tenancy;
@@ -164,6 +166,18 @@ public static class DependencyInjection
         services.AddScoped<GoogleOAuthService>();
         services.AddScoped<IGoogleOAuthService>(provider => provider.GetRequiredService<GoogleOAuthService>());
         services.AddScoped<IGoogleOAuthTokenService>(provider => provider.GetRequiredService<GoogleOAuthService>());
+        services.AddScoped<IGmailClient, GmailClient>();
+        services.AddHttpClient(GmailClient.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(20);
+            client.MaxResponseContentBufferSize = 1048576;
+        })
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                AllowAutoRedirect = false,
+                UseCookies = false
+            })
+            .RemoveAllLoggers();
         services.AddHttpClient(GoogleOAuthClient.HttpClientName, client =>
         {
             client.Timeout = TimeSpan.FromSeconds(20);

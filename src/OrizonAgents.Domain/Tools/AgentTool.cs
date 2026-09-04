@@ -31,6 +31,8 @@ public sealed class AgentTool : AuditableEntity, ITenantOwnedEntity
     public string Description { get; private set; } = string.Empty;
     public string Endpoint { get; private set; } = string.Empty;
     public string HttpMethod { get; private set; } = "POST";
+    public AgentToolKind Kind { get; private set; } = AgentToolKind.Http;
+    public Guid? IntegrationConnectionId { get; private set; }
     public AgentToolRiskLevel RiskLevel { get; private set; } = AgentToolRiskLevel.Read;
     public string? InputSchema { get; private set; }
     public Guid? ToolCredentialId { get; private set; }
@@ -76,6 +78,45 @@ public sealed class AgentTool : AuditableEntity, ITenantOwnedEntity
         }
 
         ToolCredentialId = toolCredentialId;
+    }
+
+    public void ConfigureKind(
+    AgentToolKind kind,
+    Guid? integrationConnectionId)
+    {
+    if (!Enum.IsDefined(kind))
+    {
+        throw new ArgumentOutOfRangeException(
+            nameof(kind),
+            kind,
+            "Tipo da Tool inválido.");
+    }
+
+    if (integrationConnectionId == Guid.Empty)
+    {
+        throw new ArgumentException(
+            "IntegrationConnectionId inválido.",
+            nameof(integrationConnectionId));
+    }
+
+    if (kind == AgentToolKind.Http &&
+        integrationConnectionId.HasValue)
+    {
+        throw new ArgumentException(
+            "Tools HTTP não utilizam IntegrationConnection.",
+            nameof(integrationConnectionId));
+    }
+
+    if (kind != AgentToolKind.Http &&
+        !integrationConnectionId.HasValue)
+    {
+        throw new ArgumentException(
+            "Tools de integração exigem uma Connection.",
+            nameof(integrationConnectionId));
+    }
+
+    Kind = kind;
+    IntegrationConnectionId = integrationConnectionId;
     }
 
     public void Activate() => IsActive = true;

@@ -15,6 +15,12 @@ public sealed class AgentToolConfiguration : IEntityTypeConfiguration<AgentTool>
         builder.Property(x => x.Description).HasMaxLength(500).IsRequired();
         builder.Property(x => x.Endpoint).HasMaxLength(2000).IsRequired();
         builder.Property(x => x.HttpMethod).HasMaxLength(10).IsRequired();
+        builder.Property(x => x.Kind)
+          .HasConversion<string>()
+          .HasMaxLength(30)
+          .IsRequired();
+
+        builder.Property(x => x.IntegrationConnectionId);
         builder.Property(x => x.RiskLevel)
             .HasConversion<string>()
             .HasMaxLength(20)
@@ -25,7 +31,12 @@ public sealed class AgentToolConfiguration : IEntityTypeConfiguration<AgentTool>
             .WithMany(x => x.Tools)
             .HasForeignKey(x => x.ToolCredentialId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<OrizonAgents.Domain.Integrations.IntegrationConnection>()
+            .WithMany()
+            .HasForeignKey(x => x.IntegrationConnectionId)
+            .OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(x => new { x.TenantId, x.Name });
         builder.HasIndex(x => new { x.TenantId, x.IsActive });
+        builder.HasIndex(x => new { x.TenantId, x.IntegrationConnectionId });
     }
 }
