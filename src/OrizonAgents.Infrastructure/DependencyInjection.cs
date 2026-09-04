@@ -152,6 +152,8 @@ public static class DependencyInjection
         services.AddScoped<IAiProviderModelCatalog, AiProviderModelCatalog>();
 
         services.AddScoped<IApiCredentialService, ApiCredentialService>();
+        services.AddScoped<IIntegrationConnectionService, IntegrationConnectionService>();
+        services.AddScoped<IntegrationConnectionCredentialProtector>();
         services.AddScoped<ITenantUserService, TenantUserService>();
         services.AddScoped<IDashboardQueryService, DashboardQueryService>();
         services.AddScoped<ITenantManagementService, TenantManagementService>();

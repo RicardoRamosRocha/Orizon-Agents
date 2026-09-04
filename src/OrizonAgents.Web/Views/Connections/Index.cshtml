@@ -1,0 +1,80 @@
+@model OrizonAgents.Web.Models.Integrations.ConnectionsPageViewModel
+@using OrizonAgents.Web.Models.Integrations
+@using OrizonAgents.Domain.Integrations
+
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Conexões";
+    ViewData["Section"] = "Integrações";
+}
+
+<section class="cockpit-page">
+    <header class="cockpit-page-header">
+        <div>
+            <p class="cockpit-eyebrow">Integrações externas</p>
+            <h1>Conexões</h1>
+            <p>Organize as contas de serviços externos da sua organização.</p>
+        </div>
+    </header>
+
+    @if (TempData["StatusMessage"] is string statusMessage)
+    {
+        <div class="alert alert-info" role="status">@statusMessage</div>
+    }
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-4">
+            <h2 class="h5">Nova conexão</h2>
+            <p class="text-muted">Gmail · Cadastro disponível. A autenticação será disponibilizada em uma próxima etapa.</p>
+            <form asp-action="Create" method="post" class="row g-3">
+                @Html.AntiForgeryToken()
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <div class="col-md-6">
+                    <label asp-for="Create.Name" class="form-label"></label>
+                    <input asp-for="Create.Name" class="form-control" placeholder="E-mail Comercial" />
+                    <span asp-validation-for="Create.Name" class="text-danger"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Create.Provider" class="form-label"></label>
+                    <select asp-for="Create.Provider" class="form-select" asp-items="Html.GetEnumSelectList<IntegrationProvider>()"></select>
+                    <span asp-validation-for="Create.Provider" class="text-danger"></span>
+                </div>
+                <div><button class="btn btn-primary" type="submit">Criar conexão</button></div>
+            </form>
+        </div>
+    </div>
+
+    @if (Model.Connections.Count == 0)
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+                <h2 class="h5">Nenhuma conexão cadastrada</h2>
+                <p class="text-muted mb-0">Comece cadastrando uma conta Gmail para sua organização.</p>
+            </div>
+        </div>
+    }
+
+    @foreach (var connection in Model.Connections)
+    {
+        <article class="card border-0 shadow-sm mb-3">
+            <div class="card-body p-4 d-flex justify-content-between align-items-center gap-3 flex-wrap">
+                <div>
+                    <h2 class="h5 mb-2">@connection.Name</h2>
+                    <span class="badge text-bg-light">@connection.Provider</span>
+                    <span class="badge text-bg-light">@ConnectionDetailsViewModel.StatusLabel(connection.Status)</span>
+                    <span class="badge @(connection.IsActive ? "text-bg-success" : "text-bg-secondary")">@(connection.IsActive ? "Ativa" : "Inativa")</span>
+                </div>
+                <div class="d-flex gap-2">
+                    <a asp-action="Details" asp-route-id="@connection.Id" class="btn btn-outline-primary">Gerenciar</a>
+                    <form asp-action="ChangeStatus" asp-route-id="@connection.Id" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="activate" value="@(!connection.IsActive)" />
+                        <button class="btn btn-outline-secondary" type="submit">@(connection.IsActive ? "Desativar" : "Ativar")</button>
+                    </form>
+                </div>
+            </div>
+        </article>
+    }
+</section>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

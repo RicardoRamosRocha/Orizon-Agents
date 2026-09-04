@@ -1,0 +1,68 @@
+@model OrizonAgents.Web.Models.Integrations.ConnectionDetailsViewModel
+@using OrizonAgents.Web.Models.Integrations
+
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = Model.Connection.Name;
+    ViewData["Section"] = "Integrações";
+}
+
+<section class="cockpit-page">
+    <header class="cockpit-page-header">
+        <div>
+            <a asp-action="Index" class="cockpit-back-link">← Voltar para conexões</a>
+            <p class="cockpit-eyebrow">Conexão da organização</p>
+            <h1>@Model.Connection.Name</h1>
+            <p>@Model.Connection.Provider · @ConnectionDetailsViewModel.StatusLabel(Model.Connection.Status) · @(Model.Connection.IsActive ? "Ativa" : "Inativa")</p>
+        </div>
+    </header>
+
+    @if (TempData["StatusMessage"] is string statusMessage)
+    {
+        <div class="alert alert-info" role="status">@statusMessage</div>
+    }
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-4">
+            <h2 class="h5">Configuração</h2>
+            <p class="text-muted">A autenticação Gmail será disponibilizada em uma próxima etapa. Ativar este cadastro não autentica a conta.</p>
+            <form asp-action="Edit" asp-route-id="@Model.Connection.Id" method="post" class="row g-3">
+                @Html.AntiForgeryToken()
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <div class="col-md-8">
+                    <label asp-for="Edit.Name" class="form-label"></label>
+                    <input asp-for="Edit.Name" class="form-control" />
+                    <span asp-validation-for="Edit.Name" class="text-danger"></span>
+                </div>
+                <div><button class="btn btn-primary" type="submit">Salvar alterações</button></div>
+            </form>
+            <dl class="row mt-4 mb-0">
+                <dt class="col-sm-4">Criada em (UTC)</dt>
+                <dd class="col-sm-8">@Model.Connection.CreatedAtUtc.ToString("dd/MM/yyyy HH:mm")</dd>
+                <dt class="col-sm-4">Atualizada em (UTC)</dt>
+                <dd class="col-sm-8">@(Model.Connection.UpdatedAtUtc?.ToString("dd/MM/yyyy HH:mm") ?? "—")</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+            <h2 class="h5">Administração</h2>
+            <form asp-action="ChangeStatus" asp-route-id="@Model.Connection.Id" method="post" class="mb-3">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="activate" value="@(!Model.Connection.IsActive)" />
+                <button class="btn btn-outline-secondary" type="submit">@(Model.Connection.IsActive ? "Desativar conexão" : "Ativar conexão")</button>
+            </form>
+            <details>
+                <summary class="text-danger">Remover conexão</summary>
+                <p class="text-muted mt-2">A remoção exclui este cadastro da organização.</p>
+                <form asp-action="Delete" asp-route-id="@Model.Connection.Id" method="post">
+                    @Html.AntiForgeryToken()
+                    <button class="btn btn-outline-danger" type="submit">Confirmar remoção</button>
+                </form>
+            </details>
+        </div>
+    </div>
+</section>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

@@ -171,6 +171,13 @@
                         <span class="admin-nav__text">Aprovações</span>
                     </a>
 
+                    <a class="@Active("Connections")"
+                       asp-controller="Connections"
+                       asp-action="Index"
+                       title="Conexões">
+                        <span class="admin-icon">@await Html.PartialAsync("_IconIntegrations")</span>
+                        <span class="admin-nav__text">Conexões</span>
+                    </a>
                     <a class="@Active("Integrations")"
                        asp-controller="Integrations"
                        asp-action="Index"
