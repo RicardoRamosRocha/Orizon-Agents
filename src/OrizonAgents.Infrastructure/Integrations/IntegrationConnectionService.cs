@@ -17,7 +17,7 @@ public sealed class IntegrationConnectionService(
     private static readonly Expression<Func<IntegrationConnection, IntegrationConnectionDto>> Projection =
         connection => new IntegrationConnectionDto(
             connection.Id, connection.Name, connection.Provider, connection.Status,
-            connection.IsActive, connection.CreatedAtUtc, connection.UpdatedAtUtc);
+            connection.IsActive, connection.CreatedAtUtc, connection.UpdatedAtUtc, connection.ConnectedAccountEmail);
 
     public async Task<IReadOnlyList<IntegrationConnectionDto>> ListAsync(CancellationToken cancellationToken = default) =>
         await TenantConnections().AsNoTracking().OrderBy(x => x.Name).ThenBy(x => x.Id)
@@ -56,8 +56,7 @@ public sealed class IntegrationConnectionService(
         try
         {
             connection.Rename(request.Name);
-            await dbContext.SaveChangesAsync(cancellationToken);
-            return OperationResult.Success();
+            return await SaveMutationAsync(cancellationToken);
         }
         catch (ArgumentException exception)
         {
@@ -82,8 +81,7 @@ public sealed class IntegrationConnectionService(
             connection.Deactivate();
         }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return OperationResult.Success();
+        return await SaveMutationAsync(cancellationToken);
     }
 
     public async Task<OperationResult> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
@@ -94,9 +92,30 @@ public sealed class IntegrationConnectionService(
             return OperationResult.Failure("Conexão não encontrada.");
         }
 
+        if (connection.EncryptedCredentials is not null || connection.PendingOAuthStateHash is not null)
+        {
+            return OperationResult.Failure("Desconecte o Google antes de remover a conexão.");
+        }
+
         dbContext.IntegrationConnections.Remove(connection);
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return OperationResult.Success();
+        return await SaveMutationAsync(cancellationToken);
+    }
+
+    private async Task<OperationResult> SaveMutationAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return OperationResult.Success();
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            foreach (var entry in exception.Entries)
+            {
+                entry.State = EntityState.Detached;
+            }
+            return OperationResult.Failure("A conexão foi alterada. Atualize a página e tente novamente.");
+        }
     }
 
     private IQueryable<IntegrationConnection> TenantConnections()

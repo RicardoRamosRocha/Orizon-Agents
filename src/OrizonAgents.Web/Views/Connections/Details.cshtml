@@ -1,5 +1,6 @@
 @model OrizonAgents.Web.Models.Integrations.ConnectionDetailsViewModel
 @using OrizonAgents.Web.Models.Integrations
+@using OrizonAgents.Domain.Integrations
 
 @{
     Layout = "_AdminLayout";
@@ -25,7 +26,42 @@
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-4">
             <h2 class="h5">Configuração</h2>
-            <p class="text-muted">A autenticação Gmail será disponibilizada em uma próxima etapa. Ativar este cadastro não autentica a conta.</p>
+            @if (Model.Connection.Provider == IntegrationProvider.Gmail)
+            {
+                @if (!string.IsNullOrWhiteSpace(Model.Connection.ConnectedAccountEmail))
+                {
+                    <p>Conta Google: <strong>@Model.Connection.ConnectedAccountEmail</strong></p>
+                }
+                @if (Model.Connection.Status == IntegrationConnectionStatus.Error)
+                {
+                    <div class="alert alert-warning">A autorização precisa de atenção. Conecte a conta novamente.</div>
+                }
+                <p class="text-muted">A autorização identifica sua conta Google. Leitura e envio de e-mails ainda não estão disponíveis.</p>
+                <div class="d-flex gap-2 flex-wrap mb-4">
+                    @if (Model.Connection.Status != IntegrationConnectionStatus.Connected)
+                    {
+                        @if (Model.Connection.IsActive)
+                        {
+                            <form asp-controller="GoogleConnections" asp-action="Connect" asp-route-id="@Model.Connection.Id" method="post">
+                                @Html.AntiForgeryToken()
+                                <button class="btn btn-primary" type="submit">Conectar com Google</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <p class="text-muted">Ative a conexão para autorizar sua conta Google.</p>
+                        }
+                    }
+                    @if (Model.Connection.Status != IntegrationConnectionStatus.Disconnected)
+                    {
+                        <form asp-controller="GoogleConnections" asp-action="Disconnect" asp-route-id="@Model.Connection.Id" method="post">
+                            @Html.AntiForgeryToken()
+                            <button class="btn btn-outline-secondary" type="submit">Desconectar Google</button>
+                        </form>
+                    }
+                </div>
+                <p class="form-text">Desconectar revoga o acesso do aplicativo à conta Google e pode afetar outras conexões que usam a mesma conta.</p>
+            }
             <form asp-action="Edit" asp-route-id="@Model.Connection.Id" method="post" class="row g-3">
                 @Html.AntiForgeryToken()
                 <div asp-validation-summary="ModelOnly" class="text-danger"></div>

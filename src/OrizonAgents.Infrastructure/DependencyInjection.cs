@@ -29,6 +29,9 @@ using OrizonAgents.Infrastructure.Health;
 using OrizonAgents.Infrastructure.Identity;
 using OrizonAgents.Application.Integrations;
 using OrizonAgents.Infrastructure.Integrations;
+using OrizonAgents.Application.Integrations.Google;
+using OrizonAgents.Infrastructure.Integrations.Google;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using OrizonAgents.Infrastructure.Persistence;
 using OrizonAgents.Infrastructure.Tenancy;
 using OrizonAgents.Application.Tenants;
@@ -154,6 +157,24 @@ public static class DependencyInjection
         services.AddScoped<IApiCredentialService, ApiCredentialService>();
         services.AddScoped<IIntegrationConnectionService, IntegrationConnectionService>();
         services.AddScoped<IntegrationConnectionCredentialProtector>();
+        services.Configure<GoogleOAuthOptions>(configuration.GetSection(GoogleOAuthOptions.SectionName));
+        services.TryAddSingleton<TimeProvider>(TimeProvider.System);
+        services.AddScoped<GoogleOAuthStateProtector>();
+        services.AddScoped<GoogleOAuthClient>();
+        services.AddScoped<GoogleOAuthService>();
+        services.AddScoped<IGoogleOAuthService>(provider => provider.GetRequiredService<GoogleOAuthService>());
+        services.AddScoped<IGoogleOAuthTokenService>(provider => provider.GetRequiredService<GoogleOAuthService>());
+        services.AddHttpClient(GoogleOAuthClient.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(20);
+            client.MaxResponseContentBufferSize = 65536;
+        })
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                AllowAutoRedirect = false,
+                UseCookies = false
+            })
+            .RemoveAllLoggers();
         services.AddScoped<ITenantUserService, TenantUserService>();
         services.AddScoped<IDashboardQueryService, DashboardQueryService>();
         services.AddScoped<ITenantManagementService, TenantManagementService>();

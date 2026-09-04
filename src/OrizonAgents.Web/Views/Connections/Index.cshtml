@@ -25,7 +25,7 @@
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-4">
             <h2 class="h5">Nova conexão</h2>
-            <p class="text-muted">Gmail · Cadastro disponível. A autenticação será disponibilizada em uma próxima etapa.</p>
+            <p class="text-muted">Gmail · Cadastre uma conexão e autorize sua conta Google.</p>
             <form asp-action="Create" method="post" class="row g-3">
                 @Html.AntiForgeryToken()
                 <div asp-validation-summary="ModelOnly" class="text-danger"></div>
@@ -60,6 +60,10 @@
             <div class="card-body p-4 d-flex justify-content-between align-items-center gap-3 flex-wrap">
                 <div>
                     <h2 class="h5 mb-2">@connection.Name</h2>
+                    @if (!string.IsNullOrWhiteSpace(connection.ConnectedAccountEmail))
+                    {
+                        <p class="text-muted mb-2">@connection.ConnectedAccountEmail</p>
+                    }
                     <span class="badge text-bg-light">@connection.Provider</span>
                     <span class="badge text-bg-light">@ConnectionDetailsViewModel.StatusLabel(connection.Status)</span>
                     <span class="badge @(connection.IsActive ? "text-bg-success" : "text-bg-secondary")">@(connection.IsActive ? "Ativa" : "Inativa")</span>

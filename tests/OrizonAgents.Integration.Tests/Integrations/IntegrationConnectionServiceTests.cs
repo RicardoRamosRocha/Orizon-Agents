@@ -196,7 +196,7 @@ public sealed class IntegrationConnectionServiceTests
         Assert.DoesNotContain(secret, list);
         Assert.DoesNotContain(encrypted, list);
         Assert.Equal(
-            new[] { "CreatedAtUtc", "Id", "IsActive", "Name", "Provider", "Status", "UpdatedAtUtc" },
+            new[] { "ConnectedAccountEmail", "CreatedAtUtc", "Id", "IsActive", "Name", "Provider", "Status", "UpdatedAtUtc" },
             typeof(IntegrationConnectionDto).GetProperties().Select(x => x.Name).OrderBy(x => x).ToArray());
         Assert.Equal(
             new[] { "Name", "Provider" },
@@ -215,6 +215,9 @@ public sealed class IntegrationConnectionServiceTests
         Assert.Equal(IntegrationConnection.NameMaxLength, entity.FindProperty("Name")!.GetMaxLength());
         Assert.Equal(IntegrationConnection.EncryptedCredentialsMaxLength, entity.FindProperty("EncryptedCredentials")!.GetMaxLength());
         Assert.True(entity.FindProperty("EncryptedCredentials")!.IsNullable);
+        Assert.Equal(320, entity.FindProperty("ConnectedAccountEmail")!.GetMaxLength());
+        Assert.Equal(64, entity.FindProperty("PendingOAuthStateHash")!.GetMaxLength());
+        Assert.True(entity.FindProperty("ConcurrencyStamp")!.IsConcurrencyToken);
         var fk = Assert.Single(entity.GetForeignKeys());
         Assert.Equal(typeof(Tenant), fk.PrincipalEntityType.ClrType);
         Assert.Equal(DeleteBehavior.Restrict, fk.DeleteBehavior);

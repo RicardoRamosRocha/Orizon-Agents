@@ -9,4 +9,5 @@ public sealed record IntegrationConnectionDto(
     IntegrationConnectionStatus Status,
     bool IsActive,
     DateTime CreatedAtUtc,
-    DateTime? UpdatedAtUtc);
+    DateTime? UpdatedAtUtc,
+    string? ConnectedAccountEmail = null);

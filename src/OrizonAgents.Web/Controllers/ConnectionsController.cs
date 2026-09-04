@@ -34,7 +34,7 @@ public sealed class ConnectionsController(IIntegrationConnectionService service)
             return View("Index", await BuildPageAsync(form, cancellationToken));
         }
 
-        TempData["StatusMessage"] = "Conexão criada. A autenticação Gmail estará disponível em uma próxima etapa.";
+        TempData["StatusMessage"] = "Conexão criada. Use Conectar com Google para autorizar a conta.";
         return RedirectToAction(nameof(Details), new { id = result.Value });
     }
 
