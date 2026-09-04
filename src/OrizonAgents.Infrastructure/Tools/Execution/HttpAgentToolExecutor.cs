@@ -1,133 +1,45 @@
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OrizonAgents.Application.Tools;
-using OrizonAgents.Application.Tools.Execution;
 using OrizonAgents.Application.Tools.Execution.Models;
 using OrizonAgents.Application.Tools.Models;
-using OrizonAgents.Application.Tools.Validation;
 using OrizonAgents.Domain.Tools;
-using OrizonAgents.Infrastructure.Persistence;
 
 namespace OrizonAgents.Infrastructure.Tools.Execution;
 
-public sealed class HttpAgentToolExecutor : IAgentToolExecutor
+public sealed class HttpAgentToolExecutor
 {
-    private readonly OrizonAgentsDbContext _dbContext;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IAgentToolEndpointPolicy _endpointPolicy;
     private readonly IToolCredentialService _credentialService;
-    private readonly IAgentToolInputValidator _inputValidator;
-    private readonly IToolExecutionApprovalService _approvalService;
     private readonly AgentToolHttpOptions _httpOptions;
     private readonly ILogger<HttpAgentToolExecutor> _logger;
 
     public HttpAgentToolExecutor(
-        OrizonAgentsDbContext dbContext,
         IHttpClientFactory httpClientFactory,
         IAgentToolEndpointPolicy endpointPolicy,
         IToolCredentialService credentialService,
-        IAgentToolInputValidator inputValidator,
-        IToolExecutionApprovalService approvalService,
         IOptions<AgentToolHttpOptions> httpOptions,
         ILogger<HttpAgentToolExecutor> logger)
     {
-        _dbContext = dbContext;
         _httpClientFactory = httpClientFactory;
         _endpointPolicy = endpointPolicy;
         _credentialService = credentialService;
-        _inputValidator = inputValidator;
-        _approvalService = approvalService;
         _httpOptions = httpOptions.Value;
         _logger = logger;
     }
 
     public async Task<AgentToolExecutionResult> ExecuteAsync(
+        AgentTool tool,
         AgentToolExecutionRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (request.AgentId == Guid.Empty)
+        if (tool.Kind != AgentToolKind.Http)
         {
             return AgentToolExecutionResult.Failure(
-                "AgentId Ã© obrigatÃ³rio.");
-        }
-
-        if (request.ToolId == Guid.Empty)
-        {
-            return AgentToolExecutionResult.Failure(
-                "ToolId Ã© obrigatÃ³rio.");
-        }
-
-        AgentTool? tool = await (
-            from candidateTool in _dbContext.AgentTools.AsNoTracking()
-            join binding in _dbContext.AgentToolBindings.AsNoTracking()
-                on candidateTool.Id equals binding.ToolId
-            join agent in _dbContext.AiAgents.AsNoTracking()
-                on binding.AgentId equals agent.Id
-            where candidateTool.Id == request.ToolId
-                  && agent.Id == request.AgentId
-                  && candidateTool.TenantId == agent.TenantId
-                  && binding.TenantId == agent.TenantId
-                  && candidateTool.IsActive
-                  && binding.IsActive
-            select candidateTool)
-            .SingleOrDefaultAsync(cancellationToken);
-
-        if (tool is null)
-        {
-            return AgentToolExecutionResult.Failure(
-                "Tool nÃ£o encontrada, inativa ou nÃ£o vinculada ao agente.");
-        }
-
-        AgentToolInputValidationResult inputValidation =
-            _inputValidator.Validate(
-                tool.InputSchema,
-                request.Input);
-
-        if (!inputValidation.IsValid)
-        {
-            _logger.LogWarning(
-                "Execução da Tool {ToolId} bloqueada por argumentos inválidos. AgentId: {AgentId}.",
-                request.ToolId,
-                request.AgentId);
-
-            return AgentToolExecutionResult.Failure(
-                "Os argumentos fornecidos para a Tool são inválidos.");
-        }
-
-        ToolExecutionAuthorizationResult authorization =
-            await _approvalService.AuthorizeAsync(
-                request.AgentId,
-                tool,
-                request.Input,
-                cancellationToken);
-
-        if (authorization.Status ==
-            ToolExecutionAuthorizationStatus.ApprovalRequired)
-        {
-            if (!authorization.ApprovalId.HasValue)
-            {
-                return AgentToolExecutionResult.Failure(
-                    "Não foi possível criar a solicitação de aprovação.");
-            }
-
-            _logger.LogInformation(
-                "Execução da Tool {ToolId} aguardando aprovação humana. AgentId: {AgentId}.",
-                request.ToolId,
-                request.AgentId);
-
-            return AgentToolExecutionResult.ApprovalRequired(
-                authorization.ApprovalId.Value);
-        }
-
-        if (authorization.Status ==
-            ToolExecutionAuthorizationStatus.Rejected)
-        {
-            return AgentToolExecutionResult.Rejected(
-                authorization.ApprovalId);
+                "A Tool informada não é uma Tool HTTP.");
         }
 
         if (!Uri.TryCreate(

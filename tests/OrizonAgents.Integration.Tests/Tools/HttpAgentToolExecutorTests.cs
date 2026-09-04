@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OrizonAgents.Application.Common.Tenancy;
+using OrizonAgents.Application.Integrations.Gmail;
 using OrizonAgents.Infrastructure.Tenancy;
 using OrizonAgents.Application.Tools.Execution.Models;
 using OrizonAgents.Domain.Agents;
@@ -70,7 +71,7 @@ public sealed class HttpAgentToolExecutorTests
 
         Assert.False(result.Succeeded);
         Assert.Contains(
-            "nÃ£o vinculada",
+            "não vinculada",
             result.Error ?? string.Empty,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -152,7 +153,7 @@ public sealed class HttpAgentToolExecutorTests
 
         Assert.False(result.Succeeded);
         Assert.Contains(
-            "nÃ£o vinculada",
+            "não vinculada",
             result.Error ?? string.Empty,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -193,7 +194,7 @@ public sealed class HttpAgentToolExecutorTests
         Assert.False(result.Succeeded);
 
         Assert.Contains(
-            "nÃ£o vinculada",
+            "não vinculada",
             result.Error ?? string.Empty,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -519,7 +520,7 @@ public sealed class HttpAgentToolExecutorTests
         var factory =
             new StubHttpClientFactory(handler);
 
-        HttpAgentToolExecutor executor =
+        AgentToolExecutor executor =
             CreateExecutor(provider, factory);
 
         using JsonDocument document =
@@ -607,7 +608,7 @@ public sealed class HttpAgentToolExecutorTests
         var factory =
             new StubHttpClientFactory(handler);
 
-        HttpAgentToolExecutor executor =
+        AgentToolExecutor executor =
             CreateExecutor(provider, factory);
 
         JsonElement input;
@@ -709,7 +710,7 @@ public sealed class HttpAgentToolExecutorTests
         return services.BuildServiceProvider();
     }
 
-    private static HttpAgentToolExecutor CreateExecutor(
+    private static AgentToolExecutor CreateExecutor(
         ServiceProvider provider,
         IHttpClientFactory? httpClientFactory = null)
     {
@@ -718,20 +719,31 @@ public sealed class HttpAgentToolExecutorTests
                 Options.Create(
                     new AgentToolHttpOptions()));
 
-        return new HttpAgentToolExecutor(
-            provider.GetRequiredService<OrizonAgentsDbContext>(),
+        var httpExecutor = new HttpAgentToolExecutor(
             httpClientFactory ??
                 provider.GetRequiredService<IHttpClientFactory>(),
             endpointPolicy,
             new StubToolCredentialService(),
-            new AgentToolInputValidator(),
-            new ToolExecutionApprovalService(
-                provider.GetRequiredService<OrizonAgentsDbContext>(),
-                provider.GetRequiredService<ICurrentTenant>()),
             Options.Create(
                 new AgentToolHttpOptions()),
             provider.GetRequiredService<
                 ILogger<HttpAgentToolExecutor>>());
+
+        var gmailExecutor = new GmailAgentToolExecutor(
+            new UnexpectedGmailClient(),
+            provider.GetRequiredService<
+                ILogger<GmailAgentToolExecutor>>());
+
+        return new AgentToolExecutor(
+            provider.GetRequiredService<OrizonAgentsDbContext>(),
+            new AgentToolInputValidator(),
+            new ToolExecutionApprovalService(
+                provider.GetRequiredService<OrizonAgentsDbContext>(),
+                provider.GetRequiredService<ICurrentTenant>()),
+            httpExecutor,
+            gmailExecutor,
+            provider.GetRequiredService<
+                ILogger<AgentToolExecutor>>());
     }
 
     private static AiAgent CreateAgent(Guid tenantId)
@@ -769,6 +781,24 @@ public sealed class HttpAgentToolExecutorTests
         {
             return _client;
         }
+    }
+
+    private sealed class UnexpectedGmailClient : IGmailClient
+    {
+        public Task<GmailSearchResult> SearchMessagesAsync(
+            Guid connectionId,
+            string query,
+            int maxResults = 10,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException(
+                "Gmail não deveria ser chamado por uma Tool HTTP.");
+
+        public Task<GmailMessage> GetMessageAsync(
+            Guid connectionId,
+            string messageId,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException(
+                "Gmail não deveria ser chamado por uma Tool HTTP.");
     }
 
     private sealed class RecordingHttpMessageHandler :

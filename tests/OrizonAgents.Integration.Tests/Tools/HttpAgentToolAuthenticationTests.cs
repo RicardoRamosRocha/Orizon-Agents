@@ -26,7 +26,7 @@ public sealed class HttpAgentToolAuthenticationTests
         var handler = new RecordingHandler();
 
         AgentToolExecutionResult result = await CreateExecutor(provider, credentialService, handler)
-            .ExecuteAsync(new AgentToolExecutionRequest(agent.Id, tool.Id));
+            .ExecuteAsync(tool, new AgentToolExecutionRequest(agent.Id, tool.Id));
 
         Assert.True(result.Succeeded);
         Assert.Equal(1, handler.CallCount);
@@ -48,7 +48,7 @@ public sealed class HttpAgentToolAuthenticationTests
         var handler = new RecordingHandler();
 
         AgentToolExecutionResult result = await CreateExecutor(provider, credentialService, handler)
-            .ExecuteAsync(new AgentToolExecutionRequest(agent.Id, tool.Id));
+            .ExecuteAsync(tool, new AgentToolExecutionRequest(agent.Id, tool.Id));
 
         Assert.True(result.Succeeded);
         Assert.Equal("api-secret-value", handler.Headers["X-Orizon-Api-Key"]);
@@ -69,7 +69,7 @@ public sealed class HttpAgentToolAuthenticationTests
         var handler = new RecordingHandler();
 
         AgentToolExecutionResult result = await CreateExecutor(provider, credentialService, handler)
-            .ExecuteAsync(new AgentToolExecutionRequest(agent.Id, tool.Id));
+            .ExecuteAsync(tool, new AgentToolExecutionRequest(agent.Id, tool.Id));
 
         Assert.True(result.Succeeded);
         Assert.Equal("Bearer bearer-secret-value", handler.Headers["Authorization"]);
@@ -86,7 +86,7 @@ public sealed class HttpAgentToolAuthenticationTests
                 provider,
                 new StubToolCredentialService(),
                 handler)
-            .ExecuteAsync(new AgentToolExecutionRequest(agent.Id, tool.Id));
+            .ExecuteAsync(tool, new AgentToolExecutionRequest(agent.Id, tool.Id));
 
         Assert.False(result.Succeeded);
         Assert.Equal(0, handler.CallCount);
@@ -109,7 +109,7 @@ public sealed class HttpAgentToolAuthenticationTests
         var handler = new RecordingHandler();
 
         AgentToolExecutionResult result = await CreateExecutor(provider, credentialService, handler)
-            .ExecuteAsync(new AgentToolExecutionRequest(agent.Id, tool.Id));
+            .ExecuteAsync(tool, new AgentToolExecutionRequest(agent.Id, tool.Id));
 
         Assert.False(result.Succeeded);
         Assert.Equal(0, handler.CallCount);
@@ -129,7 +129,7 @@ public sealed class HttpAgentToolAuthenticationTests
         var handler = new RecordingHandler();
 
         AgentToolExecutionResult result = await CreateExecutor(provider, credentialService, handler)
-            .ExecuteAsync(new AgentToolExecutionRequest(agent.Id, tool.Id));
+            .ExecuteAsync(tool, new AgentToolExecutionRequest(agent.Id, tool.Id));
 
         Assert.False(result.Succeeded);
         Assert.Equal(0, credentialService.ResolveCalls);
@@ -174,14 +174,9 @@ public sealed class HttpAgentToolAuthenticationTests
         RecordingHandler handler)
     {
         return new HttpAgentToolExecutor(
-            provider.GetRequiredService<OrizonAgentsDbContext>(),
             new StubHttpClientFactory(handler),
             new AgentToolEndpointPolicy(Options.Create(new AgentToolHttpOptions())),
             credentialService,
-            new AgentToolInputValidator(),
-            new ToolExecutionApprovalService(
-                provider.GetRequiredService<OrizonAgentsDbContext>(),
-                provider.GetRequiredService<ICurrentTenant>()),
             Options.Create(new AgentToolHttpOptions()),
             provider.GetRequiredService<ILogger<HttpAgentToolExecutor>>());
     }

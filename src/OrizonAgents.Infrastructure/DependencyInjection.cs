@@ -91,7 +91,9 @@ public static class DependencyInjection
         services.AddScoped<IAiAgentService, AiAgentService>();
         services.AddScoped<IAiAgentRunner, AiAgentRunner>();
         services.AddScoped<IAiConversationService, AiConversationService>();
-        services.AddScoped<IAgentToolExecutor, HttpAgentToolExecutor>();
+        services.AddScoped<HttpAgentToolExecutor>();
+        services.AddScoped<GmailAgentToolExecutor>();
+        services.AddScoped<IAgentToolExecutor, AgentToolExecutor>();
         services.AddScoped<IToolExecutionApprovalService, ToolExecutionApprovalService>();
         services.AddScoped<IAgentToolInputValidator, AgentToolInputValidator>();
         services.AddScoped<IAgentModelDecisionParser, AgentModelDecisionParser>();
