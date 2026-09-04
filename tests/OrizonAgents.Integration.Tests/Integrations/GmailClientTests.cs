@@ -224,6 +224,233 @@ public sealed class GmailClientTests
             exception.Message);
     }
 
+    [Fact]
+    public async Task GetMessageAsync_ParsesSimplePlainTextMessage()
+    {
+        const string bodyText = "Olá, esta é uma mensagem simples.";
+        var handler = new RecordingHttpMessageHandler(
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = Json(
+                    $$"""
+                    {
+                      "id": "message-1",
+                      "threadId": "thread-1",
+                      "snippet": "Olá, esta é...",
+                      "payload": {
+                        "mimeType": "text/plain",
+                        "headers": [
+                          { "name": "Subject", "value": "Assunto do e-mail" },
+                          { "name": "From", "value": "Cliente <cliente@example.com>" },
+                          { "name": "To", "value": "Equipe <equipe@example.com>" },
+                          { "name": "Date", "value": "Fri, 04 Sep 2026 12:34:56 -0300" }
+                        ],
+                        "body": { "data": "{{Base64Url(bodyText)}}" }
+                      }
+                    }
+                    """)
+            });
+        var tokenService = SuccessfulTokenService();
+        var client = CreateClient(handler, tokenService);
+        Guid connectionId = Guid.NewGuid();
+
+        var result = await client.GetMessageAsync(connectionId, "message-1");
+
+        Assert.Equal("message-1", result.Id);
+        Assert.Equal("thread-1", result.ThreadId);
+        Assert.Equal("Assunto do e-mail", result.Subject);
+        Assert.Equal("Cliente <cliente@example.com>", result.From);
+        Assert.Equal("Equipe <equipe@example.com>", result.To);
+        Assert.Equal(
+            new DateTimeOffset(2026, 9, 4, 12, 34, 56, TimeSpan.FromHours(-3)),
+            result.Date);
+        Assert.Equal("Olá, esta é...", result.Snippet);
+        Assert.Equal(bodyText, result.BodyText);
+        Assert.Equal(connectionId, tokenService.LastConnectionId);
+        Assert.Equal(HttpMethod.Get, handler.Method);
+        Assert.Equal(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages/message-1?format=full",
+            handler.RequestUri?.ToString());
+        Assert.Equal("Bearer", handler.AuthorizationScheme);
+        Assert.Equal("test-access-token", handler.AuthorizationParameter);
+    }
+
+    [Fact]
+    public async Task GetMessageAsync_MultipartAlternative_PrefersPlainText()
+    {
+        var handler = MessageHandler(
+            $$"""
+            {
+              "mimeType": "multipart/alternative",
+              "parts": [
+                {
+                  "mimeType": "text/html",
+                  "body": { "data": "{{Base64Url("<p>Conteúdo HTML</p>")}}" }
+                },
+                {
+                  "mimeType": "text/plain",
+                  "body": { "data": "{{Base64Url("Conteúdo em texto")}}" }
+                }
+              ]
+            }
+            """);
+
+        var result = await CreateClient(handler)
+            .GetMessageAsync(Guid.NewGuid(), "message-alternative");
+
+        Assert.Equal("Conteúdo em texto", result.BodyText);
+    }
+
+    [Fact]
+    public async Task GetMessageAsync_WhenPlainTextDoesNotExist_UsesHtml()
+    {
+        var handler = MessageHandler(
+            $$"""
+            {
+              "mimeType": "multipart/alternative",
+              "parts": [
+                {
+                  "mimeType": "text/html",
+                  "body": { "data": "{{Base64Url("<p>Somente HTML</p>")}}" }
+                }
+              ]
+            }
+            """);
+
+        var result = await CreateClient(handler)
+            .GetMessageAsync(Guid.NewGuid(), "message-html");
+
+        Assert.Equal("<p>Somente HTML</p>", result.BodyText);
+    }
+
+    [Fact]
+    public async Task GetMessageAsync_FindsPlainTextInNestedMultipart()
+    {
+        var handler = MessageHandler(
+            $$"""
+            {
+              "mimeType": "multipart/mixed",
+              "parts": [
+                {
+                  "mimeType": "multipart/related",
+                  "parts": [
+                    {
+                      "mimeType": "multipart/alternative",
+                      "parts": [
+                        {
+                          "mimeType": "text/html",
+                          "body": { "data": "{{Base64Url("<p>Aninhado HTML</p>")}}" }
+                        },
+                        {
+                          "mimeType": "text/plain",
+                          "body": { "data": "{{Base64Url("Texto aninhado")}}" }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+            """);
+
+        var result = await CreateClient(handler)
+            .GetMessageAsync(Guid.NewGuid(), "message-nested");
+
+        Assert.Equal("Texto aninhado", result.BodyText);
+    }
+
+    [Fact]
+    public async Task GetMessageAsync_DecodesBase64UrlAlphabetAndMissingPadding()
+    {
+        const string bodyText = "࠾࠿";
+        string encoded = Base64Url(bodyText);
+        Assert.Contains("-", encoded);
+        Assert.Contains("_", encoded);
+        Assert.DoesNotContain("=", encoded);
+        var handler = MessageHandler(
+            $$"""
+            {
+              "mimeType": "text/plain",
+              "body": { "data": "{{encoded}}" }
+            }
+            """);
+
+        var result = await CreateClient(handler)
+            .GetMessageAsync(Guid.NewGuid(), "message-base64url");
+
+        Assert.Equal(bodyText, result.BodyText);
+    }
+
+    [Fact]
+    public async Task GetMessageAsync_RejectsEmptyConnectionId()
+    {
+        var handler = MessageHandler("""{ "mimeType": "text/plain" }""");
+        var tokenService = SuccessfulTokenService();
+        var client = CreateClient(handler, tokenService);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => client.GetMessageAsync(Guid.Empty, "message-1"));
+
+        Assert.Equal(0, tokenService.RequestCount);
+        Assert.Equal(0, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task GetMessageAsync_RejectsBlankMessageId()
+    {
+        var handler = MessageHandler("""{ "mimeType": "text/plain" }""");
+        var tokenService = SuccessfulTokenService();
+        var client = CreateClient(handler, tokenService);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => client.GetMessageAsync(Guid.NewGuid(), "   "));
+
+        Assert.Equal(0, tokenService.RequestCount);
+        Assert.Equal(0, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task GetMessageAsync_WhenTokenCannotBeObtained_DoesNotCallGmail()
+    {
+        var handler = MessageHandler("""{ "mimeType": "text/plain" }""");
+        var client = CreateClient(
+            handler,
+            new StubGoogleOAuthTokenService(
+                OperationResult<GoogleAccessToken>.Failure(
+                    "A conexão Google precisa ser autenticada.")));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => client.GetMessageAsync(Guid.NewGuid(), "message-1"));
+
+        Assert.Equal(
+            "A conexão Google precisa ser autenticada.",
+            exception.Message);
+        Assert.Equal(0, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task GetMessageAsync_WhenGmailFails_DoesNotExposeResponseBodyOrToken()
+    {
+        const string sensitiveProviderBody =
+            "SENSITIVE-GMAIL-MESSAGE-RESPONSE";
+        var handler = new RecordingHttpMessageHandler(
+            new HttpResponseMessage(HttpStatusCode.Forbidden)
+            {
+                Content = new StringContent(
+                    sensitiveProviderBody,
+                    Encoding.UTF8,
+                    "application/json")
+            });
+        var client = CreateClient(handler);
+
+        var exception = await Assert.ThrowsAsync<GmailApiException>(
+            () => client.GetMessageAsync(Guid.NewGuid(), "message-1"));
+
+        Assert.Equal(HttpStatusCode.Forbidden, exception.StatusCode);
+        Assert.DoesNotContain(sensitiveProviderBody, exception.Message);
+        Assert.DoesNotContain("test-access-token", exception.Message);
+    }
+
     private static GmailClient CreateClient(
         RecordingHttpMessageHandler handler,
         IGoogleOAuthTokenService? tokenService = null)
@@ -236,6 +463,32 @@ public sealed class GmailClientTests
                     new GoogleAccessToken("test-access-token"))));
     }
 
+    private static StubGoogleOAuthTokenService SuccessfulTokenService() =>
+        new(
+            OperationResult<GoogleAccessToken>.Success(
+                new GoogleAccessToken("test-access-token")));
+
+    private static RecordingHttpMessageHandler MessageHandler(string payload) =>
+        new(
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = Json(
+                    $$"""
+                    {
+                      "id": "message-id",
+                      "threadId": "thread-id",
+                      "snippet": "snippet",
+                      "payload": {{payload}}
+                    }
+                    """)
+            });
+
+    private static string Base64Url(string value) =>
+        Convert.ToBase64String(Encoding.UTF8.GetBytes(value))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+
     private static StringContent Json(string value) =>
         new(
             value,
@@ -246,11 +499,16 @@ public sealed class GmailClientTests
         OperationResult<GoogleAccessToken> result)
         : IGoogleOAuthTokenService
     {
+        public int RequestCount { get; private set; }
+        public Guid? LastConnectionId { get; private set; }
+
         public Task<OperationResult<GoogleAccessToken>>
             GetAccessTokenAsync(
                 Guid connectionId,
                 CancellationToken cancellationToken = default)
         {
+            RequestCount++;
+            LastConnectionId = connectionId;
             return Task.FromResult(result);
         }
     }
