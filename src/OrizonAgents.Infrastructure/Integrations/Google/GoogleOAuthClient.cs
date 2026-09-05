@@ -10,7 +10,7 @@ namespace OrizonAgents.Infrastructure.Integrations.Google;
 public sealed class GoogleOAuthClient(IHttpClientFactory clients, IOptions<GoogleOAuthOptions> options)
 {
     public const string HttpClientName = "GoogleOAuth";
-    public const string Scopes = "openid email";
+    public const string Scopes = GoogleOAuthScopeCatalog.BasicIdentityRequest;
     private readonly GoogleOAuthOptions _options = options.Value;
 
     public string AuthorizationUrl(string redirectUri, string state, string verifier) =>

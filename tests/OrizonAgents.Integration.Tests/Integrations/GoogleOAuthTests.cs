@@ -189,6 +189,56 @@ public sealed class GoogleOAuthTests
         Assert.Empty(f.Http.Requests);
     }
 
+    [Theory]
+    [InlineData("openid email", false)]
+    [InlineData("openid email https://www.googleapis.com/auth/gmail.readonly", true)]
+    [InlineData("https://www.googleapis.com/auth/gmail.readonly email openid", true)]
+    [InlineData("  openid\t email\r\n https://www.googleapis.com/auth/gmail.readonly  ", true)]
+    [InlineData("openid email https://www.googleapis.com/auth/gmail.readonly.extra", false)]
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    public void GrantedScopes_AreAnExactWhitespaceSeparatedSet_AndFailClosedForGmail(
+        string? grantedScopes,
+        bool expected)
+    {
+        Assert.Equal(expected, GoogleOAuthScopeCatalog.HasCapability(grantedScopes, GoogleOAuthCapability.GmailRead));
+    }
+
+    [Fact]
+    public async Task ExistingIdentityConnection_RemainsUsableButHasNoGmailCapability()
+    {
+        await using var f = new Fixture();
+        await f.SeedConnected(scope: "openid email");
+
+        var token = await f.Service.GetAccessTokenAsync(f.Connection.Id);
+
+        Assert.True(token.Succeeded);
+        Assert.True(await f.Service.HasCapabilityAsync(f.Connection.Id, GoogleOAuthCapability.BasicIdentity));
+        Assert.False(await f.Service.HasCapabilityAsync(f.Connection.Id, GoogleOAuthCapability.GmailRead));
+        string serialized = JsonSerializer.Serialize(new
+        {
+            HasGmail = await f.Service.HasCapabilityAsync(f.Connection.Id, GoogleOAuthCapability.GmailRead)
+        });
+        Assert.DoesNotContain(Fixture.AccessToken, serialized);
+        Assert.DoesNotContain(Fixture.RefreshToken, serialized);
+        Assert.DoesNotContain("openid", serialized);
+        Assert.Empty(f.Http.Requests);
+    }
+
+    [Fact]
+    public async Task CallbackWithoutProviderScope_DoesNotAssumeRequestedScopes_AndConnectionStillWorks()
+    {
+        await using var f = new Fixture();
+        string state = (await f.Begin())["state"];
+        f.EnqueueToken(scope: null);
+        f.EnqueueIdentity();
+
+        Assert.True((await f.Service.CompleteAsync(state, "test-code", null, Fixture.Correlation)).Succeeded);
+        Assert.Equal(string.Empty, f.ReadPayload().GetProperty("Scope").GetString());
+        Assert.True((await f.Service.GetAccessTokenAsync(f.Connection.Id)).Succeeded);
+        Assert.False(await f.Service.HasCapabilityAsync(f.Connection.Id, GoogleOAuthCapability.GmailRead));
+    }
+
     [Fact]
     public async Task ExpiredAccessToken_IsRefreshedAndPreservesPreviousRefreshToken()
     {
@@ -206,6 +256,19 @@ public sealed class GoogleOAuthTests
         Assert.True(payload.GetProperty("ExpiresAtUtc").GetDateTimeOffset() > f.Clock.GetUtcNow());
         Assert.Equal("refresh_token", QueryHelpers.ParseQuery(Assert.Single(f.Http.Requests).Body!)["grant_type"]);
         Assert.Equal(Fixture.RefreshToken, QueryHelpers.ParseQuery(f.Http.Requests[0].Body!)["refresh_token"]);
+    }
+
+    [Fact]
+    public async Task RefreshWithoutProviderScope_PreservesKnownScopesAndDoesNotInventGmail()
+    {
+        await using var f = new Fixture();
+        await f.SeedConnected(expired: true, scope: "openid email");
+        f.EnqueueToken("renewed-access", refresh: null, scope: null);
+
+        Assert.True((await f.Service.GetAccessTokenAsync(f.Connection.Id)).Succeeded);
+        Assert.Equal("openid email", f.ReadPayload().GetProperty("Scope").GetString());
+        Assert.True(await f.Service.HasCapabilityAsync(f.Connection.Id, GoogleOAuthCapability.BasicIdentity));
+        Assert.False(await f.Service.HasCapabilityAsync(f.Connection.Id, GoogleOAuthCapability.GmailRead));
     }
 
     [Theory]
@@ -306,6 +369,7 @@ public sealed class GoogleOAuthTests
         f.User.TenantId = f.Tenant.TenantId;
         Assert.False((await f.Service.DisconnectAsync(f.Connection.Id)).Succeeded);
         Assert.False((await f.Service.GetAccessTokenAsync(f.Connection.Id)).Succeeded);
+        Assert.False(await f.Service.HasCapabilityAsync(f.Connection.Id, GoogleOAuthCapability.GmailRead));
         Assert.Equal(previous, f.Connection.EncryptedCredentials);
         Assert.Empty(f.Http.Requests);
     }
@@ -481,14 +545,23 @@ public sealed class GoogleOAuthTests
             EnqueueToken();
             EnqueueIdentity();
         }
-        public void EnqueueToken(string access = AccessToken, string? refresh = RefreshToken) =>
-            Http.Enqueue(TokenResponse(access, refresh));
-        public static HttpResponseMessage TokenResponse(string access = AccessToken, string? refresh = RefreshToken) =>
-            Json(new { access_token = access, refresh_token = refresh, expires_in = 3600, token_type = "Bearer", scope = "openid email" });
+        public void EnqueueToken(
+            string access = AccessToken,
+            string? refresh = RefreshToken,
+            string? scope = GoogleOAuthScopeCatalog.BasicIdentityRequest) =>
+            Http.Enqueue(TokenResponse(access, refresh, scope));
+        public static HttpResponseMessage TokenResponse(
+            string access = AccessToken,
+            string? refresh = RefreshToken,
+            string? scope = GoogleOAuthScopeCatalog.BasicIdentityRequest) =>
+            Json(new { access_token = access, refresh_token = refresh, expires_in = 3600, token_type = "Bearer", scope });
         public void EnqueueIdentity(string subject = "subject-one") =>
             Http.Enqueue(Json(new { sub = subject, email = "account@example.com", email_verified = true }));
 
-        public async Task SeedConnected(bool expired = false, string? refresh = RefreshToken)
+        public async Task SeedConnected(
+            bool expired = false,
+            string? refresh = RefreshToken,
+            string? scope = GoogleOAuthScopeCatalog.BasicIdentityRequest)
         {
             string json = JsonSerializer.Serialize(new
             {
@@ -496,7 +569,7 @@ public sealed class GoogleOAuthTests
                 RefreshToken = refresh,
                 ExpiresAtUtc = Clock.GetUtcNow().AddMinutes(expired ? -5 : 60),
                 TokenType = "Bearer",
-                Scope = "openid email",
+                Scope = scope,
                 Subject = "subject-one",
                 ClientId = Options.ClientId
             });

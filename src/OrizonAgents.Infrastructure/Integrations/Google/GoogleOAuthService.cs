@@ -22,7 +22,7 @@ public sealed class GoogleOAuthService(
     GoogleOAuthStateProtector states,
     IntegrationConnectionCredentialProtector credentialsProtector,
     TimeProvider clock,
-    ILogger<GoogleOAuthService> logger) : IGoogleOAuthService, IGoogleOAuthTokenService
+    ILogger<GoogleOAuthService> logger) : IGoogleOAuthService, IGoogleOAuthTokenService, IGoogleOAuthCapabilityService
 {
     private const string NotFound = "Conexão Gmail não encontrada ou sem permissão.";
     private const string NotConfigured = "OAuth Google não configurado. Configure Integrations:Google:ClientId e Integrations:Google:ClientSecret no servidor.";
@@ -124,7 +124,7 @@ public sealed class GoogleOAuthService(
                 AccessToken = tokens.AccessToken,
                 RefreshToken = string.IsNullOrWhiteSpace(refresh) ? null : refresh,
                 ExpiresAtUtc = clock.GetUtcNow().AddSeconds(tokens.ExpiresInSeconds),
-                Scope = tokens.Scope ?? GoogleOAuthClient.Scopes,
+                Scope = GoogleOAuthScopeCatalog.Normalize(tokens.Scope),
                 Subject = identity.Subject,
                 ClientId = _options.ClientId
             };
@@ -180,7 +180,10 @@ public sealed class GoogleOAuthService(
             {
                 payload.RefreshToken = tokens.RefreshToken;
             }
-            payload.Scope = tokens.Scope ?? payload.Scope;
+            if (!string.IsNullOrWhiteSpace(tokens.Scope))
+            {
+                payload.Scope = GoogleOAuthScopeCatalog.Normalize(tokens.Scope);
+            }
             connection.ReplaceProtectedCredentials(Protect(connection, payload));
             if (!await SaveAsync(cancellationToken))
             {
@@ -198,6 +201,23 @@ public sealed class GoogleOAuthService(
             LogFailure(connection, "refresh_unavailable");
             return OperationResult<GoogleAccessToken>.Failure("Não foi possível renovar a autorização Google agora. Tente novamente mais tarde.");
         }
+    }
+
+    public async Task<bool> HasCapabilityAsync(
+        Guid connectionId,
+        GoogleOAuthCapability capability,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = await FindAsync(connectionId, cancellationToken);
+        if (connection is null || !connection.IsActive || connection.Status != IntegrationConnectionStatus.Connected ||
+            !_options.IsConfigured)
+        {
+            return false;
+        }
+
+        var payload = ReadCredentials(connection);
+        return payload is not null && payload.ClientId == _options.ClientId &&
+            GoogleOAuthScopeCatalog.HasCapability(payload.Scope, capability);
     }
 
     public async Task<OperationResult<bool>> DisconnectAsync(Guid connectionId, CancellationToken cancellationToken = default)
