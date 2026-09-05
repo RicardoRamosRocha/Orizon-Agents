@@ -8,4 +8,5 @@ public sealed record AgentToolDefinition(
     string Description,
     string HttpMethod,
     string? InputSchema,
-    AgentToolRiskLevel RiskLevel);
+    AgentToolRiskLevel RiskLevel,
+    AgentToolKind Kind = AgentToolKind.Http);

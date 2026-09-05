@@ -131,6 +131,118 @@ public sealed class AiAgentRunnerTests
             toolExecutor.CallCount);
     }
 
+    [Fact]
+    public async Task RunAsync_PresentsHttpAndGmailToolsWithKindSpecificSemantics()
+    {
+        var options =
+            new DbContextOptionsBuilder<OrizonAgentsDbContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString())
+                .Options;
+        Guid tenantId = Guid.NewGuid();
+        var currentTenant = new CurrentTenant();
+        currentTenant.SetTenantId(tenantId);
+        await using var db =
+            new OrizonAgentsDbContext(options, currentTenant);
+        var agent = new AiAgent(
+            tenantId,
+            "Agente de teste",
+            "Você é um agente de teste.",
+            AiProvider.GoogleGemini,
+            "test-model");
+        db.AiAgents.Add(agent);
+        await db.SaveChangesAsync();
+
+        Guid httpToolId = Guid.NewGuid();
+        Guid searchToolId = Guid.NewGuid();
+        Guid readToolId = Guid.NewGuid();
+        Guid connectionId = Guid.NewGuid();
+        const string token = "SENSITIVE-GOOGLE-TOKEN";
+        const string endpoint = "https://gmail.internal/should-not-appear";
+        const string searchSchema = """
+        {
+          "type": "object",
+          "properties": {
+            "query": { "type": "string" },
+            "maxResults": { "type": "integer" }
+          },
+          "required": ["query"],
+          "additionalProperties": false
+        }
+        """;
+        const string readSchema = """
+        {
+          "type": "object",
+          "properties": {
+            "messageId": { "type": "string" }
+          },
+          "required": ["messageId"],
+          "additionalProperties": false
+        }
+        """;
+        var provider = new CountingChatProvider(
+            AiProvider.GoogleGemini.ToString(),
+            "Resposta final.");
+        var toolExecutor =
+            new ApprovalRequiredToolExecutor(Guid.NewGuid());
+        var runner = new AiAgentRunner(
+            db,
+            new[] { provider },
+            new StubToolCatalog(
+                new AgentToolDefinition(
+                    httpToolId,
+                    "Tool HTTP",
+                    "Executa uma chamada HTTP.",
+                    "POST",
+                    null,
+                    AgentToolRiskLevel.Read,
+                    AgentToolKind.Http),
+                new AgentToolDefinition(
+                    searchToolId,
+                    "Pesquisar Gmail",
+                    "Pesquisa mensagens.",
+                    $"DELETE {connectionId} {token} {endpoint}",
+                    searchSchema,
+                    AgentToolRiskLevel.Sensitive,
+                    AgentToolKind.GmailSearch),
+                new AgentToolDefinition(
+                    readToolId,
+                    "Ler Gmail",
+                    "Lê uma mensagem.",
+                    "PATCH",
+                    readSchema,
+                    AgentToolRiskLevel.Read,
+                    AgentToolKind.GmailReadMessage)),
+            new EmptyKnowledgeRetriever(),
+            toolExecutor,
+            new StubDecisionParser(
+                AgentModelDecision.FinalResponse("Resposta final.")),
+            NullLogger<AiAgentRunner>.Instance);
+
+        OperationResult<AiAgentRunResult> result =
+            await runner.RunAsync(
+                agent.Id,
+                new AgentRunRequest("Consulte minhas mensagens."));
+
+        Assert.True(result.Succeeded);
+        string prompt = Assert.IsType<string>(provider.LastSystemPrompt);
+        Assert.Contains(httpToolId.ToString(), prompt);
+        Assert.Contains("Método HTTP: POST", prompt);
+        Assert.Contains(searchToolId.ToString(), prompt);
+        Assert.Contains("Operação: Pesquisa de mensagens no Gmail", prompt);
+        Assert.Contains("query", prompt);
+        Assert.Contains("maxResults", prompt);
+        Assert.Contains("Classificação de risco: Sensitive", prompt);
+        Assert.Contains(readToolId.ToString(), prompt);
+        Assert.Contains("Operação: Leitura de uma mensagem do Gmail", prompt);
+        Assert.Contains("messageId", prompt);
+        Assert.DoesNotContain(connectionId.ToString(), prompt);
+        Assert.DoesNotContain(token, prompt);
+        Assert.DoesNotContain(endpoint, prompt);
+        Assert.DoesNotContain("Método HTTP: DELETE", prompt);
+        Assert.DoesNotContain("Método HTTP: PATCH", prompt);
+        Assert.Equal(0, toolExecutor.CallCount);
+    }
+
     private sealed class CountingChatProvider :
         IAiChatProvider
     {
@@ -148,6 +260,8 @@ public sealed class AiAgentRunnerTests
 
         public int CallCount { get; private set; }
 
+        public string? LastSystemPrompt { get; private set; }
+
         public Task<string> CompleteAsync(
             string model,
             string systemPrompt,
@@ -158,6 +272,7 @@ public sealed class AiAgentRunnerTests
             CancellationToken cancellationToken = default)
         {
             CallCount++;
+            LastSystemPrompt = systemPrompt;
 
             return Task.FromResult(_response);
         }

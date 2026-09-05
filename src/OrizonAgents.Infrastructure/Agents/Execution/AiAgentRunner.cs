@@ -10,6 +10,7 @@ using OrizonAgents.Application.Tools.Models;
 using OrizonAgents.Application.Tools.Execution;
 using OrizonAgents.Application.Tools.Execution.Models;
 using OrizonAgents.Domain.Agents;
+using OrizonAgents.Domain.Tools;
 using OrizonAgents.Infrastructure.Persistence;
 
 namespace OrizonAgents.Infrastructure.Agents.Execution;
@@ -388,7 +389,25 @@ public sealed class AiAgentRunner : IAiAgentRunner
             builder.AppendLine($"- Nome: {tool.Name}");
             builder.AppendLine($"  Id: {tool.Id}");
             builder.AppendLine($"  Descrição: {tool.Description}");
-            builder.AppendLine($"  Método HTTP: {tool.HttpMethod}");
+
+            switch (tool.Kind)
+            {
+                case AgentToolKind.Http:
+                    builder.AppendLine(
+                        $"  Método HTTP: {tool.HttpMethod}");
+                    break;
+
+                case AgentToolKind.GmailSearch:
+                    builder.AppendLine(
+                        "  Operação: Pesquisa de mensagens no Gmail");
+                    break;
+
+                case AgentToolKind.GmailReadMessage:
+                    builder.AppendLine(
+                        "  Operação: Leitura de uma mensagem do Gmail");
+                    break;
+            }
+
             builder.AppendLine($"  Classificação de risco: {tool.RiskLevel}");
 
             if (!string.IsNullOrWhiteSpace(tool.InputSchema))
