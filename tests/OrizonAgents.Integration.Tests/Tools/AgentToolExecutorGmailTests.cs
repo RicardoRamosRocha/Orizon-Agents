@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using OrizonAgents.Application.Integrations.Gmail;
+using OrizonAgents.Application.Integrations.Google;
 using OrizonAgents.Application.Tools.Execution.Models;
 using OrizonAgents.Domain.Agents;
 using OrizonAgents.Domain.Tools;
@@ -46,6 +47,9 @@ public sealed class AgentToolExecutorGmailTests
 
         Assert.True(result.Succeeded);
         Assert.Equal(serverConnectionId, fixture.Gmail.ConnectionId);
+        Assert.Equal(serverConnectionId, fixture.Capabilities.ConnectionId);
+        Assert.Equal(GoogleOAuthCapability.GmailRead, fixture.Capabilities.Capability);
+        Assert.Equal(1, fixture.Capabilities.Calls);
         Assert.NotEqual(modelConnectionId, fixture.Gmail.ConnectionId);
         Assert.Equal("is:unread", fixture.Gmail.Query);
         Assert.Equal(25, fixture.Gmail.MaxResults);
@@ -152,6 +156,9 @@ public sealed class AgentToolExecutorGmailTests
 
         Assert.True(result.Succeeded);
         Assert.Equal(serverConnectionId, fixture.Gmail.ConnectionId);
+        Assert.Equal(serverConnectionId, fixture.Capabilities.ConnectionId);
+        Assert.Equal(GoogleOAuthCapability.GmailRead, fixture.Capabilities.Capability);
+        Assert.Equal(1, fixture.Capabilities.Calls);
         Assert.NotEqual(modelConnectionId, fixture.Gmail.ConnectionId);
         Assert.Equal("message-1", fixture.Gmail.MessageId);
         Assert.Equal(1, fixture.Gmail.ReadCalls);
@@ -184,6 +191,7 @@ public sealed class AgentToolExecutorGmailTests
 
         Assert.False(result.Succeeded);
         Assert.Equal(0, fixture.Gmail.ReadCalls);
+        Assert.Equal(0, fixture.Capabilities.Calls);
     }
 
     [Fact]
@@ -210,6 +218,7 @@ public sealed class AgentToolExecutorGmailTests
             result.Error ?? string.Empty,
             StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, fixture.Gmail.SearchCalls);
+        Assert.Equal(0, fixture.Capabilities.Calls);
         Assert.Equal(0, fixture.Http.CallCount);
     }
 
@@ -350,6 +359,7 @@ public sealed class AgentToolExecutorGmailTests
         Assert.True(result.RequiresApproval);
         Assert.NotNull(result.ApprovalId);
         Assert.Equal(0, fixture.Gmail.ReadCalls);
+        Assert.Equal(0, fixture.Capabilities.Calls);
         ToolExecutionApproval approval =
             await fixture.Db.ToolExecutionApprovals.SingleAsync();
         Assert.Equal(agent.Id, approval.AgentId);
@@ -403,6 +413,63 @@ public sealed class AgentToolExecutorGmailTests
         Assert.Equal(1, fixture.Http.CallCount);
         Assert.Equal(0, fixture.Gmail.SearchCalls);
         Assert.Equal(0, fixture.Gmail.ReadCalls);
+        Assert.Equal(0, fixture.Capabilities.Calls);
+    }
+
+    [Theory]
+    [InlineData(AgentToolKind.GmailSearch)]
+    [InlineData(AgentToolKind.GmailReadMessage)]
+    public async Task GmailTool_WithoutGmailRead_FailsClosedWithoutCallingGmail(
+        AgentToolKind kind)
+    {
+        const string token = "SENSITIVE-GOOGLE-TOKEN";
+        await using var fixture = new Fixture();
+        Guid connectionId = Guid.NewGuid();
+        Guid modelConnectionId = Guid.NewGuid();
+        var (agent, tool, _) = await fixture.SeedAsync(kind, connectionId);
+        fixture.Capabilities.Granted = false;
+        JsonElement input = kind == AgentToolKind.GmailSearch
+            ? Json($$"""{"query":"is:unread","connectionId":"{{modelConnectionId}}","token":"{{token}}"}""")
+            : Json($$"""{"messageId":"message-1","connectionId":"{{modelConnectionId}}","token":"{{token}}"}""");
+
+        AgentToolExecutionResult result = await fixture.Executor.ExecuteAsync(
+            new AgentToolExecutionRequest(agent.Id, tool.Id, input));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(connectionId, fixture.Capabilities.ConnectionId);
+        Assert.NotEqual(modelConnectionId, fixture.Capabilities.ConnectionId);
+        Assert.Equal(GoogleOAuthCapability.GmailRead, fixture.Capabilities.Capability);
+        Assert.Equal(1, fixture.Capabilities.Calls);
+        Assert.Equal(0, fixture.Gmail.SearchCalls);
+        Assert.Equal(0, fixture.Gmail.ReadCalls);
+        Assert.DoesNotContain(connectionId.ToString(), result.Error ?? string.Empty);
+        Assert.DoesNotContain(token, result.Error ?? string.Empty);
+        Assert.DoesNotContain("gmail.readonly", result.Error ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(AgentToolKind.GmailSearch)]
+    [InlineData(AgentToolKind.GmailReadMessage)]
+    public async Task GmailCapabilityFailure_FailsClosedWithoutCallingGmailOrLeakingDetails(
+        AgentToolKind kind)
+    {
+        const string secret = "SENSITIVE-OAUTH-DETAIL";
+        await using var fixture = new Fixture();
+        var (agent, tool, _) = await fixture.SeedAsync(kind, Guid.NewGuid());
+        fixture.Capabilities.Exception = new InvalidOperationException(secret);
+        JsonElement input = kind == AgentToolKind.GmailSearch
+            ? Json("""{"query":"is:unread"}""")
+            : Json("""{"messageId":"message-1"}""");
+
+        AgentToolExecutionResult result = await fixture.Executor.ExecuteAsync(
+            new AgentToolExecutionRequest(agent.Id, tool.Id, input));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(1, fixture.Capabilities.Calls);
+        Assert.Equal(0, fixture.Gmail.SearchCalls);
+        Assert.Equal(0, fixture.Gmail.ReadCalls);
+        Assert.DoesNotContain(secret, result.Error ?? string.Empty);
+        Assert.DoesNotContain(secret, string.Join(" ", fixture.GmailLogger.Messages));
     }
 
     private static JsonElement Json(string json)
@@ -435,6 +502,7 @@ public sealed class AgentToolExecutorGmailTests
 
             var gmailExecutor = new GmailAgentToolExecutor(
                 Gmail,
+                Capabilities,
                 GmailLogger);
 
             Executor = new AgentToolExecutor(
@@ -450,6 +518,7 @@ public sealed class AgentToolExecutorGmailTests
         public CurrentTenant Tenant { get; } = new();
         public OrizonAgentsDbContext Db { get; }
         public StubGmailClient Gmail { get; } = new();
+        public RecordingCapabilityService Capabilities { get; } = new();
         public RecordingHttpMessageHandler Http { get; } = new();
         public RecordingLogger<GmailAgentToolExecutor> GmailLogger { get; } = new();
         public AgentToolExecutor Executor { get; }
@@ -600,6 +669,28 @@ public sealed class AgentToolExecutorGmailTests
             }
 
             return Task.FromResult(Message);
+        }
+    }
+
+    private sealed class RecordingCapabilityService : IGoogleOAuthCapabilityService
+    {
+        public bool Granted { get; set; } = true;
+        public Exception? Exception { get; set; }
+        public int Calls { get; private set; }
+        public Guid? ConnectionId { get; private set; }
+        public GoogleOAuthCapability? Capability { get; private set; }
+
+        public Task<bool> HasCapabilityAsync(
+            Guid connectionId,
+            GoogleOAuthCapability capability,
+            CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            ConnectionId = connectionId;
+            Capability = capability;
+            return Exception is null
+                ? Task.FromResult(Granted)
+                : Task.FromException<bool>(Exception);
         }
     }
 

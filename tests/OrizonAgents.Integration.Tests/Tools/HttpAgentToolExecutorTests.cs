@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OrizonAgents.Application.Common.Tenancy;
 using OrizonAgents.Application.Integrations.Gmail;
+using OrizonAgents.Application.Integrations.Google;
 using OrizonAgents.Infrastructure.Tenancy;
 using OrizonAgents.Application.Tools.Execution.Models;
 using OrizonAgents.Domain.Agents;
@@ -731,6 +732,7 @@ public sealed class HttpAgentToolExecutorTests
 
         var gmailExecutor = new GmailAgentToolExecutor(
             new UnexpectedGmailClient(),
+            new UnexpectedGoogleOAuthCapabilityService(),
             provider.GetRequiredService<
                 ILogger<GmailAgentToolExecutor>>());
 
@@ -799,6 +801,16 @@ public sealed class HttpAgentToolExecutorTests
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException(
                 "Gmail não deveria ser chamado por uma Tool HTTP.");
+    }
+
+    private sealed class UnexpectedGoogleOAuthCapabilityService : IGoogleOAuthCapabilityService
+    {
+        public Task<bool> HasCapabilityAsync(
+            Guid connectionId,
+            GoogleOAuthCapability capability,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException(
+                "Capability Google não deveria ser consultada por uma Tool HTTP.");
     }
 
     private sealed class RecordingHttpMessageHandler :

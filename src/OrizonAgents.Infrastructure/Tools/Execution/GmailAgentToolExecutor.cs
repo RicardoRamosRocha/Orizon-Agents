@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using OrizonAgents.Application.Integrations.Gmail;
+using OrizonAgents.Application.Integrations.Google;
 using OrizonAgents.Application.Tools.Execution.Models;
 using OrizonAgents.Domain.Tools;
 using OrizonAgents.Infrastructure.Integrations.Gmail;
@@ -13,13 +14,16 @@ public sealed class GmailAgentToolExecutor
         new(JsonSerializerDefaults.Web);
 
     private readonly IGmailClient _gmailClient;
+    private readonly IGoogleOAuthCapabilityService _capabilities;
     private readonly ILogger<GmailAgentToolExecutor> _logger;
 
     public GmailAgentToolExecutor(
         IGmailClient gmailClient,
+        IGoogleOAuthCapabilityService capabilities,
         ILogger<GmailAgentToolExecutor> logger)
     {
         _gmailClient = gmailClient;
+        _capabilities = capabilities;
         _logger = logger;
     }
 
@@ -117,6 +121,11 @@ public sealed class GmailAgentToolExecutor
             }
         }
 
+        if (!await HasGmailReadAsync(connectionId, cancellationToken))
+        {
+            return MissingGmailAuthorization();
+        }
+
         GmailSearchResult result =
             await _gmailClient.SearchMessagesAsync(
                 connectionId,
@@ -137,6 +146,11 @@ public sealed class GmailAgentToolExecutor
         if (!TryReadRequiredString(input, "messageId", out string messageId))
         {
             return InvalidArguments();
+        }
+
+        if (!await HasGmailReadAsync(connectionId, cancellationToken))
+        {
+            return MissingGmailAuthorization();
         }
 
         GmailMessage result =
@@ -176,4 +190,16 @@ public sealed class GmailAgentToolExecutor
     private static AgentToolExecutionResult InvalidArguments() =>
         AgentToolExecutionResult.Failure(
             "Os argumentos fornecidos para a Tool Gmail são inválidos.");
+
+    private Task<bool> HasGmailReadAsync(
+        Guid connectionId,
+        CancellationToken cancellationToken) =>
+        _capabilities.HasCapabilityAsync(
+            connectionId,
+            GoogleOAuthCapability.GmailRead,
+            cancellationToken);
+
+    private static AgentToolExecutionResult MissingGmailAuthorization() =>
+        AgentToolExecutionResult.Failure(
+            "A conexão Google não possui autorização necessária para leitura do Gmail.");
 }
