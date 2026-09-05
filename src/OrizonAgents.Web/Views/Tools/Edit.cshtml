@@ -1,4 +1,5 @@
 @model OrizonAgents.Web.Models.Tools.AgentToolFormViewModel
+@using OrizonAgents.Web.Models.Tools
 
 @{
     Layout = "_AdminLayout";
@@ -8,23 +9,14 @@
 
 <div class="cockpit-page">
     <header class="cockpit-page-header cockpit-page-header--form">
-        <a asp-controller="Tools"
-           asp-action="Index"
-           class="cockpit-back-link">
-            ← Voltar para ferramentas
-        </a>
-
+        <a asp-controller="Tools" asp-action="Index" class="cockpit-back-link">← Voltar para ferramentas</a>
         <div>
             <p class="cockpit-eyebrow">Configuração da capacidade</p>
             <div class="cockpit-form-title-row">
                 <h1>Editar ferramenta</h1>
-                <span class="cockpit-status cockpit-status--@(Model.IsActive ? "success" : "danger")">
-                    @(Model.IsActive ? "Ativa" : "Inativa")
-                </span>
+                <span class="cockpit-status cockpit-status--@(Model.IsActive ? "success" : "danger")">@(Model.IsActive ? "Ativa" : "Inativa")</span>
             </div>
-            <p>
-                Atualize a configuração da API ou serviço utilizado pelos agentes.
-            </p>
+            <p>Atualize a configuração da ferramenta utilizada pelos agentes.</p>
         </div>
     </header>
 
@@ -32,119 +24,87 @@
         <div class="card-body p-4 p-lg-5 cockpit-form-panel__body">
             <form asp-action="Edit" asp-route-id="@Model.Id" method="post" class="cockpit-form">
                 @Html.AntiForgeryToken()
-
-                <div asp-validation-summary="ModelOnly"
-                     class="text-danger mb-3"></div>
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
                 <div class="mb-4">
-                    <label asp-for="Name"
-                           class="form-label fw-semibold"></label>
-                    <input asp-for="Name"
-                           class="form-control form-control-lg"
-                           placeholder="Ex.: consultar_disponibilidade" />
-                    <span asp-validation-for="Name"
-                          class="text-danger"></span>
+                    <label class="form-label fw-semibold">Tipo de ferramenta</label>
+                    <p class="mb-0"><span class="badge text-bg-light">@(Model.Category == AgentToolCategory.Http ? "API HTTP" : "Gmail")</span></p>
                 </div>
 
                 <div class="mb-4">
-                    <label asp-for="Description"
-                           class="form-label fw-semibold"></label>
-                    <textarea asp-for="Description"
-                              class="form-control"
-                              rows="3"
-                              placeholder="Explique claramente quando o agente deve utilizar esta ferramenta."></textarea>
-                    <span asp-validation-for="Description"
-                          class="text-danger"></span>
+                    <label asp-for="Name" class="form-label fw-semibold"></label>
+                    <input asp-for="Name" class="form-control form-control-lg" />
+                    <span asp-validation-for="Name" class="text-danger"></span>
+                </div>
+                <div class="mb-4">
+                    <label asp-for="Description" class="form-label fw-semibold"></label>
+                    <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+                    <span asp-validation-for="Description" class="text-danger"></span>
                 </div>
 
-                <div class="row g-3 mb-4">
-                    <div class="col-md-3">
-                        <label asp-for="HttpMethod"
-                               class="form-label fw-semibold"></label>
-
-                        <select asp-for="HttpMethod"
-                                class="form-select">
-                            <option value="GET">GET</option>
-                            <option value="POST">POST</option>
-                            <option value="PUT">PUT</option>
-                            <option value="PATCH">PATCH</option>
-                            <option value="DELETE">DELETE</option>
-                        </select>
-                    </div>
-
-                    <div class="col-md-5">
-                        <label asp-for="RiskLevel"
-                               class="form-label fw-semibold"></label>
-
-                        <select asp-for="RiskLevel"
-                                class="form-select">
-                            <option value="Read">Leitura</option>
-                            <option value="Write">Escrita</option>
-                            <option value="Sensitive">Sensível</option>
-                        </select>
-
-                        <div class="form-text">
-                            Leitura consulta dados; Escrita altera dados; Sensível representa operações de maior impacto.
+                @if (Model.Category == AgentToolCategory.Http)
+                {
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <label asp-for="HttpMethod" class="form-label fw-semibold"></label>
+                            <select asp-for="HttpMethod" class="form-select">
+                                <option value="GET">GET</option><option value="POST">POST</option><option value="PUT">PUT</option><option value="PATCH">PATCH</option><option value="DELETE">DELETE</option>
+                            </select>
                         </div>
-                        <span asp-validation-for="RiskLevel"
-                              class="text-danger"></span>
+                        <div class="col-md-9">
+                            <label asp-for="Endpoint" class="form-label fw-semibold"></label>
+                            <input asp-for="Endpoint" class="form-control" />
+                            <span asp-validation-for="Endpoint" class="text-danger"></span>
+                        </div>
                     </div>
-
-                    <div class="col-md-4">
-                        <label asp-for="Endpoint"
-                               class="form-label fw-semibold"></label>
-                        <input asp-for="Endpoint"
-                               class="form-control"
-                               placeholder="https://api.exemplo.com/recurso" />
-                        <span asp-validation-for="Endpoint"
-                              class="text-danger"></span>
+                    <div class="mb-4">
+                        <label asp-for="ToolCredentialId" class="form-label fw-semibold"></label>
+                        <select asp-for="ToolCredentialId" asp-items="Model.CredentialOptions" class="form-select"><option value="">Sem autenticação</option></select>
+                        <div class="form-text">O secret salvo nunca é exibido neste formulário.</div>
                     </div>
-                </div>
+                    <div class="mb-4">
+                        <label asp-for="InputSchema" class="form-label fw-semibold"></label>
+                        <textarea asp-for="InputSchema" class="form-control font-monospace" rows="8"></textarea>
+                        <div class="form-text">Opcional. Informe um JSON Schema para orientar a IA sobre os parâmetros aceitos.</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Ação</label>
+                            <p class="form-control-plaintext">@(Model.GmailAction == GmailToolAction.SearchEmails ? "Pesquisar e-mails" : "Ler e-mail")</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="IntegrationConnectionId" class="form-label fw-semibold"></label>
+                            <select asp-for="IntegrationConnectionId" asp-items="Model.GmailConnectionOptions" class="form-select">
+                                <option value="">Selecione uma conexão Google</option>
+                            </select>
+                            <span asp-validation-for="IntegrationConnectionId" class="text-danger"></span>
+                        </div>
+                    </div>
+                    @if (Model.GmailConnectionOptions.Count == 0)
+                    {
+                        <div class="alert alert-warning">Nenhuma conexão autorizada está disponível. <a asp-controller="Connections" asp-action="Index" class="alert-link">Gerenciar conexões</a>.</div>
+                    }
+                    <p class="form-text mb-4">Esta ferramenta usará somente as permissões autorizadas na conexão selecionada.</p>
+                }
 
                 <div class="mb-4">
-                    <label asp-for="ToolCredentialId" class="form-label fw-semibold"></label>
-                    <select asp-for="ToolCredentialId"
-                            asp-items="Model.CredentialOptions"
-                            class="form-select">
-                        <option value="">Sem autenticação</option>
+                    <label asp-for="RiskLevel" class="form-label fw-semibold"></label>
+                    <select asp-for="RiskLevel" class="form-select">
+                        <option value="Read">Leitura</option><option value="Write">Escrita</option><option value="Sensitive">Sensível</option>
                     </select>
-                    <div class="form-text">
-                        O secret salvo nunca é exibido neste formulário.
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <label asp-for="InputSchema"
-                           class="form-label fw-semibold"></label>
-
-                    <textarea asp-for="InputSchema"
-                              class="form-control font-monospace"
-                              rows="8"
-                              placeholder='{"type":"object","properties":{}}'></textarea>
-
-                    <div class="form-text">
-                        Opcional. Informe um JSON Schema para orientar a IA
-                        sobre os parâmetros aceitos pela ferramenta.
-                    </div>
+                    <span asp-validation-for="RiskLevel" class="text-danger"></span>
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 cockpit-form-actions">
-                    <button type="submit"
-                            class="btn btn-primary px-4">
-                        Salvar alterações
-                    </button>
-
-                    <a asp-controller="Tools"
-                       asp-action="Index"
-                       class="btn btn-outline-secondary">
-                        Cancelar
-                    </a>
+                    <button type="submit" class="btn btn-primary px-4">Salvar alterações</button>
+                    <a asp-controller="Tools" asp-action="Index" class="btn btn-outline-secondary">Cancelar</a>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-@section Scripts {
-    <partial name="_ValidationScriptsPartial" />
-}
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

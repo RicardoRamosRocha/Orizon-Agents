@@ -1,22 +1,22 @@
 using Microsoft.EntityFrameworkCore;
 using OrizonAgents.Application.Common.Results;
+using OrizonAgents.Application.Integrations.Google;
 using OrizonAgents.Application.Tools;
 using OrizonAgents.Application.Tools.Models;
 using OrizonAgents.Application.Tools.Requests;
 using OrizonAgents.Domain.Agents;
+using OrizonAgents.Domain.Integrations;
 using OrizonAgents.Domain.Tools;
 using OrizonAgents.Infrastructure.Persistence;
 
 namespace OrizonAgents.Infrastructure.Tools;
 
-public sealed class AgentToolService : IAgentToolService
+public sealed class AgentToolService
+    (OrizonAgentsDbContext dbContext, IGoogleOAuthCapabilityService capabilities) : IAgentToolService
 {
-    private readonly OrizonAgentsDbContext _dbContext;
-
-    public AgentToolService(OrizonAgentsDbContext dbContext)
-    {
-        _dbContext = dbContext;
-    }
+    private const string GmailConnectionUnavailable =
+        "A conexão Google selecionada não está disponível para leitura do Gmail.";
+    private readonly OrizonAgentsDbContext _dbContext = dbContext;
 
     public async Task<IReadOnlyList<AgentToolListItemDto>> ListAsync(
         CancellationToken cancellationToken = default)
@@ -32,7 +32,8 @@ public sealed class AgentToolService : IAgentToolService
                 tool.Endpoint,
                 tool.IsActive,
                 tool.ToolCredential != null ? tool.ToolCredential.Name : null,
-                tool.RiskLevel))
+                tool.RiskLevel,
+                tool.Kind))
             .ToArrayAsync(cancellationToken);
     }
 
@@ -55,7 +56,9 @@ public sealed class AgentToolService : IAgentToolService
                 tool.CreatedAtUtc,
                 tool.UpdatedAtUtc,
                 tool.ToolCredentialId,
-                tool.RiskLevel))
+                tool.RiskLevel,
+                tool.Kind,
+                tool.IntegrationConnectionId))
             .SingleOrDefaultAsync(cancellationToken);
     }
 
@@ -69,7 +72,23 @@ public sealed class AgentToolService : IAgentToolService
                 "Tenant é obrigatório.");
         }
 
-        if (request.ToolCredentialId.HasValue &&
+        if (!Enum.IsDefined(request.Kind))
+        {
+            return OperationResult<Guid>.Failure("Tipo de Tool inválido.");
+        }
+
+        bool isGmail = request.Kind is AgentToolKind.GmailSearch or AgentToolKind.GmailReadMessage;
+        if (isGmail && !await IsEligibleGmailConnectionAsync(
+                request.TenantId, request.IntegrationConnectionId, cancellationToken))
+        {
+            return OperationResult<Guid>.Failure(GmailConnectionUnavailable);
+        }
+        if (!isGmail && request.IntegrationConnectionId.HasValue)
+        {
+            return OperationResult<Guid>.Failure("Tools HTTP não utilizam conexão Google.");
+        }
+
+        if (!isGmail && request.ToolCredentialId.HasValue &&
             !await _dbContext.ToolCredentials.AnyAsync(
                 credential =>
                     credential.Id == request.ToolCredentialId.Value &&
@@ -82,21 +101,30 @@ public sealed class AgentToolService : IAgentToolService
 
         try
         {
+            string endpoint = isGmail ? GmailEndpoint(request.Kind) : request.Endpoint;
+            string httpMethod = isGmail ? "GET" : request.HttpMethod;
+            string? inputSchema = isGmail ? null : request.InputSchema;
+            Guid? credentialId = isGmail ? null : request.ToolCredentialId;
             var tool = new AgentTool(
                 request.TenantId,
                 request.Name,
                 request.Description,
-                request.Endpoint,
-                request.HttpMethod);
+                endpoint,
+                httpMethod);
 
             tool.Update(
                 request.Name,
                 request.Description,
-                request.Endpoint,
-                request.HttpMethod,
-                request.InputSchema,
-                request.ToolCredentialId,
+                endpoint,
+                httpMethod,
+                inputSchema,
+                credentialId,
                 request.RiskLevel);
+
+            if (isGmail)
+            {
+                tool.ConfigureKind(request.Kind, request.IntegrationConnectionId);
+            }
 
             _dbContext.AgentTools.Add(tool);
             await _dbContext.SaveChangesAsync(cancellationToken);
@@ -124,7 +152,18 @@ public sealed class AgentToolService : IAgentToolService
                 "Tool não encontrada.");
         }
 
-        if (request.ToolCredentialId.HasValue &&
+        bool isGmail = tool.Kind is AgentToolKind.GmailSearch or AgentToolKind.GmailReadMessage;
+        if (isGmail && !await IsEligibleGmailConnectionAsync(
+                tool.TenantId, request.IntegrationConnectionId, cancellationToken))
+        {
+            return OperationResult.Failure(GmailConnectionUnavailable);
+        }
+        if (!isGmail && request.IntegrationConnectionId.HasValue)
+        {
+            return OperationResult.Failure("Tools HTTP não utilizam conexão Google.");
+        }
+
+        if (!isGmail && request.ToolCredentialId.HasValue &&
             !await _dbContext.ToolCredentials.AnyAsync(
                 credential =>
                     credential.Id == request.ToolCredentialId.Value &&
@@ -137,14 +176,21 @@ public sealed class AgentToolService : IAgentToolService
 
         try
         {
+            string endpoint = isGmail ? GmailEndpoint(tool.Kind) : request.Endpoint;
+            string httpMethod = isGmail ? "GET" : request.HttpMethod;
             tool.Update(
                 request.Name,
                 request.Description,
-                request.Endpoint,
-                request.HttpMethod,
-                request.InputSchema,
-                request.ToolCredentialId,
+                endpoint,
+                httpMethod,
+                isGmail ? null : request.InputSchema,
+                isGmail ? null : request.ToolCredentialId,
                 request.RiskLevel);
+
+            if (isGmail)
+            {
+                tool.ConfigureKind(tool.Kind, request.IntegrationConnectionId);
+            }
 
             await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -176,6 +222,49 @@ public sealed class AgentToolService : IAgentToolService
 
         return OperationResult.Success();
     }
+
+    private async Task<bool> IsEligibleGmailConnectionAsync(
+        Guid tenantId,
+        Guid? connectionId,
+        CancellationToken cancellationToken)
+    {
+        if (!connectionId.HasValue || connectionId == Guid.Empty)
+        {
+            return false;
+        }
+
+        bool eligible = await _dbContext.IntegrationConnections.AsNoTracking().AnyAsync(
+            connection => connection.Id == connectionId.Value &&
+                connection.TenantId == tenantId &&
+                connection.Provider == IntegrationProvider.Gmail &&
+                connection.IsActive &&
+                connection.Status == IntegrationConnectionStatus.Connected,
+            cancellationToken);
+        if (!eligible)
+        {
+            return false;
+        }
+
+        try
+        {
+            return await capabilities.HasCapabilityAsync(
+                connectionId.Value,
+                GoogleOAuthCapability.GmailRead,
+                cancellationToken);
+        }
+        catch (Exception exception) when (
+            exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
+    }
+
+    private static string GmailEndpoint(AgentToolKind kind) => kind switch
+    {
+        AgentToolKind.GmailSearch => "gmail://messages/search",
+        AgentToolKind.GmailReadMessage => "gmail://messages/read",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind))
+    };
 
     public async Task<OperationResult> DeactivateAsync(
         Guid toolId,

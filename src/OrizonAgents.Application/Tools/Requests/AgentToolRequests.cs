@@ -10,7 +10,9 @@ public sealed record CreateAgentToolRequest(
     string HttpMethod,
     string? InputSchema,
     Guid? ToolCredentialId,
-    AgentToolRiskLevel RiskLevel);
+    AgentToolRiskLevel RiskLevel,
+    AgentToolKind Kind = AgentToolKind.Http,
+    Guid? IntegrationConnectionId = null);
 
 public sealed record UpdateAgentToolRequest(
     Guid ToolId,
@@ -20,4 +22,5 @@ public sealed record UpdateAgentToolRequest(
     string HttpMethod,
     string? InputSchema,
     Guid? ToolCredentialId,
-    AgentToolRiskLevel RiskLevel);
+    AgentToolRiskLevel RiskLevel,
+    Guid? IntegrationConnectionId = null);

@@ -10,7 +10,8 @@ public sealed record AgentToolListItemDto(
     string Endpoint,
     bool IsActive,
     string? CredentialName,
-    AgentToolRiskLevel RiskLevel);
+    AgentToolRiskLevel RiskLevel,
+    AgentToolKind Kind = AgentToolKind.Http);
 
 public sealed record AgentToolDetailsDto(
     Guid Id,
@@ -24,7 +25,9 @@ public sealed record AgentToolDetailsDto(
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc,
     Guid? ToolCredentialId,
-    AgentToolRiskLevel RiskLevel);
+    AgentToolRiskLevel RiskLevel,
+    AgentToolKind Kind = AgentToolKind.Http,
+    Guid? IntegrationConnectionId = null);
 
 public sealed record AgentToolBindingDto(
     Guid ToolId,

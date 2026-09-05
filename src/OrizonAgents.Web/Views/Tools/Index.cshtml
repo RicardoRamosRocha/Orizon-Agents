@@ -1,4 +1,5 @@
 @model IReadOnlyList<OrizonAgents.Application.Tools.Models.AgentToolListItemDto>
+@using OrizonAgents.Domain.Tools
 
 @{
     Layout = "_AdminLayout";
@@ -49,7 +50,12 @@
                         <div class="cockpit-resource-card__identity">
                             <div>
                                 <h2>@tool.Name</h2>
-                                <span class="cockpit-method">@tool.HttpMethod</span>
+                                <span class="cockpit-method">@(tool.Kind switch
+                                {
+                                    AgentToolKind.GmailSearch => "Gmail · Pesquisar e-mails",
+                                    AgentToolKind.GmailReadMessage => "Gmail · Ler e-mail",
+                                    _ => tool.HttpMethod
+                                })</span>
                                 @{
                                     var riskLabel = tool.RiskLevel switch
                                     {
@@ -78,10 +84,13 @@
                         </div>
                     </header>
 
-                    <div class="cockpit-endpoint">
-                        <span>Endpoint</span>
-                        <code>@tool.Endpoint</code>
-                    </div>
+                    @if (tool.Kind == AgentToolKind.Http)
+                    {
+                        <div class="cockpit-endpoint">
+                            <span>Endpoint</span>
+                            <code>@tool.Endpoint</code>
+                        </div>
+                    }
 
                     <footer class="cockpit-actions">
                         <a asp-controller="Tools"

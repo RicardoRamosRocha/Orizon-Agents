@@ -1,4 +1,5 @@
 @model OrizonAgents.Web.Models.Tools.AgentToolFormViewModel
+@using OrizonAgents.Web.Models.Tools
 
 @{
     Layout = "_AdminLayout";
@@ -8,132 +9,117 @@
 
 <div class="cockpit-page">
     <header class="cockpit-page-header cockpit-page-header--form">
-        <a asp-controller="Tools"
-           asp-action="Index"
-           class="cockpit-back-link">
-            ← Voltar para ferramentas
-        </a>
-
+        <a asp-controller="Tools" asp-action="Index" class="cockpit-back-link">← Voltar para ferramentas</a>
         <div>
             <p class="cockpit-eyebrow">Nova capacidade</p>
             <h1>Criar ferramenta</h1>
-            <p>
-                Configure uma API ou serviço que poderá ser utilizado pelos agentes.
-            </p>
+            <p>Configure uma API ou uma ação autorizada do Gmail para seus agentes.</p>
         </div>
     </header>
 
     <div class="card border-0 shadow-sm cockpit-form-panel">
         <div class="card-body p-4 p-lg-5 cockpit-form-panel__body">
-            <form asp-action="Create" method="post" class="cockpit-form">
+            <form asp-action="Create" method="post" class="cockpit-form" id="tool-form">
                 @Html.AntiForgeryToken()
-
-                <div asp-validation-summary="ModelOnly"
-                     class="text-danger mb-3"></div>
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
                 <div class="mb-4">
-                    <label asp-for="Name"
-                           class="form-label fw-semibold"></label>
-                    <input asp-for="Name"
-                           class="form-control form-control-lg"
-                           placeholder="Ex.: consultar_disponibilidade" />
-                    <span asp-validation-for="Name"
-                          class="text-danger"></span>
-                </div>
-
-                <div class="mb-4">
-                    <label asp-for="Description"
-                           class="form-label fw-semibold"></label>
-                    <textarea asp-for="Description"
-                              class="form-control"
-                              rows="3"
-                              placeholder="Explique claramente quando o agente deve utilizar esta ferramenta."></textarea>
-                    <span asp-validation-for="Description"
-                          class="text-danger"></span>
-                </div>
-
-                <div class="row g-3 mb-4">
-                    <div class="col-md-3">
-                        <label asp-for="HttpMethod"
-                               class="form-label fw-semibold"></label>
-
-                        <select asp-for="HttpMethod"
-                                class="form-select">
-                            <option value="GET">GET</option>
-                            <option value="POST">POST</option>
-                            <option value="PUT">PUT</option>
-                            <option value="PATCH">PATCH</option>
-                            <option value="DELETE">DELETE</option>
-                        </select>
-                    </div>
-
-                    <div class="col-md-5">
-                        <label asp-for="RiskLevel"
-                               class="form-label fw-semibold"></label>
-
-                        <select asp-for="RiskLevel"
-                                class="form-select">
-                            <option value="Read">Leitura</option>
-                            <option value="Write">Escrita</option>
-                            <option value="Sensitive">Sensível</option>
-                        </select>
-
-                        <div class="form-text">
-                            Leitura consulta dados; Escrita altera dados; Sensível representa operações de maior impacto.
-                        </div>
-                        <span asp-validation-for="RiskLevel"
-                              class="text-danger"></span>
-                    </div>
-
-                    <div class="col-md-4">
-                        <label asp-for="Endpoint"
-                               class="form-label fw-semibold"></label>
-                        <input asp-for="Endpoint"
-                               class="form-control"
-                               placeholder="https://api.exemplo.com/recurso" />
-                        <span asp-validation-for="Endpoint"
-                              class="text-danger"></span>
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <label asp-for="ToolCredentialId" class="form-label fw-semibold"></label>
-                    <select asp-for="ToolCredentialId"
-                            asp-items="Model.CredentialOptions"
-                            class="form-select">
-                        <option value="">Sem autenticação</option>
+                    <label asp-for="Category" class="form-label fw-semibold"></label>
+                    <select asp-for="Category" class="form-select" id="tool-category">
+                        <option value="Http">API HTTP</option>
+                        <option value="Gmail">Gmail</option>
                     </select>
-                    <div class="form-text">
-                        A credencial é resolvida com segurança somente durante a execução.
-                    </div>
+                    <span asp-validation-for="Category" class="text-danger"></span>
                 </div>
 
                 <div class="mb-4">
-                    <label asp-for="InputSchema"
-                           class="form-label fw-semibold"></label>
+                    <label asp-for="Name" class="form-label fw-semibold"></label>
+                    <input asp-for="Name" class="form-control form-control-lg" placeholder="Ex.: pesquisar_emails_comerciais" />
+                    <span asp-validation-for="Name" class="text-danger"></span>
+                </div>
 
-                    <textarea asp-for="InputSchema"
-                              class="form-control font-monospace"
-                              rows="8"
-                              placeholder='{"type":"object","properties":{}}'></textarea>
+                <div class="mb-4">
+                    <label asp-for="Description" class="form-label fw-semibold"></label>
+                    <textarea asp-for="Description" class="form-control" rows="3" placeholder="Explique claramente quando o agente deve utilizar esta ferramenta."></textarea>
+                    <span asp-validation-for="Description" class="text-danger"></span>
+                </div>
 
-                    <div class="form-text">
-                        Opcional. Informe um JSON Schema para orientar a IA
-                        sobre os parâmetros aceitos pela ferramenta.
+                <section data-tool-section="Http">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <label asp-for="HttpMethod" class="form-label fw-semibold"></label>
+                            <select asp-for="HttpMethod" class="form-select" data-category-input>
+                                <option value="GET">GET</option>
+                                <option value="POST">POST</option>
+                                <option value="PUT">PUT</option>
+                                <option value="PATCH">PATCH</option>
+                                <option value="DELETE">DELETE</option>
+                            </select>
+                        </div>
+                        <div class="col-md-9">
+                            <label asp-for="Endpoint" class="form-label fw-semibold"></label>
+                            <input asp-for="Endpoint" class="form-control" placeholder="https://api.exemplo.com/recurso" data-category-input />
+                            <span asp-validation-for="Endpoint" class="text-danger"></span>
+                        </div>
                     </div>
+
+                    <div class="mb-4">
+                        <label asp-for="ToolCredentialId" class="form-label fw-semibold"></label>
+                        <select asp-for="ToolCredentialId" asp-items="Model.CredentialOptions" class="form-select" data-category-input>
+                            <option value="">Sem autenticação</option>
+                        </select>
+                        <div class="form-text">A credencial é resolvida com segurança somente durante a execução.</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="InputSchema" class="form-label fw-semibold"></label>
+                        <textarea asp-for="InputSchema" class="form-control font-monospace" rows="8" placeholder='{"type":"object","properties":{}}' data-category-input></textarea>
+                        <div class="form-text">Opcional. Informe um JSON Schema para orientar a IA sobre os parâmetros aceitos.</div>
+                    </div>
+                </section>
+
+                <section data-tool-section="Gmail" hidden data-has-connections="@(Model.GmailConnectionOptions.Count > 0 ? "true" : "false")">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label asp-for="GmailAction" class="form-label fw-semibold"></label>
+                            <select asp-for="GmailAction" class="form-select" data-category-input>
+                                <option value="SearchEmails">Pesquisar e-mails</option>
+                                <option value="ReadEmail">Ler e-mail</option>
+                            </select>
+                            <span asp-validation-for="GmailAction" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="IntegrationConnectionId" class="form-label fw-semibold"></label>
+                            <select asp-for="IntegrationConnectionId" asp-items="Model.GmailConnectionOptions" class="form-select" data-category-input>
+                                <option value="">Selecione uma conexão Google</option>
+                            </select>
+                            <span asp-validation-for="IntegrationConnectionId" class="text-danger"></span>
+                        </div>
+                    </div>
+                    @if (Model.GmailConnectionOptions.Count == 0)
+                    {
+                        <div class="alert alert-warning">
+                            Nenhuma conexão com leitura do Gmail está disponível.
+                            <a asp-controller="Connections" asp-action="Index" class="alert-link">Conecte ou autorize uma conta Google</a>.
+                        </div>
+                    }
+                    <p class="form-text mb-4">Esta ferramenta usará somente as permissões autorizadas na conexão selecionada.</p>
+                </section>
+
+                <div class="mb-4">
+                    <label asp-for="RiskLevel" class="form-label fw-semibold"></label>
+                    <select asp-for="RiskLevel" class="form-select">
+                        <option value="Read">Leitura</option>
+                        <option value="Write">Escrita</option>
+                        <option value="Sensitive">Sensível</option>
+                    </select>
+                    <div class="form-text">Leitura consulta dados; Escrita altera dados; Sensível representa operações de maior impacto.</div>
+                    <span asp-validation-for="RiskLevel" class="text-danger"></span>
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 cockpit-form-actions">
-                    <button type="submit"
-                            class="btn btn-primary px-4">
-                        Criar ferramenta
-                    </button>
-
-                    <a asp-controller="Tools"
-                       asp-action="Index"
-                       class="btn btn-outline-secondary">
-                        Cancelar
-                    </a>
+                    <button type="submit" class="btn btn-primary px-4" id="tool-submit">Criar ferramenta</button>
+                    <a asp-controller="Tools" asp-action="Index" class="btn btn-outline-secondary">Cancelar</a>
                 </div>
             </form>
         </div>
@@ -142,4 +128,22 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const category = document.getElementById('tool-category');
+            const submit = document.getElementById('tool-submit');
+            const sections = document.querySelectorAll('[data-tool-section]');
+            const sync = () => {
+                sections.forEach(section => {
+                    const active = section.dataset.toolSection === category.value;
+                    section.hidden = !active;
+                    section.querySelectorAll('[data-category-input]').forEach(input => input.disabled = !active);
+                });
+                const gmail = document.querySelector('[data-tool-section="Gmail"]');
+                submit.disabled = category.value === 'Gmail' && gmail.dataset.hasConnections !== 'true';
+            };
+            category.addEventListener('change', sync);
+            sync();
+        })();
+    </script>
 }
