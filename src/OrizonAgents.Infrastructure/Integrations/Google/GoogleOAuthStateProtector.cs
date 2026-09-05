@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.WebUtilities;
+using OrizonAgents.Application.Integrations.Google;
 
 namespace OrizonAgents.Infrastructure.Integrations.Google;
 
@@ -11,7 +12,14 @@ public sealed class GoogleOAuthStateProtector(IDataProtectionProvider provider, 
     public static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(10);
     private readonly IDataProtector _protector = provider.CreateProtector("OrizonAgents.GoogleOAuth.State.v1");
 
-    public string Protect(Guid tenantId, Guid connectionId, Guid userId, string redirectUri, string correlation, string verifier) =>
+    public string Protect(
+        Guid tenantId,
+        Guid connectionId,
+        Guid userId,
+        string redirectUri,
+        string correlation,
+        string verifier,
+        GoogleOAuthCapability? capability = null) =>
         _protector.Protect(JsonSerializer.Serialize(new GoogleOAuthState
         {
             TenantId = tenantId,
@@ -20,7 +28,8 @@ public sealed class GoogleOAuthStateProtector(IDataProtectionProvider provider, 
             RedirectUri = redirectUri,
             CorrelationHash = Hash(correlation),
             CodeVerifier = verifier,
-            ExpiresAtUtc = clock.GetUtcNow().Add(Lifetime)
+            ExpiresAtUtc = clock.GetUtcNow().Add(Lifetime),
+            Capability = capability
         }));
 
     internal GoogleOAuthState? Unprotect(string? state)
@@ -36,6 +45,7 @@ public sealed class GoogleOAuthStateProtector(IDataProtectionProvider provider, 
             return value is not null && value.ExpiresAtUtc > clock.GetUtcNow()
                 && value.TenantId != Guid.Empty && value.ConnectionId != Guid.Empty && value.UserId != Guid.Empty
                 && !string.IsNullOrWhiteSpace(value.CodeVerifier)
+                && (!value.Capability.HasValue || GoogleOAuthScopeCatalog.IsUpgradeCapability(value.Capability.Value))
                 ? value : null;
         }
         catch (Exception exception) when (exception is CryptographicException or JsonException or FormatException)
@@ -58,5 +68,6 @@ internal sealed class GoogleOAuthState
     public string CorrelationHash { get; init; } = string.Empty;
     public string CodeVerifier { get; init; } = string.Empty;
     public DateTimeOffset ExpiresAtUtc { get; init; }
+    public GoogleOAuthCapability? Capability { get; init; }
     public override string ToString() => "[protected Google OAuth state]";
 }

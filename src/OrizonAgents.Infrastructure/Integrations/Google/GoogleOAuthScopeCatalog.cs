@@ -9,6 +9,16 @@ internal static class GoogleOAuthScopeCatalog
     internal const string GmailReadOnly = "https://www.googleapis.com/auth/gmail.readonly";
     internal const string BasicIdentityRequest = OpenId + " " + Email;
 
+    internal static bool IsUpgradeCapability(GoogleOAuthCapability capability) =>
+        capability == GoogleOAuthCapability.GmailRead;
+
+    internal static string AuthorizationScopes(GoogleOAuthCapability? capability) => capability switch
+    {
+        null => BasicIdentityRequest,
+        GoogleOAuthCapability.GmailRead => BasicIdentityRequest + " " + GmailReadOnly,
+        _ => throw new ArgumentOutOfRangeException(nameof(capability), "Capability Google OAuth inválida.")
+    };
+
     internal static bool HasCapability(string? grantedScopes, GoogleOAuthCapability capability)
     {
         HashSet<string> scopes = Parse(grantedScopes);

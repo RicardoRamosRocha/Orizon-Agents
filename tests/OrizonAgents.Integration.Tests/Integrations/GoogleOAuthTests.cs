@@ -26,12 +26,15 @@ public sealed class GoogleOAuthTests
         await using var f = new Fixture();
         var query = await f.Begin();
         Assert.Equal("openid email", query["scope"]);
+        Assert.DoesNotContain(GoogleOAuthScopeCatalog.GmailReadOnly, query["scope"]);
+        Assert.False(query.ContainsKey("include_granted_scopes"));
         Assert.Equal("offline", query["access_type"]);
         Assert.Equal("S256", query["code_challenge_method"]);
         Assert.Equal("consent select_account", query["prompt"]);
         Assert.Equal(Fixture.RedirectUri, query["redirect_uri"]);
         Assert.False(query.ContainsKey("client_secret"));
         Assert.False(query.ContainsKey("code_verifier"));
+        Assert.Null(f.States.Unprotect(query["state"])!.Capability);
         Assert.NotEqual(query["state"], f.Connection.PendingOAuthStateHash);
         var other = new IntegrationConnection(Guid.NewGuid(), "Outra", IntegrationProvider.Gmail);
         f.Db.Add(other);
@@ -40,6 +43,188 @@ public sealed class GoogleOAuthTests
         Assert.False(denied.Succeeded);
         Assert.Null(other.PendingOAuthStateHash);
         Assert.Empty(f.Http.Requests);
+    }
+
+    [Fact]
+    public async Task BeginUpgradeGmailRead_UsesServerScopesAndPreservesExistingCredentials()
+    {
+        await using var f = new Fixture();
+        await f.SeedConnected();
+        string previous = f.Connection.EncryptedCredentials!;
+
+        var query = await f.BeginUpgrade();
+
+        Assert.Equal(
+            new[] { "email", GoogleOAuthScopeCatalog.GmailReadOnly, "openid" },
+            query["scope"].Split(' ', StringSplitOptions.RemoveEmptyEntries).Order().ToArray());
+        Assert.Equal("true", query["include_granted_scopes"]);
+        Assert.Equal("offline", query["access_type"]);
+        Assert.Equal("consent select_account", query["prompt"]);
+        Assert.Equal("S256", query["code_challenge_method"]);
+        Assert.False(query.ContainsKey("client_secret"));
+        Assert.False(query.ContainsKey("code_verifier"));
+        Assert.Equal(GoogleOAuthCapability.GmailRead, f.States.Unprotect(query["state"])!.Capability);
+        Assert.NotEqual(query["state"], f.Connection.PendingOAuthStateHash);
+        Assert.Equal(previous, f.Connection.EncryptedCredentials);
+        Assert.Equal(IntegrationConnectionStatus.Connected, f.Connection.Status);
+        Assert.False(await f.Service.HasCapabilityAsync(f.Connection.Id, GoogleOAuthCapability.GmailRead));
+    }
+
+    [Fact]
+    public async Task BeginUpgrade_RejectsUnknownCapabilityAndOtherTenant()
+    {
+        await using var f = new Fixture();
+        await f.SeedConnected();
+        string previous = f.Connection.EncryptedCredentials!;
+
+        var unknown = await f.Service.BeginUpgradeAsync(
+            f.Connection.Id, (GoogleOAuthCapability)999, Fixture.RedirectUri, Fixture.Correlation);
+        string invalidState = f.States.Protect(
+            f.Connection.TenantId,
+            f.Connection.Id,
+            f.User.UserId!.Value,
+            Fixture.RedirectUri,
+            Fixture.Correlation,
+            GoogleOAuthStateProtector.NewVerifier(),
+            (GoogleOAuthCapability)999);
+        f.Tenant.SetTenantId(Guid.NewGuid());
+        f.User.TenantId = f.Tenant.TenantId;
+        var otherTenant = await f.Service.BeginUpgradeAsync(
+            f.Connection.Id, GoogleOAuthCapability.GmailRead, Fixture.RedirectUri, Fixture.Correlation);
+
+        Assert.False(unknown.Succeeded);
+        Assert.Null(f.States.Unprotect(invalidState));
+        Assert.False(otherTenant.Succeeded);
+        Assert.Equal(previous, f.Connection.EncryptedCredentials);
+        Assert.Null(f.Connection.PendingOAuthStateHash);
+        Assert.Empty(f.Http.Requests);
+    }
+
+    [Theory]
+    [InlineData("cancel")]
+    [InlineData("oauth")]
+    [InlineData("invalid-state")]
+    [InlineData("expired-state")]
+    [InlineData("missing-scope")]
+    [InlineData("substring-scope")]
+    [InlineData("different-subject")]
+    [InlineData("missing-refresh")]
+    public async Task FailedUpgrade_PreservesExistingCredentialsAndCapability(string failure)
+    {
+        await using var f = new Fixture();
+        await f.SeedConnected();
+        string previous = f.Connection.EncryptedCredentials!;
+        string state = (await f.BeginUpgrade())["state"];
+        string? code = "upgrade-code";
+        string? error = null;
+
+        switch (failure)
+        {
+            case "cancel":
+                code = null;
+                error = "access_denied";
+                break;
+            case "oauth":
+                f.Http.Enqueue(Json(new { error = "temporarily_unavailable" }, HttpStatusCode.ServiceUnavailable));
+                break;
+            case "invalid-state":
+                state = "invalid" + state;
+                break;
+            case "expired-state":
+                f.Clock.Advance(GoogleOAuthStateProtector.Lifetime.Add(TimeSpan.FromSeconds(1)));
+                break;
+            case "missing-scope":
+                f.EnqueueToken("upgraded-access", Fixture.UpgradedRefreshToken, "openid email");
+                f.EnqueueIdentity();
+                break;
+            case "substring-scope":
+                f.EnqueueToken("upgraded-access", Fixture.UpgradedRefreshToken,
+                    "openid email " + GoogleOAuthScopeCatalog.GmailReadOnly + ".extra");
+                f.EnqueueIdentity();
+                break;
+            case "different-subject":
+                f.EnqueueToken("upgraded-access", Fixture.UpgradedRefreshToken, Fixture.GmailScopes);
+                f.EnqueueIdentity("subject-two");
+                break;
+            case "missing-refresh":
+                f.EnqueueToken("upgraded-access", refresh: null, scope: Fixture.GmailScopes);
+                f.EnqueueIdentity();
+                break;
+        }
+
+        var result = await f.Service.CompleteAsync(state, code, error, Fixture.Correlation);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(previous, f.Connection.EncryptedCredentials);
+        Assert.Equal(IntegrationConnectionStatus.Connected, f.Connection.Status);
+        Assert.Equal(Fixture.RefreshToken, f.ReadPayload().GetProperty("RefreshToken").GetString());
+        Assert.False(await f.Service.HasCapabilityAsync(f.Connection.Id, GoogleOAuthCapability.GmailRead));
+    }
+
+    [Fact]
+    public async Task SuccessfulUpgrade_RequiresSameSubjectGrantedScopeAndNewRefreshToken_AndIsSingleUse()
+    {
+        await using var f = new Fixture();
+        await f.SeedConnected();
+        string previous = f.Connection.EncryptedCredentials!;
+        string state = (await f.BeginUpgrade())["state"];
+        f.EnqueueToken("upgraded-access", Fixture.UpgradedRefreshToken, Fixture.GmailScopes);
+        f.EnqueueIdentity();
+
+        var result = await f.Service.CompleteAsync(state, "upgrade-code", null, Fixture.Correlation);
+
+        Assert.True(result.Succeeded);
+        Assert.NotEqual(previous, f.Connection.EncryptedCredentials);
+        var payload = f.ReadPayload();
+        Assert.Equal("upgraded-access", payload.GetProperty("AccessToken").GetString());
+        Assert.Equal(Fixture.UpgradedRefreshToken, payload.GetProperty("RefreshToken").GetString());
+        Assert.True(GoogleOAuthScopeCatalog.HasCapability(
+            payload.GetProperty("Scope").GetString(), GoogleOAuthCapability.GmailRead));
+        Assert.True(await f.Service.HasCapabilityAsync(f.Connection.Id, GoogleOAuthCapability.GmailRead));
+        Assert.DoesNotContain("upgraded-access", f.Connection.EncryptedCredentials!);
+        Assert.DoesNotContain(Fixture.UpgradedRefreshToken, f.Connection.EncryptedCredentials!);
+        Assert.False((await f.Service.CompleteAsync(state, "upgrade-code", null, Fixture.Correlation)).Succeeded);
+        Assert.Equal(2, f.Http.Requests.Count);
+    }
+
+    [Fact]
+    public async Task NewUpgradeAttemptInvalidatesOldStateWithoutTouchingCredentials()
+    {
+        await using var f = new Fixture();
+        await f.SeedConnected();
+        string previous = f.Connection.EncryptedCredentials!;
+        string oldState = (await f.BeginUpgrade())["state"];
+        string newState = (await f.BeginUpgrade())["state"];
+
+        Assert.False((await f.Service.CompleteAsync(
+            oldState, "upgrade-code", null, Fixture.Correlation)).Succeeded);
+        Assert.Equal(previous, f.Connection.EncryptedCredentials);
+        Assert.Equal(GoogleOAuthStateProtector.Hash(newState), f.Connection.PendingOAuthStateHash);
+        Assert.Empty(f.Http.Requests);
+    }
+
+    [Fact]
+    public async Task ConcurrentDisconnectCannotBeUndoneByUpgradeCallback()
+    {
+        await using var f = new Fixture();
+        await f.SeedConnected();
+        string state = (await f.BeginUpgrade())["state"];
+        f.Http.Enqueue(async _ =>
+        {
+            await using var otherDb = new OrizonAgentsDbContext(f.DbOptions, f.Tenant);
+            var connection = await otherDb.IntegrationConnections.SingleAsync();
+            connection.Disconnect();
+            await otherDb.SaveChangesAsync();
+            return Fixture.TokenResponse("upgraded-access", Fixture.UpgradedRefreshToken, Fixture.GmailScopes);
+        });
+        f.EnqueueIdentity();
+
+        Assert.False((await f.Service.CompleteAsync(
+            state, "upgrade-code", null, Fixture.Correlation)).Succeeded);
+        f.Db.ChangeTracker.Clear();
+        var stored = await f.Db.IntegrationConnections.SingleAsync();
+        Assert.Null(stored.EncryptedCredentials);
+        Assert.Equal(IntegrationConnectionStatus.Disconnected, stored.Status);
     }
 
     [Theory]
@@ -504,6 +689,8 @@ public sealed class GoogleOAuthTests
         public const string ClientSecret = "test-only-client-secret";
         public const string AccessToken = "test-only-access-token";
         public const string RefreshToken = "test-only-refresh-token";
+        public const string UpgradedRefreshToken = "test-only-upgraded-refresh-token";
+        public const string GmailScopes = "openid email https://www.googleapis.com/auth/gmail.readonly";
         public readonly CurrentTenant Tenant = new();
         public readonly TestUser User = new();
         public readonly TestClock Clock = new();
@@ -511,6 +698,7 @@ public sealed class GoogleOAuthTests
         public readonly TestLogger Log = new();
         public readonly GoogleOAuthOptions Options = new() { ClientId = "test-only-client-id", ClientSecret = ClientSecret };
         public readonly IntegrationConnectionCredentialProtector Protector;
+        public readonly GoogleOAuthStateProtector States;
         public readonly OrizonAgentsDbContext Db;
         public readonly DbContextOptions<OrizonAgentsDbContext> DbOptions;
         public readonly IntegrationConnection Connection;
@@ -527,10 +715,11 @@ public sealed class GoogleOAuthTests
             Db.SaveChanges();
             var protection = new EphemeralDataProtectionProvider();
             Protector = new IntegrationConnectionCredentialProtector(protection);
+            States = new GoogleOAuthStateProtector(protection, Clock);
             var options = Microsoft.Extensions.Options.Options.Create(Options);
             Service = new GoogleOAuthService(Db, Tenant, User, options,
                 new GoogleOAuthClient(new FakeFactory(Http), options),
-                new GoogleOAuthStateProtector(protection, Clock), Protector, Clock, Log);
+                States, Protector, Clock, Log);
         }
 
         public async Task<Dictionary<string, string>> Begin()
@@ -538,6 +727,15 @@ public sealed class GoogleOAuthTests
             var result = await Service.BeginAsync(Connection.Id, RedirectUri, Correlation);
             Assert.True(result.Succeeded, result.FirstError);
             return QueryHelpers.ParseQuery(new Uri(result.Value!).Query).ToDictionary(x => x.Key, x => x.Value.ToString());
+        }
+
+        public async Task<Dictionary<string, string>> BeginUpgrade()
+        {
+            var result = await Service.BeginUpgradeAsync(
+                Connection.Id, GoogleOAuthCapability.GmailRead, RedirectUri, Correlation);
+            Assert.True(result.Succeeded, result.FirstError);
+            return QueryHelpers.ParseQuery(new Uri(result.Value!).Query)
+                .ToDictionary(x => x.Key, x => x.Value.ToString());
         }
 
         public void EnqueueAuthorization()

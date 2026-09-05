@@ -29,10 +29,33 @@ public sealed class GoogleOAuthService(
     private const string InvalidState = "A autorização expirou ou não corresponde a esta sessão. Inicie novamente a conexão com Google.";
     private const string Reauthenticate = "A autorização Google precisa ser renovada. Conecte a conta novamente.";
     private const string ConcurrentChange = "A conexão foi alterada durante a operação. Atualize a página e tente novamente.";
+    private const string UpgradeFailed = "Não foi possível ampliar o acesso Google. A autorização existente foi preservada.";
     private readonly GoogleOAuthOptions _options = options.Value;
 
     public async Task<OperationResult<string>> BeginAsync(
-        Guid connectionId, string redirectUri, string correlation, CancellationToken cancellationToken = default)
+        Guid connectionId, string redirectUri, string correlation, CancellationToken cancellationToken = default) =>
+        await BeginAuthorizationAsync(connectionId, null, redirectUri, correlation, cancellationToken);
+
+    public async Task<OperationResult<string>> BeginUpgradeAsync(
+        Guid connectionId,
+        GoogleOAuthCapability capability,
+        string redirectUri,
+        string correlation,
+        CancellationToken cancellationToken = default)
+    {
+        if (!GoogleOAuthScopeCatalog.IsUpgradeCapability(capability))
+        {
+            return OperationResult<string>.Failure(UpgradeFailed);
+        }
+        return await BeginAuthorizationAsync(connectionId, capability, redirectUri, correlation, cancellationToken);
+    }
+
+    private async Task<OperationResult<string>> BeginAuthorizationAsync(
+        Guid connectionId,
+        GoogleOAuthCapability? capability,
+        string redirectUri,
+        string correlation,
+        CancellationToken cancellationToken)
     {
         if (!IsTenantAdmin())
         {
@@ -51,6 +74,16 @@ public sealed class GoogleOAuthService(
         {
             return OperationResult<string>.Failure(NotConfigured);
         }
+
+        if (capability.HasValue)
+        {
+            var credentials = ReadCredentials(connection);
+            if (connection.Status != IntegrationConnectionStatus.Connected || credentials is null ||
+                credentials.ClientId != _options.ClientId)
+            {
+                return OperationResult<string>.Failure(UpgradeFailed);
+            }
+        }
         if (!Uri.TryCreate(redirectUri, UriKind.Absolute, out var uri) ||
             uri.Scheme != Uri.UriSchemeHttps || !string.IsNullOrEmpty(uri.UserInfo) ||
             !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment) ||
@@ -60,13 +93,20 @@ public sealed class GoogleOAuthService(
         }
 
         string verifier = GoogleOAuthStateProtector.NewVerifier();
-        string state = states.Protect(connection.TenantId, connection.Id, user.UserId!.Value, redirectUri, correlation, verifier);
+        string state = states.Protect(
+            connection.TenantId,
+            connection.Id,
+            user.UserId!.Value,
+            redirectUri,
+            correlation,
+            verifier,
+            capability);
         connection.BeginOAuth(GoogleOAuthStateProtector.Hash(state));
         if (!await SaveAsync(cancellationToken))
         {
             return OperationResult<string>.Failure(ConcurrentChange);
         }
-        return OperationResult<string>.Success(google.AuthorizationUrl(redirectUri, state, verifier));
+        return OperationResult<string>.Success(google.AuthorizationUrl(redirectUri, state, verifier, capability));
     }
 
     public async Task<OperationResult<Guid>> CompleteAsync(
@@ -85,6 +125,17 @@ public sealed class GoogleOAuthService(
             connection.PendingOAuthStateHash != GoogleOAuthStateProtector.Hash(state!))
         {
             return OperationResult<Guid>.Failure(InvalidState);
+        }
+
+        GoogleOAuthCredentials? upgradeCredentials = null;
+        if (data.Capability.HasValue)
+        {
+            upgradeCredentials = ReadCredentials(connection);
+            if (connection.Status != IntegrationConnectionStatus.Connected || upgradeCredentials is null ||
+                upgradeCredentials.ClientId != _options.ClientId)
+            {
+                return OperationResult<Guid>.Failure(UpgradeFailed);
+            }
         }
 
         // Commit consumption before any outbound request. The concurrency stamp makes this single-use
@@ -112,6 +163,32 @@ public sealed class GoogleOAuthService(
         {
             GoogleTokenResponse tokens = await google.ExchangeAsync(code, data.RedirectUri, data.CodeVerifier, cancellationToken);
             GoogleAccountIdentity identity = await google.GetIdentityAsync(tokens.AccessToken, cancellationToken);
+            if (data.Capability is GoogleOAuthCapability capability)
+            {
+                if (upgradeCredentials is null || identity.Subject != upgradeCredentials.Subject ||
+                    !GoogleOAuthScopeCatalog.HasCapability(tokens.Scope, capability) ||
+                    string.IsNullOrWhiteSpace(tokens.RefreshToken))
+                {
+                    return OperationResult<Guid>.Failure(UpgradeFailed);
+                }
+
+                var upgradedPayload = new GoogleOAuthCredentials
+                {
+                    AccessToken = tokens.AccessToken,
+                    RefreshToken = tokens.RefreshToken,
+                    ExpiresAtUtc = clock.GetUtcNow().AddSeconds(tokens.ExpiresInSeconds),
+                    Scope = GoogleOAuthScopeCatalog.Normalize(tokens.Scope),
+                    Subject = identity.Subject,
+                    ClientId = _options.ClientId
+                };
+                connection.Connect(identity.Email, Protect(connection, upgradedPayload));
+                if (!await SaveAsync(cancellationToken))
+                {
+                    return OperationResult<Guid>.Failure(ConcurrentChange);
+                }
+                return OperationResult<Guid>.Success(connection.Id);
+            }
+
             var previous = ReadCredentials(connection);
             string? refresh = tokens.RefreshToken;
             if (string.IsNullOrWhiteSpace(refresh) && previous?.Subject == identity.Subject && previous.ClientId == _options.ClientId)
@@ -137,7 +214,11 @@ public sealed class GoogleOAuthService(
         }
         catch (Exception exception) when (IsOAuthFailure(exception, cancellationToken))
         {
-            LogFailure(connection, "callback");
+            LogFailure(connection, data.Capability.HasValue ? "upgrade_callback" : "callback");
+            if (data.Capability.HasValue)
+            {
+                return OperationResult<Guid>.Failure(UpgradeFailed);
+            }
             connection.MarkAuthenticationError();
             await SaveAsync(cancellationToken);
             return OperationResult<Guid>.Failure("Não foi possível confirmar a conta Google. Verifique a configuração e tente conectar novamente.");

@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
+using OrizonAgents.Application.Integrations.Google;
 
 namespace OrizonAgents.Infrastructure.Integrations.Google;
 
@@ -13,19 +14,30 @@ public sealed class GoogleOAuthClient(IHttpClientFactory clients, IOptions<Googl
     public const string Scopes = GoogleOAuthScopeCatalog.BasicIdentityRequest;
     private readonly GoogleOAuthOptions _options = options.Value;
 
-    public string AuthorizationUrl(string redirectUri, string state, string verifier) =>
-        QueryHelpers.AddQueryString("https://accounts.google.com/o/oauth2/v2/auth", new Dictionary<string, string?>
+    public string AuthorizationUrl(
+        string redirectUri,
+        string state,
+        string verifier,
+        GoogleOAuthCapability? capability = null)
+    {
+        var query = new Dictionary<string, string?>
         {
             ["client_id"] = _options.ClientId,
             ["redirect_uri"] = redirectUri,
             ["response_type"] = "code",
-            ["scope"] = Scopes,
+            ["scope"] = GoogleOAuthScopeCatalog.AuthorizationScopes(capability),
             ["access_type"] = "offline",
             ["prompt"] = "consent select_account",
             ["state"] = state,
             ["code_challenge"] = GoogleOAuthStateProtector.Challenge(verifier),
             ["code_challenge_method"] = "S256"
-        });
+        };
+        if (capability.HasValue)
+        {
+            query["include_granted_scopes"] = "true";
+        }
+        return QueryHelpers.AddQueryString("https://accounts.google.com/o/oauth2/v2/auth", query);
+    }
 
     internal Task<GoogleTokenResponse> ExchangeAsync(string code, string redirectUri, string verifier, CancellationToken cancellationToken) =>
         RequestTokenAsync(new()

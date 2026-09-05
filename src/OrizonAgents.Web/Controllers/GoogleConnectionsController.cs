@@ -15,6 +15,17 @@ public sealed class GoogleConnectionsController(IGoogleOAuthService oauth) : Con
     [HttpPost("{id:guid}/google/conectar")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Connect(Guid id, CancellationToken cancellationToken)
+        => await BeginAuthorization(id, null, cancellationToken);
+
+    [HttpPost("{id:guid}/google/ampliar/gmail-leitura")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpgradeGmailRead(Guid id, CancellationToken cancellationToken)
+        => await BeginAuthorization(id, GoogleOAuthCapability.GmailRead, cancellationToken);
+
+    private async Task<IActionResult> BeginAuthorization(
+        Guid id,
+        GoogleOAuthCapability? capability,
+        CancellationToken cancellationToken)
     {
         Response.Headers["Referrer-Policy"] = "no-referrer";
         string? redirectUri = Url.Action(nameof(Callback), "GoogleConnections", values: null, protocol: Request.Scheme);
@@ -25,7 +36,9 @@ public sealed class GoogleConnectionsController(IGoogleOAuthService oauth) : Con
         }
 
         string correlation = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
-        var result = await oauth.BeginAsync(id, redirectUri, correlation, cancellationToken);
+        var result = capability.HasValue
+            ? await oauth.BeginUpgradeAsync(id, capability.Value, redirectUri, correlation, cancellationToken)
+            : await oauth.BeginAsync(id, redirectUri, correlation, cancellationToken);
         if (!result.Succeeded)
         {
             TempData["StatusMessage"] = string.Join(" ", result.Errors);
