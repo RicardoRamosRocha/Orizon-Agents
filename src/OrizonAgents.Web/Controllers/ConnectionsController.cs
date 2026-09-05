@@ -1,15 +1,22 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using OrizonAgents.Application.Common.Results;
 using OrizonAgents.Application.Integrations;
+using OrizonAgents.Application.Integrations.Google;
+using OrizonAgents.Application.Integrations.Models;
 using OrizonAgents.Application.Integrations.Requests;
+using OrizonAgents.Domain.Integrations;
 using OrizonAgents.Web.Models.Integrations;
 
 namespace OrizonAgents.Web.Controllers;
 
 [Authorize(Policy = "TenantAdminOnly")]
 [Route("integracoes/conexoes")]
-public sealed class ConnectionsController(IIntegrationConnectionService service) : Controller
+public sealed class ConnectionsController(
+    IIntegrationConnectionService service,
+    IGoogleOAuthCapabilityService capabilities,
+    ILogger<ConnectionsController> logger) : Controller
 {
     [HttpGet("")]
     public async Task<IActionResult> Index(CancellationToken cancellationToken) =>
@@ -42,13 +49,15 @@ public sealed class ConnectionsController(IIntegrationConnectionService service)
     public async Task<IActionResult> Details(Guid id, CancellationToken cancellationToken)
     {
         var connection = await service.GetAsync(id, cancellationToken);
-        return connection is null
-            ? NotFound()
-            : View(new ConnectionDetailsViewModel
-            {
-                Connection = connection,
-                Edit = new ConnectionEditViewModel { Name = connection.Name }
-            });
+        if (connection is null)
+        {
+            return NotFound();
+        }
+
+        return View(await BuildDetailsAsync(
+            connection,
+            new ConnectionEditViewModel { Name = connection.Name },
+            cancellationToken));
     }
 
     [HttpPost("{id:guid}/editar")]
@@ -77,7 +86,7 @@ public sealed class ConnectionsController(IIntegrationConnectionService service)
             AddErrors(result.Errors);
         }
 
-        return View("Details", new ConnectionDetailsViewModel { Connection = connection, Edit = form });
+        return View("Details", await BuildDetailsAsync(connection, form, cancellationToken));
     }
 
     [HttpPost("{id:guid}/status")]
@@ -105,6 +114,40 @@ public sealed class ConnectionsController(IIntegrationConnectionService service)
     private async Task<ConnectionsPageViewModel> BuildPageAsync(
         ConnectionCreateViewModel form, CancellationToken cancellationToken) =>
         new() { Create = form, Connections = await service.ListAsync(cancellationToken) };
+
+    private async Task<ConnectionDetailsViewModel> BuildDetailsAsync(
+        IntegrationConnectionDto connection,
+        ConnectionEditViewModel edit,
+        CancellationToken cancellationToken)
+    {
+        bool isGmailReadAuthorized = false;
+        if (connection.Provider == IntegrationProvider.Gmail &&
+            connection.IsActive &&
+            connection.Status == IntegrationConnectionStatus.Connected)
+        {
+            try
+            {
+                isGmailReadAuthorized = await capabilities.HasCapabilityAsync(
+                    connection.Id,
+                    GoogleOAuthCapability.GmailRead,
+                    cancellationToken);
+            }
+            catch (Exception exception) when (
+                exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning(
+                    "Falha ao consultar autorização de leitura Gmail. Tipo: {ExceptionType}.",
+                    exception.GetType().Name);
+            }
+        }
+
+        return new ConnectionDetailsViewModel
+        {
+            Connection = connection,
+            Edit = edit,
+            IsGmailReadAuthorized = isGmailReadAuthorized
+        };
+    }
 
     private void AddErrors(IEnumerable<string> errors)
     {

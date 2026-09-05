@@ -28,15 +28,38 @@
             <h2 class="h5">Configuração</h2>
             @if (Model.Connection.Provider == IntegrationProvider.Gmail)
             {
+                <p class="cockpit-eyebrow mb-2">Google</p>
                 @if (!string.IsNullOrWhiteSpace(Model.Connection.ConnectedAccountEmail))
                 {
-                    <p>Conta Google: <strong>@Model.Connection.ConnectedAccountEmail</strong></p>
+                    <p class="mb-1">Conta conectada: <strong>@Model.Connection.ConnectedAccountEmail</strong></p>
                 }
+                <p>Status: <strong>@(Model.Connection.Status == IntegrationConnectionStatus.Connected ? "Conectado" : ConnectionDetailsViewModel.StatusLabel(Model.Connection.Status))</strong></p>
                 @if (Model.Connection.Status == IntegrationConnectionStatus.Error)
                 {
                     <div class="alert alert-warning">A autorização precisa de atenção. Conecte a conta novamente.</div>
                 }
-                <p class="text-muted">A autorização identifica sua conta Google. Leitura e envio de e-mails ainda não estão disponíveis.</p>
+                @if (Model.Connection.IsActive && Model.Connection.Status == IntegrationConnectionStatus.Connected)
+                {
+                    <div class="border rounded-3 bg-light p-3 mb-4">
+                        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                            <div>
+                                <h3 class="h6 mb-1">Leitura do Gmail</h3>
+                                <p class="text-muted mb-0">Permite que agentes autorizados pesquisem e leiam mensagens desta conta.</p>
+                            </div>
+                            <span class="badge @(Model.IsGmailReadAuthorized ? "text-bg-success" : "text-bg-secondary")">
+                                @(Model.IsGmailReadAuthorized ? "Autorizada" : "Não autorizada")
+                            </span>
+                        </div>
+                        @if (!Model.IsGmailReadAuthorized)
+                        {
+                            <form asp-controller="GoogleConnections" asp-action="UpgradeGmailRead" asp-route-id="@Model.Connection.Id" method="post" class="mt-3">
+                                @Html.AntiForgeryToken()
+                                <button class="btn btn-primary" type="submit">Permitir leitura do Gmail</button>
+                            </form>
+                        }
+                    </div>
+                }
+                <p class="text-muted">A autorização identifica e conecta sua conta Google aos recursos permitidos.</p>
                 <div class="d-flex gap-2 flex-wrap mb-4">
                     @if (Model.Connection.Status != IntegrationConnectionStatus.Connected)
                     {
