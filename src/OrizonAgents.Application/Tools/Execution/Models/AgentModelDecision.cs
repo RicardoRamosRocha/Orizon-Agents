@@ -9,22 +9,42 @@ public enum AgentModelDecisionType
 public sealed record AgentModelDecision(
     AgentModelDecisionType Type,
     string? Response,
-    AgentToolCall? ToolCall)
+    IReadOnlyList<AgentToolCall> ToolCalls)
 {
+    public AgentToolCall? ToolCall =>
+        ToolCalls.Count == 1
+            ? ToolCalls[0]
+            : null;
+
     public static AgentModelDecision FinalResponse(string response)
     {
         return new AgentModelDecision(
             AgentModelDecisionType.Response,
             response,
-            null);
+            []);
     }
 
     public static AgentModelDecision RequestTool(
         AgentToolCall toolCall)
     {
+        return RequestTools([toolCall]);
+    }
+
+    public static AgentModelDecision RequestTools(
+        IReadOnlyList<AgentToolCall> toolCalls)
+    {
+        ArgumentNullException.ThrowIfNull(toolCalls);
+
+        if (toolCalls.Count == 0)
+        {
+            throw new ArgumentException(
+                "Ao menos uma ToolCall é obrigatória.",
+                nameof(toolCalls));
+        }
+
         return new AgentModelDecision(
             AgentModelDecisionType.ToolCall,
             null,
-            toolCall);
+            toolCalls);
     }
 }
