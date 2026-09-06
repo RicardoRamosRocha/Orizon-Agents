@@ -10,7 +10,8 @@ namespace OrizonAgents.Infrastructure.Integrations.Gmail;
 
 public sealed class GmailClient(
     IHttpClientFactory clients,
-    IGoogleOAuthTokenService tokens) : IGmailClient
+    IGoogleOAuthTokenService tokens,
+    IGmailMessageContentReducer contentReducer) : IGmailClient
 {
     public const string HttpClientName = "Gmail";
 
@@ -175,7 +176,10 @@ public sealed class GmailClient(
             }
 
             var bodies = FindBodies(payload);
-            bodyText = bodies.PlainText ?? bodies.Html;
+            bool usesHtml = bodies.PlainText is null;
+            bodyText = contentReducer.Reduce(
+                bodies.PlainText ?? bodies.Html,
+                usesHtml);
         }
 
         return new GmailMessage(

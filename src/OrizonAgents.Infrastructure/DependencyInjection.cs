@@ -172,6 +172,7 @@ public static class DependencyInjection
         services.AddScoped<IGoogleOAuthService>(provider => provider.GetRequiredService<GoogleOAuthService>());
         services.AddScoped<IGoogleOAuthTokenService>(provider => provider.GetRequiredService<GoogleOAuthService>());
         services.AddScoped<IGoogleOAuthCapabilityService>(provider => provider.GetRequiredService<GoogleOAuthService>());
+        services.AddSingleton<IGmailMessageContentReducer, GmailMessageContentReducer>();
         services.AddScoped<IGmailClient, GmailClient>();
         services.AddHttpClient(GmailClient.HttpClientName, client =>
         {

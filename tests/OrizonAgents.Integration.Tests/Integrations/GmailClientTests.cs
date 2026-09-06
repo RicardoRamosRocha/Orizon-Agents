@@ -320,7 +320,56 @@ public sealed class GmailClientTests
         var result = await CreateClient(handler)
             .GetMessageAsync(Guid.NewGuid(), "message-html");
 
-        Assert.Equal("<p>Somente HTML</p>", result.BodyText);
+        Assert.Equal("Somente HTML", result.BodyText);
+    }
+
+    [Fact]
+    public async Task GetMessageAsync_LargeBody_IsReducedAndPreservesMetadata()
+    {
+        string bodyText =
+            "INÍCIO IMPORTANTE\n" +
+            new string('x', 10_000) +
+            "\nFIM IMPORTANTE";
+        var handler = new RecordingHttpMessageHandler(
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = Json(
+                    $$"""
+                    {
+                      "id": "message-large",
+                      "threadId": "thread-large",
+                      "snippet": "Resumo preservado",
+                      "payload": {
+                        "mimeType": "text/plain",
+                        "headers": [
+                          { "name": "Subject", "value": "Assunto preservado" },
+                          { "name": "From", "value": "origem@example.com" },
+                          { "name": "To", "value": "destino@example.com" },
+                          { "name": "Date", "value": "Fri, 04 Sep 2026 12:34:56 -0300" }
+                        ],
+                        "body": { "data": "{{Base64Url(bodyText)}}" }
+                      }
+                    }
+                    """)
+            });
+
+        var result = await CreateClient(handler)
+            .GetMessageAsync(Guid.NewGuid(), "message-large");
+
+        Assert.Equal("message-large", result.Id);
+        Assert.Equal("thread-large", result.ThreadId);
+        Assert.Equal("Assunto preservado", result.Subject);
+        Assert.Equal("origem@example.com", result.From);
+        Assert.Equal("destino@example.com", result.To);
+        Assert.NotNull(result.Date);
+        Assert.Equal("Resumo preservado", result.Snippet);
+        Assert.NotNull(result.BodyText);
+        Assert.True(
+            result.BodyText.Length <=
+            GmailMessageContentReducer.MaximumBodyCharacters);
+        Assert.StartsWith("INÍCIO IMPORTANTE", result.BodyText);
+        Assert.EndsWith("FIM IMPORTANTE", result.BodyText);
+        Assert.Contains("Trecho intermediário reduzido", result.BodyText);
     }
 
     [Fact]
@@ -460,7 +509,8 @@ public sealed class GmailClientTests
             tokenService ??
             new StubGoogleOAuthTokenService(
                 OperationResult<GoogleAccessToken>.Success(
-                    new GoogleAccessToken("test-access-token"))));
+                    new GoogleAccessToken("test-access-token"))),
+            new GmailMessageContentReducer());
     }
 
     private static StubGoogleOAuthTokenService SuccessfulTokenService() =>
