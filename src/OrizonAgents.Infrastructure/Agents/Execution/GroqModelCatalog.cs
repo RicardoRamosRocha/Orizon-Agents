@@ -43,7 +43,7 @@ public sealed class GroqModelCatalog : IAiProviderSpecificModelCatalog
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             throw new InvalidOperationException(
-                "Nenhuma credencial da Groq estÃ¡ configurada para este tenant.");
+                "Nenhuma credencial da Groq está configurada para este tenant.");
         }
 
         using var request =

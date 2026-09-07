@@ -21,7 +21,9 @@ public sealed record GmailSearchResult(
 
 public sealed record GmailMessageReference(
     string Id,
-    string ThreadId);
+    string ThreadId,
+    string? Subject = null,
+    string? From = null);
 
 public sealed record GmailMessage(
     string Id,

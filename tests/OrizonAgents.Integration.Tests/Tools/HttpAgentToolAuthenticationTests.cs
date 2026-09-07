@@ -150,7 +150,7 @@ public sealed class HttpAgentToolAuthenticationTests
         var agent = new AiAgent(
             tenantId,
             "Agente de teste",
-            "VocÃª Ã© um agente de teste.",
+            "Você é um agente de teste.",
             AiProvider.GoogleGemini,
             "gemini-test");
         var tool = new AgentTool(

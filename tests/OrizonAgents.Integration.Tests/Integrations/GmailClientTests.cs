@@ -128,19 +128,25 @@ public sealed class GmailClientTests
     }
 
     [Fact]
-    public async Task SearchMessagesAsync_RejectsBlankQuery()
+    public async Task SearchMessagesAsync_WithoutQuery_OmitsQAndPreservesMaxResults()
     {
         var handler = new RecordingHttpMessageHandler(
-            new HttpResponseMessage(HttpStatusCode.OK));
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = Json("""{"resultSizeEstimate":0}""")
+            });
 
         var client = CreateClient(handler);
 
-        await Assert.ThrowsAsync<ArgumentException>(
-            () => client.SearchMessagesAsync(
-                Guid.NewGuid(),
-                "   "));
+        await client.SearchMessagesAsync(
+            Guid.NewGuid(),
+            string.Empty,
+            3);
 
-        Assert.Equal(0, handler.RequestCount);
+        Assert.Equal(1, handler.RequestCount);
+        Assert.NotNull(handler.RequestUri);
+        Assert.Equal("?maxResults=3", handler.RequestUri!.Query);
+        Assert.DoesNotContain("q=", handler.RequestUri.Query);
     }
 
     [Theory]
@@ -583,6 +589,8 @@ public sealed class GmailClientTests
         HttpResponseMessage response)
         : HttpMessageHandler
     {
+        private readonly HttpStatusCode _statusCode = response.StatusCode;
+        private readonly string _body = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
         public int RequestCount { get; private set; }
 
         public HttpMethod? Method { get; private set; }
@@ -599,8 +607,11 @@ public sealed class GmailClientTests
         {
             RequestCount++;
 
-            Method = request.Method;
-            RequestUri = request.RequestUri;
+            if (RequestCount == 1)
+            {
+                Method = request.Method;
+                RequestUri = request.RequestUri;
+            }
 
             AuthorizationScheme =
                 request.Headers.Authorization?.Scheme;
@@ -608,7 +619,10 @@ public sealed class GmailClientTests
             AuthorizationParameter =
                 request.Headers.Authorization?.Parameter;
 
-            return Task.FromResult(response);
+            return Task.FromResult(new HttpResponseMessage(_statusCode)
+            {
+                Content = new StringContent(_body, Encoding.UTF8, "application/json")
+            });
         }
     }
 }

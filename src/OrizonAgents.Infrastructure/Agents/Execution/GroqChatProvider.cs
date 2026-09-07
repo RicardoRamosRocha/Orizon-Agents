@@ -66,7 +66,7 @@ public sealed class GroqChatProvider : IAiChatProvider
             {
                 role = "system",
                 content =
-                    "Contexto operacional fornecido pela aplicaÃ§Ã£o consumidora para esta execuÃ§Ã£o:\n" +
+                    "Contexto operacional fornecido pela aplicação consumidora para esta execução:\n" +
                     operationalContext
             });
         }
@@ -133,7 +133,7 @@ public sealed class GroqChatProvider : IAiChatProvider
         if (choices.GetArrayLength() == 0)
         {
             throw new InvalidOperationException(
-                "A Groq nÃ£o retornou nenhuma resposta.");
+                "A Groq não retornou nenhuma resposta.");
         }
 
         string? content = choices[0]

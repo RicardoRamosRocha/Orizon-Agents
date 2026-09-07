@@ -67,10 +67,8 @@ public sealed class AgentToolExecutorGmailTests
             content.RootElement.GetProperty("nextPageToken").GetString());
     }
 
-    [Theory]
-    [InlineData("{}")]
-    [InlineData("""{"query":"   "}""")]
-    public async Task GmailSearch_RequiresNonBlankQuery(string json)
+    [Fact]
+    public async Task GmailSearch_WhenQueryIsBlank_FailsValidation()
     {
         await using var fixture = new Fixture();
         var (agent, tool, _) = await fixture.SeedAsync(
@@ -78,7 +76,10 @@ public sealed class AgentToolExecutorGmailTests
             Guid.NewGuid());
 
         AgentToolExecutionResult result = await fixture.Executor.ExecuteAsync(
-            new AgentToolExecutionRequest(agent.Id, tool.Id, Json(json)));
+            new AgentToolExecutionRequest(
+                agent.Id,
+                tool.Id,
+                Json("""{"query":"   "}""")));
 
         Assert.False(result.Succeeded);
         Assert.Contains(
@@ -86,6 +87,43 @@ public sealed class AgentToolExecutorGmailTests
             result.Error ?? string.Empty,
             StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, fixture.Gmail.SearchCalls);
+    }
+
+    [Fact]
+    public async Task GmailSearch_WithoutQuery_UsesEmptyFilterAndSafeDefault()
+    {
+        await using var fixture = new Fixture();
+        var (agent, tool, _) = await fixture.SeedAsync(
+            AgentToolKind.GmailSearch,
+            Guid.NewGuid());
+
+        AgentToolExecutionResult result = await fixture.Executor.ExecuteAsync(
+            new AgentToolExecutionRequest(agent.Id, tool.Id, Json("{}")));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(string.Empty, fixture.Gmail.Query);
+        Assert.Equal(10, fixture.Gmail.MaxResults);
+        Assert.Equal(1, fixture.Gmail.SearchCalls);
+    }
+
+    [Fact]
+    public async Task GmailSearch_WithOnlyMaxResultsThree_UsesEmptyFilter()
+    {
+        await using var fixture = new Fixture();
+        var (agent, tool, _) = await fixture.SeedAsync(
+            AgentToolKind.GmailSearch,
+            Guid.NewGuid());
+
+        AgentToolExecutionResult result = await fixture.Executor.ExecuteAsync(
+            new AgentToolExecutionRequest(
+                agent.Id,
+                tool.Id,
+                Json("""{"maxResults":3}""")));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(string.Empty, fixture.Gmail.Query);
+        Assert.Equal(3, fixture.Gmail.MaxResults);
+        Assert.Equal(1, fixture.Gmail.SearchCalls);
     }
 
     [Theory]

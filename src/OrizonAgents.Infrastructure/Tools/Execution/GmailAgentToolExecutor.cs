@@ -105,7 +105,9 @@ public sealed class GmailAgentToolExecutor
         JsonElement input,
         CancellationToken cancellationToken)
     {
-        if (!TryReadRequiredString(input, "query", out string query))
+        string query = string.Empty;
+        if (input.TryGetProperty("query", out _) &&
+            !TryReadRequiredString(input, "query", out query))
         {
             return InvalidArguments();
         }
@@ -132,6 +134,12 @@ public sealed class GmailAgentToolExecutor
                 query,
                 maxResults,
                 cancellationToken);
+
+        _logger.LogInformation(
+            "GmailSearch completed. ToolExecutionSucceeded: true; GmailSearchResultCount: {GmailSearchResultCount}; HasSubjectCount: {HasSubjectCount}; HasFromCount: {HasFromCount}.",
+            result.Messages.Count,
+            result.Messages.Count(message => !string.IsNullOrWhiteSpace(message.Subject)),
+            result.Messages.Count(message => !string.IsNullOrWhiteSpace(message.From)));
 
         return AgentToolExecutionResult.Success(
             null,

@@ -26,11 +26,6 @@ public sealed class GmailClient(
             throw new ArgumentException("ConnectionId é obrigatório.", nameof(connectionId));
         }
 
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            throw new ArgumentException("A consulta é obrigatória.", nameof(query));
-        }
-
         if (maxResults is < 1 or > 100)
         {
             throw new ArgumentOutOfRangeException(
@@ -48,14 +43,18 @@ public sealed class GmailClient(
                 tokenResult.FirstError ?? "Não foi possível obter o token Google.");
         }
 
+        var queryParameters = new Dictionary<string, string?>();
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            queryParameters["q"] = query.Trim();
+        }
+
+        queryParameters["maxResults"] = maxResults.ToString(
+            CultureInfo.InvariantCulture);
+
         string url = QueryHelpers.AddQueryString(
             "https://gmail.googleapis.com/gmail/v1/users/me/messages",
-            new Dictionary<string, string?>
-            {
-                ["q"] = query.Trim(),
-                ["maxResults"] = maxResults.ToString(
-                    System.Globalization.CultureInfo.InvariantCulture)
-            });
+            queryParameters);
 
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization =
@@ -92,6 +91,13 @@ public sealed class GmailClient(
             }
         }
 
+        var messagesWithMetadata = new List<GmailMessageReference>(messages.Count);
+        foreach (GmailMessageReference message in messages)
+        {
+            messagesWithMetadata.Add(await GetMessageMetadataAsync(
+                client, tokenResult.Value.Value, message, cancellationToken));
+        }
+
         string? nextPageToken = ReadString(root, "nextPageToken");
 
         long? resultSizeEstimate = null;
@@ -103,11 +109,41 @@ public sealed class GmailClient(
         }
 
         return new GmailSearchResult(
-            messages,
+            messagesWithMetadata,
             nextPageToken,
             resultSizeEstimate);
     }
 
+    private static async Task<GmailMessageReference> GetMessageMetadataAsync(
+        HttpClient client,
+        string accessToken,
+        GmailMessageReference message,
+        CancellationToken cancellationToken)
+    {
+        string url = $"https://gmail.googleapis.com/gmail/v1/users/me/messages/{Uri.EscapeDataString(message.Id)}?format=metadata&metadataHeaders=Subject&metadataHeaders=From";
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        using HttpResponseMessage response = await client.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new GmailApiException(response.StatusCode);
+        }
+
+        using var json = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        JsonElement root = json.RootElement;
+        JsonElement payload;
+        string? subject = root.TryGetProperty("payload", out payload) &&
+            payload.ValueKind == JsonValueKind.Object
+            ? ReadHeader(payload, "Subject")
+            : null;
+        string? from = root.TryGetProperty("payload", out payload) &&
+            payload.ValueKind == JsonValueKind.Object
+            ? ReadHeader(payload, "From")
+            : null;
+
+        return new GmailMessageReference(message.Id, message.ThreadId, subject, from);
+    }
     public async Task<GmailMessage> GetMessageAsync(
         Guid connectionId,
         string messageId,

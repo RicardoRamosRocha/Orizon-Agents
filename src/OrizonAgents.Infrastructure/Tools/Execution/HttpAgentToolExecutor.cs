@@ -48,7 +48,7 @@ public sealed class HttpAgentToolExecutor
                 out Uri? endpoint))
         {
             return AgentToolExecutionResult.Failure(
-                "O endpoint configurado para a Tool Ã© invÃ¡lido.");
+                "O endpoint configurado para a Tool é inválido.");
         }
 
         if (!await _endpointPolicy.IsAllowedAsync(
@@ -56,7 +56,7 @@ public sealed class HttpAgentToolExecutor
                 cancellationToken))
         {
             return AgentToolExecutionResult.Failure(
-                "O endpoint configurado para a Tool nÃ£o Ã© permitido.");
+                "O endpoint configurado para a Tool não é permitido.");
         }
 
         ResolvedToolCredential? credential = null;
@@ -70,7 +70,7 @@ public sealed class HttpAgentToolExecutor
             if (credential is null)
             {
                 return AgentToolExecutionResult.Failure(
-                    "A autenticaÃ§Ã£o configurada para a Tool nÃ£o estÃ¡ disponÃ­vel.");
+                    "A autenticação configurada para a Tool não está disponível.");
             }
         }
 
@@ -99,7 +99,7 @@ public sealed class HttpAgentToolExecutor
             if (content is null)
             {
                 return AgentToolExecutionResult.Failure(
-                    "A resposta da Tool excedeu o tamanho mÃ¡ximo permitido.",
+                    "A resposta da Tool excedeu o tamanho máximo permitido.",
                     (int)response.StatusCode);
             }
 
@@ -119,7 +119,7 @@ public sealed class HttpAgentToolExecutor
             when (!cancellationToken.IsCancellationRequested)
         {
             return AgentToolExecutionResult.Failure(
-                "A execuÃ§Ã£o da Tool excedeu o tempo limite.");
+                "A execução da Tool excedeu o tempo limite.");
         }
         catch (Exception exception)
         {
@@ -130,7 +130,7 @@ public sealed class HttpAgentToolExecutor
                 request.AgentId);
 
             return AgentToolExecutionResult.Failure(
-                "NÃ£o foi possÃ­vel executar a Tool.");
+                "Não foi possível executar a Tool.");
         }
     }
 
@@ -226,7 +226,7 @@ public sealed class HttpAgentToolExecutor
                     credential.HeaderName,
                     credential.Secret))
                 {
-                    throw new InvalidOperationException("Header de autenticaÃ§Ã£o de Tool invÃ¡lido.");
+                    throw new InvalidOperationException("Header de autenticação de Tool inválido.");
                 }
                 break;
             case ToolAuthenticationType.BearerToken:
@@ -234,7 +234,7 @@ public sealed class HttpAgentToolExecutor
                     new AuthenticationHeaderValue("Bearer", credential.Secret);
                 break;
             default:
-                throw new InvalidOperationException("Tipo de autenticaÃ§Ã£o de Tool invÃ¡lido.");
+                throw new InvalidOperationException("Tipo de autenticação de Tool inválido.");
         }
     }
 }

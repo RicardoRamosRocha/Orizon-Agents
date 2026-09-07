@@ -33,14 +33,14 @@ public sealed class HttpAgentToolExecutorTests
         var agent = new AiAgent(
             tenantId,
             "Agente A",
-            "VocÃª Ã© um agente de teste.",
+            "Você é um agente de teste.",
             AiProvider.GoogleGemini,
             "gemini-test");
 
         var otherAgent = new AiAgent(
             tenantId,
             "Agente B",
-            "VocÃª Ã© outro agente.",
+            "Você é outro agente.",
             AiProvider.GoogleGemini,
             "gemini-test");
 
@@ -373,7 +373,7 @@ public sealed class HttpAgentToolExecutorTests
         Assert.Null(result.Content);
 
         Assert.Contains(
-            "tamanho mÃ¡ximo",
+            "tamanho máximo",
             result.Error ?? string.Empty,
             StringComparison.OrdinalIgnoreCase);
 
@@ -753,7 +753,7 @@ public sealed class HttpAgentToolExecutorTests
         return new AiAgent(
             tenantId,
             "Agente de teste",
-            "VocÃª Ã© um agente de teste.",
+            "Você é um agente de teste.",
             AiProvider.GoogleGemini,
             "gemini-test");
     }

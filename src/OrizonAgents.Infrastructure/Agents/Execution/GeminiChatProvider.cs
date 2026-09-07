@@ -56,8 +56,8 @@ public sealed class GeminiChatProvider : IAiChatProvider
         if (!string.IsNullOrWhiteSpace(operationalContext))
         {
             effectiveSystemPrompt +=
-                "\n\nContexto operacional fornecido pela aplicaÃƒÂ§ÃƒÂ£o consumidora " +
-                "para esta execuÃƒÂ§ÃƒÂ£o:\n" +
+                "\n\nContexto operacional fornecido pela aplicação consumidora " +
+                "para esta execução:\n" +
                 operationalContext;
         }
 
@@ -189,7 +189,7 @@ public sealed class GeminiChatProvider : IAiChatProvider
             candidates.GetArrayLength() == 0)
         {
             throw new InvalidOperationException(
-                "O Gemini nÃƒÂ£o retornou nenhuma resposta.");
+                "O Gemini não retornou nenhuma resposta.");
         }
 
         JsonElement parts = candidates[0]

@@ -108,10 +108,18 @@ public sealed class AgentToolCatalogTests
         Assert.Equal("integer", maxResults.GetProperty("type").GetString());
         Assert.Equal(1, maxResults.GetProperty("minimum").GetInt32());
         Assert.Equal(100, maxResults.GetProperty("maximum").GetInt32());
-        Assert.Equal(
-            "query",
-            Assert.Single(root.GetProperty("required").EnumerateArray())
-                .GetString());
+        JsonElement properties = root.GetProperty("properties");
+        Assert.True(properties.TryGetProperty("query", out JsonElement query));
+        Assert.Equal("string", query.GetProperty("type").GetString());
+        Assert.Contains(
+            "opcional",
+            query.GetProperty("description").GetString(),
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(root.GetProperty("required").EnumerateArray());
+        Assert.Contains(
+            "sem filtro",
+            root.GetProperty("description").GetString(),
+            StringComparison.OrdinalIgnoreCase);
         Assert.False(root.GetProperty("additionalProperties").GetBoolean());
 
         string serialized = JsonSerializer.Serialize(definition);

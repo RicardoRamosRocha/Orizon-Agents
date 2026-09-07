@@ -11,10 +11,11 @@ public sealed class AgentToolCatalog : IAgentToolCatalog
     private const string GmailSearchInputSchema = """
         {
           "type": "object",
+          "description": "Pesquisa mensagens no Gmail. Sem query, busca mensagens sem filtro, permitindo obter as mais recentes.",
           "properties": {
             "query": {
               "type": "string",
-              "description": "Consulta de pesquisa do Gmail."
+              "description": "Filtro opcional de pesquisa do Gmail. Omita para buscar mensagens sem filtro."
             },
             "maxResults": {
               "type": "integer",
@@ -23,7 +24,7 @@ public sealed class AgentToolCatalog : IAgentToolCatalog
               "description": "Quantidade máxima de resultados."
             }
           },
-          "required": ["query"],
+          "required": [],
           "additionalProperties": false
         }
         """;

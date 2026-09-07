@@ -1,12 +1,17 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OrizonAgents.Application.Agents.Credentials;
 using OrizonAgents.Application.Agents.Execution;
 using OrizonAgents.Application.Agents.Execution.Models;
+using OrizonAgents.Application.Tools.Execution.Models;
+using OrizonAgents.Application.Tools.Models;
 using OrizonAgents.Domain.Agents;
+using OrizonAgents.Domain.Tools;
 using OrizonAgents.Infrastructure;
 using OrizonAgents.Infrastructure.Agents.Execution;
 
@@ -80,8 +85,242 @@ public sealed class OpenAiChatProviderTests
         Assert.Equal("HISTORY ASSISTANT", input[1].GetProperty("content").GetString());
         Assert.Equal("CURRENT USER MESSAGE", input[2].GetProperty("content").GetString());
         Assert.DoesNotContain("IGNORED HISTORY", handler.RequestBody);
+        Assert.False(root.TryGetProperty("tools", out _));
+        Assert.Empty(result.ToolCalls);
     }
 
+    [Fact]
+    public async Task CompleteWithToolsAsync_TranslatesGmailSearchAndParsesArguments()
+    {
+        Guid toolId = Guid.NewGuid();
+        const string secret = "SENSITIVE-CONNECTION-DATA";
+        var handler = new RecordingHandler(
+            HttpStatusCode.OK,
+            """
+            {
+              "id": "resp_123",
+              "output": [
+                { "type": "reasoning" },
+                { "type": "message", "content": [] },
+                {
+                  "type": "function_call",
+                  "call_id": "call_123",
+                  "name": "orizon_tool_1",
+                  "arguments": "{\"query\":\"newer_than:7d\",\"maxResults\":3}"
+                }
+              ]
+            }
+            """);
+        var diagnosticLogger =
+            new RecordingLogger<OpenAiChatProvider>();
+        var tool = new AgentToolDefinition(
+            toolId,
+            "GmailSearch",
+            "Pesquisa as mensagens que correspondem à consulta.",
+            $"DELETE {secret} https://gmail.internal/private",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "query": { "type": "string" },
+                "maxResults": { "type": "integer" }
+              },
+              "required": ["query"],
+              "additionalProperties": false
+            }
+            """,
+            AgentToolRiskLevel.Sensitive,
+            AgentToolKind.GmailSearch);
+
+        AiChatCompletionResult result = await CreateProvider(
+                handler,
+                logger: diagnosticLogger)
+            .CompleteWithToolsAsync(
+                "gpt-4.1-mini",
+                "system",
+                "Procure os 3 e-mails mais recentes.",
+                [],
+                0.2,
+                [tool]);
+
+        AgentToolCall call = Assert.Single(result.ToolCalls);
+        Assert.Equal(toolId, call.ToolId);
+        Assert.Equal("newer_than:7d", call.Input?.GetProperty("query").GetString());
+        Assert.Equal(3, call.Input?.GetProperty("maxResults").GetInt32());
+        Assert.Equal(string.Empty, result.Content);
+
+        using JsonDocument request = JsonDocument.Parse(handler.RequestBody!);
+        JsonElement root = request.RootElement;
+        JsonElement nativeTool = Assert.Single(root.GetProperty("tools").EnumerateArray());
+        Assert.Equal("function", nativeTool.GetProperty("type").GetString());
+        Assert.Equal("orizon_tool_1", nativeTool.GetProperty("name").GetString());
+
+        string toolDescription = nativeTool.GetProperty("description").GetString()!;
+        Assert.Contains("conta Gmail conectada e autorizada", toolDescription);
+        Assert.Contains("query é opcional", toolDescription);
+        Assert.Contains("mensagens recentes sem filtro", toolDescription);
+        Assert.Contains("Subject e From", toolDescription);
+        Assert.Contains("sem ler o corpo", toolDescription);
+        Assert.Equal("object", nativeTool.GetProperty("parameters").GetProperty("type").GetString());
+        Assert.True(nativeTool.GetProperty("parameters").GetProperty("properties").TryGetProperty("query", out _));
+        Assert.Equal("auto", root.GetProperty("tool_choice").GetString());
+        Assert.True(root.GetProperty("parallel_tool_calls").GetBoolean());
+        Assert.DoesNotContain(toolId.ToString(), handler.RequestBody);
+        Assert.DoesNotContain(secret, handler.RequestBody);
+        Assert.DoesNotContain("gmail.internal", handler.RequestBody);
+
+        string logs = string.Join(Environment.NewLine, diagnosticLogger.Messages);
+        Assert.Contains("ReceivedToolCount: 1", logs);
+        Assert.Contains("OpenAiToolDefinitionCount: 1", logs);
+        Assert.Contains("OpenAiFunctionNames: orizon_tool_1", logs);
+        Assert.Contains("ToolChoice: auto", logs);
+        Assert.Contains("ParallelToolCalls: True", logs);
+        Assert.Contains("HttpStatusCode: 200", logs);
+        Assert.Contains("ResponseId: resp_123", logs);
+        Assert.Contains(
+            "OutputTypes: reasoning, message, function_call",
+            logs);
+        Assert.Contains("FunctionCallCount: 1", logs);
+        Assert.Contains("FunctionNames: orizon_tool_1", logs);
+        Assert.Contains("AgentToolCallCount: 1", logs);
+        Assert.DoesNotContain("newer_than:7d", logs);
+        Assert.DoesNotContain("Procure os 3 e-mails mais recentes.", logs);
+        Assert.DoesNotContain(secret, logs);
+    }
+
+    [Fact]
+    public async Task CompleteWithToolsAsync_ParsesMultipleFunctionCallsInOrder()
+    {
+        Guid firstToolId = Guid.NewGuid();
+        Guid secondToolId = Guid.NewGuid();
+        var handler = new RecordingHandler(
+            HttpStatusCode.OK,
+            """
+            {
+              "output": [
+                {
+                  "type": "function_call",
+                  "call_id": "call_1",
+                  "name": "orizon_tool_1",
+                  "arguments": "{\"messageId\":\"message-1\"}"
+                },
+                {
+                  "type": "function_call",
+                  "call_id": "call_2",
+                  "name": "orizon_tool_2",
+                  "arguments": "{\"messageId\":\"message-2\"}"
+                }
+              ]
+            }
+            """);
+
+        AiChatCompletionResult result = await CreateProvider(handler)
+            .CompleteWithToolsAsync(
+                "gpt-test",
+                "system",
+                "user",
+                [],
+                0.5,
+                [
+                    CreateTool(firstToolId),
+                    CreateTool(secondToolId)
+                ]);
+
+        Assert.Collection(
+            result.ToolCalls,
+            call =>
+            {
+                Assert.Equal(firstToolId, call.ToolId);
+                Assert.Equal("message-1", call.Input?.GetProperty("messageId").GetString());
+                Assert.Equal("call_1", call.CorrelationId);
+                Assert.Equal("call_1", call.CorrelationId);
+            },
+            call =>
+            {
+                Assert.Equal(secondToolId, call.ToolId);
+                Assert.Equal("message-2", call.Input?.GetProperty("messageId").GetString());
+                Assert.Equal("call_2", call.CorrelationId);
+                Assert.Equal("call_2", call.CorrelationId);
+            });
+    }
+
+    [Fact]
+    public async Task ContinueWithToolsAsync_StatelessContinuationIncludesOriginalUserMessageAndToolOutput()
+    {
+        Guid toolId = Guid.NewGuid();
+        var handler = new SequencedRecordingHandler(
+            """
+            {
+              "id": "resp_123",
+              "output": [
+                {
+                  "type": "function_call",
+                  "call_id": "call_123",
+                  "name": "orizon_tool_1",
+                  "arguments": "{\"maxResults\":3}"
+                }
+              ]
+            }
+            """,
+            """
+            {
+              "id": "resp_456",
+              "output": [
+                {
+                  "type": "message",
+                  "role": "assistant",
+                  "content": [
+                    { "type": "output_text", "text": "Encontrei tres mensagens." }
+                  ]
+                }
+              ]
+            }
+            """);
+        OpenAiChatProvider provider = CreateProvider(handler);
+        AgentToolDefinition tool = CreateTool(toolId);
+        const string originalUserMessage =
+            "Procure no meu Gmail os 3 e-mails mais recentes e informe assunto e remetente.";
+
+        AiChatCompletionResult first = await provider.CompleteWithToolsAsync(
+            "gpt-4.1-mini", "system", originalUserMessage, [], 0.2, [tool]);
+        AgentToolCall call = Assert.Single(first.ToolCalls);
+        Assert.Equal("call_123", call.CorrelationId);
+
+        AiChatCompletionResult second = await provider.ContinueWithToolsAsync(
+            "gpt-4.1-mini",
+            "system",
+            0.2,
+            [tool],
+            first.ContinuationToken!,
+            [new AgentToolResult(
+                call.CorrelationId!,
+                "{\"messages\":[{\"id\":\"message-1\",\"subject\":\"Subject 1\",\"from\":\"sender@example.test\"}]}")]);
+
+        Assert.Equal("Encontrei tres mensagens.", second.Content);
+        Assert.Equal(2, handler.CallCount);
+
+        using JsonDocument continuationRequest = JsonDocument.Parse(handler.RequestBodies[1]);
+        JsonElement root = continuationRequest.RootElement;
+        Assert.False(root.GetProperty("store").GetBoolean());
+        Assert.False(root.TryGetProperty("previous_response_id", out _));
+
+        JsonElement input = root.GetProperty("input");
+        Assert.Contains(
+            input.EnumerateArray(),
+            item => item.TryGetProperty("role", out JsonElement role) &&
+                    role.GetString() == "user" &&
+                    item.GetProperty("content").GetString() == originalUserMessage);
+        Assert.Contains(
+            input.EnumerateArray(),
+            item => item.TryGetProperty("type", out JsonElement type) && type.GetString() == "function_call" &&
+                    item.GetProperty("call_id").GetString() == "call_123" &&
+                    item.GetProperty("name").GetString() == "orizon_tool_1");
+        Assert.Contains(
+            input.EnumerateArray(),
+            item => item.TryGetProperty("type", out JsonElement type) && type.GetString() == "function_call_output" &&
+                    item.GetProperty("call_id").GetString() == "call_123" &&
+                    item.GetProperty("output").GetString()!.Contains("Subject 1", StringComparison.Ordinal));
+    }
     [Fact]
     public async Task CompleteAsync_WhenUsageIsAbsent_ReturnsNullUsage()
     {
@@ -184,18 +423,88 @@ public sealed class OpenAiChatProviderTests
     }
 
     private static OpenAiChatProvider CreateProvider(
-        RecordingHandler handler,
-        IAiProviderCredentialService? credentials = null) =>
+        HttpMessageHandler handler,
+        IAiProviderCredentialService? credentials = null,
+        ILogger<OpenAiChatProvider>? logger = null) =>
         new(
             new HttpClient(handler)
             {
                 BaseAddress = new Uri("https://api.openai.com/")
             },
-            credentials ?? new StubCredentialService("tenant-openai-key"));
+            credentials ?? new StubCredentialService("tenant-openai-key"),
+            logger ?? NullLogger<OpenAiChatProvider>.Instance);
+
+    private static AgentToolDefinition CreateTool(Guid id) =>
+        new(
+            id,
+            "GmailReadMessage",
+            "Lê uma mensagem do Gmail.",
+            "GET",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "messageId": { "type": "string" }
+              },
+              "required": ["messageId"],
+              "additionalProperties": false
+            }
+            """,
+            AgentToolRiskLevel.Read,
+            AgentToolKind.GmailReadMessage);
 
     private static int Count(string value, string term) =>
         value.Split(term, StringSplitOptions.None).Length - 1;
 
+    private sealed class RecordingLogger<T> : ILogger<T>
+    {
+        public List<string> Messages { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull =>
+            null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Messages.Add(formatter(state, exception));
+        }
+    }
+
+    private sealed class SequencedRecordingHandler(params string[] responseBodies)
+        : HttpMessageHandler
+    {
+        private int _nextResponse;
+
+        public int CallCount { get; private set; }
+        public List<string> RequestBodies { get; } = [];
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            CallCount++;
+            RequestBodies.Add(await request.Content!.ReadAsStringAsync(cancellationToken));
+            if (_nextResponse >= responseBodies.Length)
+            {
+                throw new InvalidOperationException("Unexpected OpenAI request.");
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    responseBodies[_nextResponse++],
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        }
+    }
     private sealed class RecordingHandler(
         HttpStatusCode statusCode,
         string responseBody) : HttpMessageHandler
