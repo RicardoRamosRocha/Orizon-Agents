@@ -6,6 +6,8 @@ public interface IAiProviderSpecificModelCatalog
 {
     AiProvider Provider { get; }
 
+    string DisplayName { get; }
+
     Task<IReadOnlyList<AiProviderModel>> ListAsync(
         CancellationToken cancellationToken = default);
 }

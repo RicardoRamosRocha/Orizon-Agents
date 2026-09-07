@@ -63,10 +63,10 @@
                     <label asp-for="Provider" class="form-label"></label>
 
                     <select asp-for="Provider" class="form-select">
-                        <option value="Groq">Groq (gratuito)</option>
-                        <option value="OpenAI">OpenAI</option>
-                        <option value="GoogleGemini">Google Gemini</option>
-                        <option value="AnthropicClaude">Anthropic Claude</option>
+                        @foreach (var provider in Model.AvailableProviders)
+                        {
+                            <option value="@provider.Provider">@provider.DisplayName</option>
+                        }
                     </select>
                 </div>
 

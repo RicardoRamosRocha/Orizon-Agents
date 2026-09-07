@@ -37,6 +37,7 @@ public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, A
     public DbSet<AgentKnowledgeBinding> AgentKnowledgeBindings => Set<AgentKnowledgeBinding>();
     public DbSet<AiConversation> AiConversations => Set<AiConversation>();
     public DbSet<AiConversationMessage> AiConversationMessages => Set<AiConversationMessage>();
+    public DbSet<AgentExecutionUsage> AgentExecutionUsages => Set<AgentExecutionUsage>();
     public DbSet<ApiCredential> ApiCredentials => Set<ApiCredential>();
     public DbSet<IntegrationConnection> IntegrationConnections => Set<IntegrationConnection>();
     public DbSet<Tenant> Tenants => Set<Tenant>();

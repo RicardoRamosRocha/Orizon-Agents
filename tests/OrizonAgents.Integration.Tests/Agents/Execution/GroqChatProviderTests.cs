@@ -29,9 +29,10 @@ public sealed class GroqChatProviderTests
             configuration,
             new StubCredentialService("tenant-key"));
 
-        string result = await CompleteAsync(provider);
+        AiChatCompletionResult result = await CompleteAsync(provider);
 
-        Assert.Equal("Resposta Groq", result);
+        Assert.Equal("Resposta Groq", result.Content);
+        Assert.Equal(new AiChatUsage(80, 20, 100), result.Usage);
         Assert.Equal("Bearer", handler.AuthorizationScheme);
         Assert.Equal("tenant-key", handler.AuthorizationParameter);
     }
@@ -55,14 +56,14 @@ public sealed class GroqChatProviderTests
             configuration,
             new StubCredentialService(null));
 
-        string result = await CompleteAsync(provider);
+        AiChatCompletionResult result = await CompleteAsync(provider);
 
-        Assert.Equal("Resposta Groq", result);
+        Assert.Equal("Resposta Groq", result.Content);
         Assert.Equal("Bearer", handler.AuthorizationScheme);
         Assert.Equal("configuration-key", handler.AuthorizationParameter);
     }
 
-    private static Task<string> CompleteAsync(
+    private static Task<AiChatCompletionResult> CompleteAsync(
         GroqChatProvider provider)
     {
         return provider.CompleteAsync(
@@ -117,7 +118,12 @@ public sealed class GroqChatProviderTests
                                 "content": "Resposta Groq"
                               }
                             }
-                          ]
+                          ],
+                          "usage": {
+                            "prompt_tokens": 80,
+                            "completion_tokens": 20,
+                            "total_tokens": 100
+                          }
                         }
                         """,
                         Encoding.UTF8,

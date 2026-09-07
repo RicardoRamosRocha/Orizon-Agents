@@ -27,7 +27,7 @@ public sealed class GeminiChatProvider : IAiChatProvider
 
     public string ProviderName => "GoogleGemini";
 
-    public async Task<string> CompleteAsync(
+    public async Task<AiChatCompletionResult> CompleteAsync(
         string model,
         string systemPrompt,
         string userMessage,
@@ -156,7 +156,7 @@ public sealed class GeminiChatProvider : IAiChatProvider
                 if (!isTransient || attempt == maxAttempts)
                 {
                     throw new InvalidOperationException(
-                        $"Gemini retornou {(int)response.StatusCode}: {responseBody}");
+                        $"Gemini retornou {(int)response.StatusCode}.");
                 }
             }
             catch (TaskCanceledException) when (
@@ -209,6 +209,30 @@ public sealed class GeminiChatProvider : IAiChatProvider
                 "O Gemini retornou uma resposta vazia.");
         }
 
-        return content.Trim();
+        AiChatUsage? usage = ReadUsage(root);
+        return new AiChatCompletionResult(content.Trim(), usage);
     }
+
+    private static AiChatUsage? ReadUsage(JsonElement root)
+    {
+        if (!root.TryGetProperty("usageMetadata", out JsonElement usage) ||
+            usage.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        long? input = ReadInt64(usage, "promptTokenCount");
+        long? output = ReadInt64(usage, "candidatesTokenCount");
+        long? total = ReadInt64(usage, "totalTokenCount");
+
+        return input.HasValue || output.HasValue || total.HasValue
+            ? new AiChatUsage(input, output, total)
+            : null;
+    }
+
+    private static long? ReadInt64(JsonElement element, string name) =>
+        element.TryGetProperty(name, out JsonElement value) &&
+        value.TryGetInt64(out long result)
+            ? result
+            : null;
 }

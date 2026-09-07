@@ -77,7 +77,7 @@ public sealed class AgentsController : Controller
     [HttpGet("novo")]
     public IActionResult Create()
     {
-        return View(new AiAgentFormViewModel());
+        return View(PrepareForm(new AiAgentFormViewModel()));
     }
 
     [HttpPost("novo")]
@@ -88,19 +88,20 @@ public sealed class AgentsController : Controller
     {
         if (!ModelState.IsValid)
         {
-            return View(form);
+            return View(PrepareForm(form));
         }
 
         if (!Enum.TryParse<AiProvider>(
                 form.Provider,
                 ignoreCase: true,
-                out AiProvider provider))
+                out AiProvider provider) ||
+            !_modelCatalog.Providers.Any(item => item.Provider == provider))
         {
             ModelState.AddModelError(
                 nameof(form.Provider),
                 "Provedor de IA inválido.");
 
-            return View(form);
+            return View(PrepareForm(form));
         }
 
         try
@@ -117,7 +118,7 @@ public sealed class AgentsController : Controller
                     nameof(form.Model),
                     "O modelo selecionado não é válido para este provedor.");
 
-                return View(form);
+                return View(PrepareForm(form));
             }
         }
         catch (InvalidOperationException exception)
@@ -126,7 +127,7 @@ public sealed class AgentsController : Controller
                 nameof(form.Model),
                 exception.Message);
 
-            return View(form);
+            return View(PrepareForm(form));
         }
 
         OperationResult<Guid> result =
@@ -144,7 +145,7 @@ public sealed class AgentsController : Controller
         if (!result.Succeeded)
         {
             AddErrors(result.Errors);
-            return View(form);
+            return View(PrepareForm(form));
         }
 
         TempData["StatusMessage"] = "Agente criado. Agora faça um teste para ver como ele se comporta.";
@@ -166,7 +167,7 @@ public sealed class AgentsController : Controller
             return NotFound();
         }
 
-        return View(new AiAgentFormViewModel
+        return View(PrepareForm(new AiAgentFormViewModel
         {
             Id = agent.Id,
             Name = agent.Name,
@@ -176,7 +177,7 @@ public sealed class AgentsController : Controller
             Model = agent.Model,
             Temperature = agent.Temperature,
             IsActive = agent.IsActive
-        });
+        }));
     }
 
     [HttpPost("{id:guid}/editar")]
@@ -190,19 +191,20 @@ public sealed class AgentsController : Controller
 
         if (!ModelState.IsValid)
         {
-            return View(form);
+            return View(PrepareForm(form));
         }
 
         if (!Enum.TryParse<AiProvider>(
                 form.Provider,
                 ignoreCase: true,
-                out AiProvider provider))
+                out AiProvider provider) ||
+            !_modelCatalog.Providers.Any(item => item.Provider == provider))
         {
             ModelState.AddModelError(
                 nameof(form.Provider),
                 "Provedor de IA inválido.");
 
-            return View(form);
+            return View(PrepareForm(form));
         }
 
         try
@@ -219,7 +221,7 @@ public sealed class AgentsController : Controller
                     nameof(form.Model),
                     "O modelo selecionado não é válido para este provedor.");
 
-                return View(form);
+                return View(PrepareForm(form));
             }
         }
         catch (InvalidOperationException exception)
@@ -228,7 +230,7 @@ public sealed class AgentsController : Controller
                 nameof(form.Model),
                 exception.Message);
 
-            return View(form);
+            return View(PrepareForm(form));
         }
 
         OperationResult result =
@@ -246,7 +248,7 @@ public sealed class AgentsController : Controller
         if (!result.Succeeded)
         {
             AddErrors(result.Errors);
-            return View(form);
+            return View(PrepareForm(form));
         }
 
         TempData["StatusMessage"] = "Agente atualizado com sucesso.";
@@ -507,6 +509,13 @@ public sealed class AgentsController : Controller
             ? tenantId
             : throw new InvalidOperationException(
                 "Usuário autenticado sem tenant.");
+    }
+
+    private AiAgentFormViewModel PrepareForm(
+        AiAgentFormViewModel form)
+    {
+        form.AvailableProviders = _modelCatalog.Providers;
+        return form;
     }
 
     private void AddErrors(IEnumerable<string> errors)

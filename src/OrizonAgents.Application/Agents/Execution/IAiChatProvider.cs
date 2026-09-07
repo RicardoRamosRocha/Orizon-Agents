@@ -6,7 +6,7 @@ public interface IAiChatProvider
 {
     string ProviderName { get; }
 
-    Task<string> CompleteAsync(
+    Task<AiChatCompletionResult> CompleteAsync(
         string model,
         string systemPrompt,
         string userMessage,

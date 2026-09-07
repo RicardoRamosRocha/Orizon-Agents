@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using OrizonAgents.Application.Agents.Execution;
 using OrizonAgents.Application.Agents.Execution.Models;
+using OrizonAgents.Application.Agents.Execution.Telemetry;
 using OrizonAgents.Application.Common.Results;
 using OrizonAgents.Application.Common.Tenancy;
 using OrizonAgents.Application.Knowledge.Retrieval;
@@ -24,6 +25,71 @@ namespace OrizonAgents.Integration.Tests.Agents.Execution;
 public sealed class AiAgentRunnerTests
 {
     [Fact]
+    public async Task RunAsync_OpenAiUsage_FlowsToProviderIndependentTelemetry()
+    {
+        (OrizonAgentsDbContext db, AiAgent agent) =
+            await CreateDbWithAgentAsync(AiProvider.OpenAI);
+        await using (db)
+        {
+            var provider = new CountingChatProvider(
+                AiProvider.OpenAI.ToString(),
+                "Resposta OpenAI.");
+            provider.Usages.Enqueue(new AiChatUsage(70, 30, 100));
+            var telemetry = new RecordingAgentExecutionTelemetry();
+            var runner = CreateRunner(
+                db,
+                provider,
+                new StubToolCatalog(),
+                new EmptyKnowledgeRetriever(),
+                new RecordingToolExecutor(),
+                telemetry);
+
+            OperationResult<AiAgentRunResult> result = await runner.RunAsync(
+                agent.Id,
+                new AgentRunRequest("Olá"));
+
+            Assert.True(result.Succeeded);
+            Assert.Equal("OpenAI", telemetry.StartData!.Provider);
+            Assert.Equal(1, telemetry.ModelCallCount);
+            Assert.Equal(70, telemetry.InputTokens);
+            Assert.Equal(30, telemetry.OutputTokens);
+            Assert.Equal(100, telemetry.TotalTokens);
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenProviderFails_RecordsSafeFailureMetrics()
+    {
+        (OrizonAgentsDbContext db, AiAgent agent) =
+            await CreateDbWithAgentAsync();
+        await using (db)
+        {
+            var telemetry = new RecordingAgentExecutionTelemetry();
+            var runner = CreateRunner(
+                db,
+                new CountingChatProvider(
+                    AiProvider.GoogleGemini.ToString()),
+                new StubToolCatalog(),
+                new EmptyKnowledgeRetriever(),
+                new RecordingToolExecutor(),
+                telemetry);
+
+            OperationResult<AiAgentRunResult> result =
+                await runner.RunAsync(
+                    agent.Id,
+                    new AgentRunRequest("CONTEÚDO SENSÍVEL"));
+
+            Assert.False(result.Succeeded);
+            Assert.Equal(1, telemetry.ModelCallCount);
+            Assert.False(telemetry.Succeeded);
+            Assert.Null(telemetry.ConversationId);
+            Assert.DoesNotContain(
+                "CONTEÚDO SENSÍVEL",
+                telemetry.StartData!.Provider);
+        }
+    }
+
+    [Fact]
     public async Task RunAsync_WhenModelRespondsDirectly_CallsProviderOnce()
     {
         (OrizonAgentsDbContext db, AiAgent agent) =
@@ -34,12 +100,14 @@ public sealed class AiAgentRunnerTests
                 AiProvider.GoogleGemini.ToString(),
                 "Resposta direta.");
             var toolExecutor = new RecordingToolExecutor();
+            var telemetry = new RecordingAgentExecutionTelemetry();
             var runner = CreateRunner(
                 db,
                 provider,
                 new StubToolCatalog(),
                 new EmptyKnowledgeRetriever(),
-                toolExecutor);
+                toolExecutor,
+                telemetry);
 
             OperationResult<AiAgentRunResult> result =
                 await runner.RunAsync(
@@ -50,6 +118,13 @@ public sealed class AiAgentRunnerTests
             Assert.Equal("Resposta direta.", result.Value!.Response);
             Assert.Equal(1, provider.CallCount);
             Assert.Empty(toolExecutor.Requests);
+            Assert.Equal(1, telemetry.ModelCallCount);
+            Assert.Equal(0, telemetry.ToolExecutionCount);
+            Assert.Equal(0, telemetry.RagResultCount);
+            Assert.Null(telemetry.InputTokens);
+            Assert.True(telemetry.Succeeded);
+            Assert.Equal(agent.TenantId, telemetry.StartData!.TenantId);
+            Assert.Equal(result.Value.ConversationId, telemetry.ConversationId);
         }
     }
 
@@ -68,6 +143,11 @@ public sealed class AiAgentRunnerTests
                 ToolCallResponse(readToolId),
                 ToolCallResponse(readToolId),
                 "Li as duas mensagens.");
+            provider.Usages.Enqueue(new AiChatUsage(10, 5, 15));
+            provider.Usages.Enqueue(new AiChatUsage(20, 7, 27));
+            provider.Usages.Enqueue(new AiChatUsage(30, 9, 39));
+            provider.Usages.Enqueue(new AiChatUsage(40, 11, 51));
+            var telemetry = new RecordingAgentExecutionTelemetry();
             var toolExecutor = new RecordingToolExecutor(
                 AgentToolExecutionResult.Success(
                     200,
@@ -98,7 +178,8 @@ public sealed class AiAgentRunnerTests
                 provider,
                 toolCatalog,
                 knowledgeRetriever,
-                toolExecutor);
+                toolExecutor,
+                telemetry);
             using JsonDocument contextDocument =
                 JsonDocument.Parse("""{"origin":"ORIGINAL_CONTEXT"}""");
             using var cancellation = new CancellationTokenSource();
@@ -115,6 +196,16 @@ public sealed class AiAgentRunnerTests
             Assert.Equal("Li as duas mensagens.", result.Value!.Response);
             Assert.Equal(4, provider.CallCount);
             Assert.Equal(3, toolExecutor.Requests.Count);
+            Assert.Equal(4, telemetry.ModelCallCount);
+            Assert.Equal(3, telemetry.ToolExecutionCount);
+            Assert.Equal(3, telemetry.ToolSuccessCount);
+            Assert.Equal(0, telemetry.ToolFailureCount);
+            Assert.Equal(1, telemetry.RagResultCount);
+            Assert.Equal(100, telemetry.InputTokens);
+            Assert.Equal(32, telemetry.OutputTokens);
+            Assert.Equal(132, telemetry.TotalTokens);
+            Assert.True(telemetry.ToolContextCharacters > 0);
+            Assert.True(telemetry.Succeeded);
             Assert.All(
                 provider.CancellationTokens,
                 token => Assert.Equal(cancellation.Token, token));
@@ -668,6 +759,7 @@ public sealed class AiAgentRunnerTests
             toolExecutor,
             decisionParser,
             new AgentContextBudget(),
+            new RecordingAgentExecutionTelemetry(),
             NullLogger<AiAgentRunner>.Instance);
 
         OperationResult<AiAgentRunResult> result =
@@ -789,6 +881,7 @@ public sealed class AiAgentRunnerTests
             new StubDecisionParser(
                 AgentModelDecision.FinalResponse("Resposta final.")),
             new AgentContextBudget(),
+            new RecordingAgentExecutionTelemetry(),
             NullLogger<AiAgentRunner>.Instance);
 
         OperationResult<AiAgentRunResult> result =
@@ -914,7 +1007,9 @@ public sealed class AiAgentRunnerTests
 
         public List<CancellationToken> CancellationTokens { get; } = [];
 
-        public Task<string> CompleteAsync(
+        public Queue<AiChatUsage?> Usages { get; } = [];
+
+        public Task<AiChatCompletionResult> CompleteAsync(
             string model,
             string systemPrompt,
             string userMessage,
@@ -929,7 +1024,13 @@ public sealed class AiAgentRunnerTests
             OperationalContexts.Add(operationalContext);
             CancellationTokens.Add(cancellationToken);
 
-            return Task.FromResult(_responses.Dequeue());
+            AiChatUsage? usage = Usages.Count > 0
+                ? Usages.Dequeue()
+                : null;
+            return Task.FromResult(
+                new AiChatCompletionResult(
+                    _responses.Dequeue(),
+                    usage));
         }
     }
 
@@ -1066,7 +1167,8 @@ public sealed class AiAgentRunnerTests
         IAiChatProvider provider,
         IAgentToolCatalog toolCatalog,
         IKnowledgeRetriever knowledgeRetriever,
-        IAgentToolExecutor toolExecutor)
+        IAgentToolExecutor toolExecutor,
+        RecordingAgentExecutionTelemetry? telemetry = null)
     {
         return new AiAgentRunner(
             db,
@@ -1076,11 +1178,77 @@ public sealed class AiAgentRunnerTests
             toolExecutor,
             new AgentModelDecisionParser(),
             new AgentContextBudget(),
+            telemetry ?? new RecordingAgentExecutionTelemetry(),
             NullLogger<AiAgentRunner>.Instance);
     }
 
+    private sealed class RecordingAgentExecutionTelemetry
+        : IAgentExecutionTelemetry, IAgentExecutionTelemetrySession
+    {
+        public AgentExecutionTelemetryStart? StartData { get; private set; }
+        public int ModelCallCount { get; private set; }
+        public int ToolExecutionCount { get; private set; }
+        public int ToolSuccessCount { get; private set; }
+        public int ToolFailureCount { get; private set; }
+        public int ToolApprovalCount { get; private set; }
+        public int RagResultCount { get; private set; }
+        public int ToolContextCharacters { get; private set; }
+        public int ContextReductionCharacters { get; private set; }
+        public long? InputTokens { get; private set; }
+        public long? OutputTokens { get; private set; }
+        public long? TotalTokens { get; private set; }
+        public Guid? ConversationId { get; private set; }
+        public bool? Succeeded { get; private set; }
+
+        public IAgentExecutionTelemetrySession Start(
+            AgentExecutionTelemetryStart start)
+        {
+            StartData = start;
+            return this;
+        }
+
+        public void RecordModelCall() => ModelCallCount++;
+
+        public void RecordModelUsage(AiChatUsage? usage)
+        {
+            InputTokens = Add(InputTokens, usage?.InputTokens);
+            OutputTokens = Add(OutputTokens, usage?.OutputTokens);
+            TotalTokens = Add(TotalTokens, usage?.TotalTokens);
+        }
+
+        public void RecordToolExecution(bool succeeded, bool approvalRequired)
+        {
+            ToolExecutionCount++;
+            ToolSuccessCount += succeeded ? 1 : 0;
+            ToolApprovalCount += approvalRequired ? 1 : 0;
+            ToolFailureCount += !succeeded && !approvalRequired ? 1 : 0;
+        }
+
+        public void RecordRagResults(int count) => RagResultCount += count;
+
+        public void RecordToolContext(int originalCharacters, int usedCharacters)
+        {
+            ToolContextCharacters += usedCharacters;
+            ContextReductionCharacters += Math.Max(0, originalCharacters - usedCharacters);
+        }
+
+        public Task CompleteAsync(
+            Guid? conversationId,
+            bool succeeded,
+            CancellationToken cancellationToken = default)
+        {
+            ConversationId = conversationId;
+            Succeeded = succeeded;
+            return Task.CompletedTask;
+        }
+
+        private static long? Add(long? current, long? value) =>
+            value.HasValue ? (current ?? 0) + value.Value : current;
+    }
+
     private static async Task<(OrizonAgentsDbContext Db, AiAgent Agent)>
-        CreateDbWithAgentAsync()
+        CreateDbWithAgentAsync(
+            AiProvider provider = AiProvider.GoogleGemini)
     {
         var options =
             new DbContextOptionsBuilder<OrizonAgentsDbContext>()
@@ -1094,7 +1262,7 @@ public sealed class AiAgentRunnerTests
             tenantId,
             "Agente de teste",
             "VocÃª Ã© um agente de teste.",
-            AiProvider.GoogleGemini,
+            provider,
             "test-model");
         db.AiAgents.Add(agent);
         await db.SaveChangesAsync();

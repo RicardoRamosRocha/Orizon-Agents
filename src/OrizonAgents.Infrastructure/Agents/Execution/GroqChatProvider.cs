@@ -27,7 +27,7 @@ public sealed class GroqChatProvider : IAiChatProvider
 
     public string ProviderName => "Groq";
 
-    public async Task<string> CompleteAsync(
+    public async Task<AiChatCompletionResult> CompleteAsync(
         string model,
         string systemPrompt,
         string userMessage,
@@ -121,7 +121,7 @@ public sealed class GroqChatProvider : IAiChatProvider
         if (!response.IsSuccessStatusCode)
         {
             throw new InvalidOperationException(
-                $"Groq retornou {(int)response.StatusCode} em {request.RequestUri}: {responseBody}");
+                $"Groq retornou {(int)response.StatusCode}.");
         }
 
         using JsonDocument document =
@@ -147,6 +147,30 @@ public sealed class GroqChatProvider : IAiChatProvider
                 "A Groq retornou uma resposta vazia.");
         }
 
-        return content.Trim();
+        AiChatUsage? usage = ReadUsage(document.RootElement);
+        return new AiChatCompletionResult(content.Trim(), usage);
     }
+
+    private static AiChatUsage? ReadUsage(JsonElement root)
+    {
+        if (!root.TryGetProperty("usage", out JsonElement usage) ||
+            usage.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        long? input = ReadInt64(usage, "prompt_tokens");
+        long? output = ReadInt64(usage, "completion_tokens");
+        long? total = ReadInt64(usage, "total_tokens");
+
+        return input.HasValue || output.HasValue || total.HasValue
+            ? new AiChatUsage(input, output, total)
+            : null;
+    }
+
+    private static long? ReadInt64(JsonElement element, string name) =>
+        element.TryGetProperty(name, out JsonElement value) &&
+        value.TryGetInt64(out long result)
+            ? result
+            : null;
 }

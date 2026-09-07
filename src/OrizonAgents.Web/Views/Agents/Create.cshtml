@@ -160,8 +160,10 @@
 
                             <select asp-for="Provider"
                                     class="form-select">
-                                <option value="GoogleGemini">Google Gemini</option>
-                                <option value="Groq">Groq</option>
+                                @foreach (var provider in Model.AvailableProviders)
+                                {
+                                    <option value="@provider.Provider">@provider.DisplayName</option>
+                                }
                             </select>
 
                             <span asp-validation-for="Provider"

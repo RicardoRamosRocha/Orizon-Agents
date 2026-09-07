@@ -23,6 +23,8 @@ using OrizonAgents.Infrastructure.Accounts;
 using OrizonAgents.Infrastructure.Agents;
 using OrizonAgents.Infrastructure.Agents.Execution;
 using OrizonAgents.Infrastructure.Agents.Execution.Context;
+using OrizonAgents.Application.Agents.Execution.Telemetry;
+using OrizonAgents.Infrastructure.Agents.Execution.Telemetry;
 using OrizonAgents.Infrastructure.Billing;
 using OrizonAgents.Application.Dashboards;
 using OrizonAgents.Infrastructure.Email;
@@ -93,6 +95,7 @@ public static class DependencyInjection
         services.AddScoped<IAiAgentService, AiAgentService>();
         services.AddScoped<IAiAgentRunner, AiAgentRunner>();
         services.AddScoped<IAgentContextBudget, AgentContextBudget>();
+        services.AddScoped<IAgentExecutionTelemetry, AgentExecutionTelemetry>();
         services.AddScoped<IAiConversationService, AiConversationService>();
         services.AddScoped<HttpAgentToolExecutor>();
         services.AddScoped<GmailAgentToolExecutor>();
@@ -136,11 +139,21 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(60);
         });
 
+        services.AddHttpClient<OpenAiChatProvider>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.openai.com/");
+            client.Timeout = TimeSpan.FromSeconds(60);
+        })
+            .RemoveAllLoggers();
+
         services.AddScoped<IAiChatProvider>(provider =>
             provider.GetRequiredService<GroqChatProvider>());
 
         services.AddScoped<IAiChatProvider>(provider =>
             provider.GetRequiredService<GeminiChatProvider>());
+
+        services.AddScoped<IAiChatProvider>(provider =>
+            provider.GetRequiredService<OpenAiChatProvider>());
         services.AddHttpClient<GeminiModelCatalog>(client =>
         {
             client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
@@ -153,11 +166,21 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(60);
         });
 
+        services.AddHttpClient<OpenAiModelCatalog>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.openai.com/");
+            client.Timeout = TimeSpan.FromSeconds(60);
+        })
+            .RemoveAllLoggers();
+
         services.AddScoped<IAiProviderSpecificModelCatalog>(provider =>
             provider.GetRequiredService<GeminiModelCatalog>());
 
         services.AddScoped<IAiProviderSpecificModelCatalog>(provider =>
             provider.GetRequiredService<GroqModelCatalog>());
+
+        services.AddScoped<IAiProviderSpecificModelCatalog>(provider =>
+            provider.GetRequiredService<OpenAiModelCatalog>());
 
         services.AddScoped<IAiProviderModelCatalog, AiProviderModelCatalog>();
 
@@ -229,12 +252,12 @@ public static class DependencyInjection
             .PersistKeysToFileSystem(
                 new DirectoryInfo(dataProtectionKeysPath));
 
-        services.AddDbContext<OrizonAgentsDbContext>(options =>
+        services.AddDbContextFactory<OrizonAgentsDbContext>(options =>
         {
             options.UseNpgsql(
                 connectionString,
                 npgsql => npgsql.MigrationsAssembly(typeof(OrizonAgentsDbContext).Assembly.FullName));
-        });
+        }, ServiceLifetime.Scoped);
 
         services.AddStackExchangeRedisCache(options =>
         {

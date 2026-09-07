@@ -96,27 +96,21 @@ public sealed class AiCredentialsController : Controller
         BuildViewModelAsync(
             CancellationToken cancellationToken)
     {
-        AiProvider[] providers =
-        {
-            AiProvider.GoogleGemini,
-            AiProvider.Groq
-        };
-
         var items =
             new List<AiProviderCredentialViewModel>();
 
-        foreach (AiProvider provider in providers)
+        foreach (AiProviderDescriptor provider in _modelCatalog.Providers)
         {
             bool configured =
                 await _credentialService.HasCredentialAsync(
-                    provider,
+                    provider.Provider,
                     cancellationToken);
 
             items.Add(
                 new AiProviderCredentialViewModel
                 {
-                    Provider = provider,
-                    ProviderName = GetProviderName(provider),
+                    Provider = provider.Provider,
+                    ProviderName = provider.DisplayName,
                     IsConfigured = configured
                 });
         }
@@ -127,22 +121,19 @@ public sealed class AiCredentialsController : Controller
         };
     }
 
-    private static bool IsSupportedProvider(
+    private bool IsSupportedProvider(
         AiProvider provider)
     {
-        return provider is
-            AiProvider.GoogleGemini or
-            AiProvider.Groq;
+        return _modelCatalog.Providers.Any(item =>
+            item.Provider == provider);
     }
 
-    private static string GetProviderName(
+    private string GetProviderName(
         AiProvider provider)
     {
-        return provider switch
-        {
-            AiProvider.GoogleGemini => "Google Gemini",
-            AiProvider.Groq => "Groq",
-            _ => provider.ToString()
-        };
+        return _modelCatalog.Providers
+            .FirstOrDefault(item => item.Provider == provider)
+            ?.DisplayName
+            ?? provider.ToString();
     }
 }

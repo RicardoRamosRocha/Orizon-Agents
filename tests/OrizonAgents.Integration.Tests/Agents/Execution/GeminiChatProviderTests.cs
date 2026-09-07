@@ -20,15 +20,44 @@ public sealed class GeminiChatProviderTests
 
         var provider = CreateProvider(handler);
 
-        string result = await provider.CompleteAsync(
+        AiChatCompletionResult result = await provider.CompleteAsync(
             "gemini-test",
             "system",
             "hello",
             Array.Empty<AiChatMessage>(),
             0.5);
 
-        Assert.Equal("Resposta recuperada", result);
+        Assert.Equal("Resposta recuperada", result.Content);
+        Assert.Null(result.Usage);
         Assert.Equal(3, handler.CallCount);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_ParsesUsageMetadata()
+    {
+        var handler = new SequenceHttpMessageHandler(
+            Response(
+                HttpStatusCode.OK,
+                """
+                {
+                  "candidates": [{ "content": { "parts": [{ "text": "Resposta" }] } }],
+                  "usageMetadata": {
+                    "promptTokenCount": 120,
+                    "candidatesTokenCount": 30,
+                    "totalTokenCount": 150
+                  }
+                }
+                """));
+
+        AiChatCompletionResult result = await CreateProvider(handler)
+            .CompleteAsync(
+                "gemini-test",
+                "system",
+                "hello",
+                Array.Empty<AiChatMessage>(),
+                0.5);
+
+        Assert.Equal(new AiChatUsage(120, 30, 150), result.Usage);
     }
 
     [Fact]
@@ -40,14 +69,14 @@ public sealed class GeminiChatProviderTests
 
         var provider = CreateProvider(handler);
 
-        string result = await provider.CompleteAsync(
+        AiChatCompletionResult result = await provider.CompleteAsync(
             "gemini-test",
             "system",
             "hello",
             Array.Empty<AiChatMessage>(),
             0.5);
 
-        Assert.Equal("Resposta após limite", result);
+        Assert.Equal("Resposta após limite", result.Content);
         Assert.Equal(2, handler.CallCount);
     }
 
@@ -58,14 +87,14 @@ public sealed class GeminiChatProviderTests
 
         var provider = CreateProvider(handler);
 
-        string result = await provider.CompleteAsync(
+        AiChatCompletionResult result = await provider.CompleteAsync(
             "gemini-test",
             "system",
             "hello",
             Array.Empty<AiChatMessage>(),
             0.5);
 
-        Assert.Equal("Resposta após timeout", result);
+        Assert.Equal("Resposta após timeout", result.Content);
         Assert.Equal(2, handler.CallCount);
     }
 

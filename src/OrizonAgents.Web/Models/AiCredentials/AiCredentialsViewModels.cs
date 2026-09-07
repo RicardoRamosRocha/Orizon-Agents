@@ -11,8 +11,6 @@ public sealed class AiProviderCredentialViewModel
 
     public bool IsConfigured { get; set; }
 
-    [DataType(DataType.Password)]
-    public string? ApiKey { get; set; }
 }
 
 public sealed class AiCredentialsIndexViewModel

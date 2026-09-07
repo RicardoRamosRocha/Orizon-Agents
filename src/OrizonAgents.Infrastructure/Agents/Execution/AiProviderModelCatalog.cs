@@ -12,9 +12,21 @@ public sealed class AiProviderModelCatalog : IAiProviderModelCatalog
     public AiProviderModelCatalog(
         IEnumerable<IAiProviderSpecificModelCatalog> catalogs)
     {
-        _catalogs = catalogs.ToDictionary(
+        IAiProviderSpecificModelCatalog[] registeredCatalogs =
+            catalogs.ToArray();
+
+        _catalogs = registeredCatalogs.ToDictionary(
             catalog => catalog.Provider);
+
+        Providers = registeredCatalogs
+            .OrderBy(catalog => catalog.Provider)
+            .Select(catalog => new AiProviderDescriptor(
+                catalog.Provider,
+                catalog.DisplayName))
+            .ToArray();
     }
+
+    public IReadOnlyList<AiProviderDescriptor> Providers { get; }
 
     public async Task<IReadOnlyList<AiProviderModel>> ListAsync(
         AiProvider provider,

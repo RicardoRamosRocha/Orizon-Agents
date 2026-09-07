@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using OrizonAgents.Application.Agents.Execution;
 using OrizonAgents.Application.Agents.Execution.Context;
 using OrizonAgents.Application.Agents.Execution.Models;
+using OrizonAgents.Application.Agents.Execution.Telemetry;
 using OrizonAgents.Application.Common.Results;
 using OrizonAgents.Application.Knowledge.Retrieval;
 using OrizonAgents.Application.Knowledge.Retrieval.Models;
@@ -29,6 +30,7 @@ public sealed class AiAgentRunner : IAiAgentRunner
     private readonly IAgentToolExecutor _toolExecutor;
     private readonly IAgentModelDecisionParser _decisionParser;
     private readonly IAgentContextBudget _contextBudget;
+    private readonly IAgentExecutionTelemetry _executionTelemetry;
     private readonly ILogger<AiAgentRunner> _logger;
 
     public AiAgentRunner(
@@ -39,6 +41,7 @@ public sealed class AiAgentRunner : IAiAgentRunner
         IAgentToolExecutor toolExecutor,
         IAgentModelDecisionParser decisionParser,
         IAgentContextBudget contextBudget,
+        IAgentExecutionTelemetry executionTelemetry,
         ILogger<AiAgentRunner> logger)
     {
         _dbContext = dbContext;
@@ -48,6 +51,7 @@ public sealed class AiAgentRunner : IAiAgentRunner
         _toolExecutor = toolExecutor;
         _decisionParser = decisionParser;
         _contextBudget = contextBudget;
+        _executionTelemetry = executionTelemetry;
         _logger = logger;
     }
 
@@ -135,6 +139,16 @@ public sealed class AiAgentRunner : IAiAgentRunner
                     message.Content))
                 .ToList();
 
+        IAgentExecutionTelemetrySession telemetry =
+            _executionTelemetry.Start(
+                new AgentExecutionTelemetryStart(
+                    agent.TenantId,
+                    agent.Id,
+                    provider.ProviderName,
+                    agent.Model));
+        Guid? telemetryConversationId = request.ConversationId;
+        bool telemetrySucceeded = false;
+
         try
         {
             string normalizedMessage = request.Message.Trim();
@@ -145,6 +159,7 @@ public sealed class AiAgentRunner : IAiAgentRunner
                     normalizedMessage,
                     5,
                     cancellationToken);
+            telemetry.RecordRagResults(knowledgeResults.Count);
 
             string? knowledgeContext =
                 BuildKnowledgeContext(knowledgeResults);
@@ -164,14 +179,18 @@ public sealed class AiAgentRunner : IAiAgentRunner
                     agent.SystemPrompt,
                     availableTools);
 
-            string modelResponse = await provider.CompleteAsync(
-                agent.Model,
-                effectiveSystemPrompt,
-                normalizedMessage,
-                history,
-                agent.Temperature,
-                operationalContext,
-                cancellationToken);
+            AiChatCompletionResult modelCompletion =
+                await CompleteWithTelemetryAsync(
+                    provider,
+                    telemetry,
+                    agent.Model,
+                    effectiveSystemPrompt,
+                    normalizedMessage,
+                    history,
+                    agent.Temperature,
+                    operationalContext,
+                    cancellationToken);
+            string modelResponse = modelCompletion.Content;
 
             AgentModelDecision decision =
                 _decisionParser.Parse(modelResponse);
@@ -205,6 +224,9 @@ public sealed class AiAgentRunner : IAiAgentRunner
                             cancellationToken);
 
                     toolExecutionCount++;
+                    telemetry.RecordToolExecution(
+                        toolResult.Succeeded,
+                        toolResult.RequiresApproval);
 
                     if (toolResult.RequiresApproval)
                     {
@@ -240,6 +262,9 @@ public sealed class AiAgentRunner : IAiAgentRunner
                         _contextBudget.ReduceToolResult(
                             toolContext,
                             remainingToolContextCharacters);
+                    telemetry.RecordToolContext(
+                        toolContext.Length,
+                        reducedToolContext.Length);
 
                     if (!string.IsNullOrWhiteSpace(reducedToolContext))
                     {
@@ -260,7 +285,9 @@ public sealed class AiAgentRunner : IAiAgentRunner
                 if (toolExecutionCount >=
                     MaximumToolExecutionsPerRun)
                 {
-                    response = await provider.CompleteAsync(
+                    modelCompletion = await CompleteWithTelemetryAsync(
+                        provider,
+                        telemetry,
                         agent.Model,
                         BuildSystemPromptForFinalResponse(
                             agent.SystemPrompt),
@@ -269,11 +296,14 @@ public sealed class AiAgentRunner : IAiAgentRunner
                         agent.Temperature,
                         operationalContext,
                         cancellationToken);
+                    response = modelCompletion.Content;
 
                     break;
                 }
 
-                modelResponse = await provider.CompleteAsync(
+                modelCompletion = await CompleteWithTelemetryAsync(
+                    provider,
+                    telemetry,
                     agent.Model,
                     effectiveSystemPrompt,
                     normalizedMessage,
@@ -281,6 +311,7 @@ public sealed class AiAgentRunner : IAiAgentRunner
                     agent.Temperature,
                     operationalContext,
                     cancellationToken);
+                modelResponse = modelCompletion.Content;
 
                 decision = _decisionParser.Parse(modelResponse);
                 response = modelResponse;
@@ -299,6 +330,8 @@ public sealed class AiAgentRunner : IAiAgentRunner
             }
 
             await _dbContext.SaveChangesAsync(cancellationToken);
+            telemetryConversationId = conversation.Id;
+            telemetrySucceeded = true;
 
             return OperationResult<AiAgentRunResult>.Success(
                 new AiAgentRunResult(
@@ -318,6 +351,38 @@ public sealed class AiAgentRunner : IAiAgentRunner
             return OperationResult<AiAgentRunResult>.Failure(
                 "NÃ£o foi possÃ­vel obter uma resposta da InteligÃªncia Artificial.");
         }
+        finally
+        {
+            await telemetry.CompleteAsync(
+                telemetryConversationId,
+                telemetrySucceeded,
+                CancellationToken.None);
+        }
+    }
+
+    private static async Task<AiChatCompletionResult>
+        CompleteWithTelemetryAsync(
+            IAiChatProvider provider,
+            IAgentExecutionTelemetrySession telemetry,
+            string model,
+            string systemPrompt,
+            string userMessage,
+            IReadOnlyList<AiChatMessage> history,
+            double temperature,
+            string? operationalContext,
+            CancellationToken cancellationToken)
+    {
+        telemetry.RecordModelCall();
+        AiChatCompletionResult result = await provider.CompleteAsync(
+            model,
+            systemPrompt,
+            userMessage,
+            history,
+            temperature,
+            operationalContext,
+            cancellationToken);
+        telemetry.RecordModelUsage(result.Usage);
+        return result;
     }
 
     private static string? BuildKnowledgeContext(

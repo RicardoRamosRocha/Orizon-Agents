@@ -25,6 +25,8 @@ public sealed class GroqModelCatalog : IAiProviderSpecificModelCatalog
 
     public AiProvider Provider => AiProvider.Groq;
 
+    public string DisplayName => "Groq";
+
     public async Task<IReadOnlyList<AiProviderModel>> ListAsync(
         CancellationToken cancellationToken = default)
     {

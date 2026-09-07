@@ -24,6 +24,8 @@ public sealed class GeminiModelCatalog : IAiProviderSpecificModelCatalog
 
     public AiProvider Provider => AiProvider.GoogleGemini;
 
+    public string DisplayName => "Google Gemini";
+
     public async Task<IReadOnlyList<AiProviderModel>> ListAsync(
         CancellationToken cancellationToken = default)
     {

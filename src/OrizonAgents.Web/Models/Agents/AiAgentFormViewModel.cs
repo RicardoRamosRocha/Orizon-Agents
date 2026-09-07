@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
+using OrizonAgents.Application.Agents.Models;
+
 namespace OrizonAgents.Web.Models.Agents;
 
 public sealed class AiAgentFormViewModel
@@ -34,5 +36,8 @@ public sealed class AiAgentFormViewModel
     public double Temperature { get; set; } = 0.7;
 
     public bool IsActive { get; set; } = true;
+
+    public IReadOnlyList<AiProviderDescriptor> AvailableProviders { get; set; }
+        = Array.Empty<AiProviderDescriptor>();
 }
 
