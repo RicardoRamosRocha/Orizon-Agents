@@ -5,6 +5,31 @@ namespace OrizonAgents.Integration.Tests.Agents.Execution.Context;
 public sealed class AgentContextBudgetTests
 {
     [Fact]
+    public void Begin_ChargesOperationalContextOnceAndAccumulatesToolResults()
+    {
+        var sut = new AgentContextBudget();
+        var budget = sut.Begin("contexto");
+
+        Assert.Equal(AgentContextBudget.MaximumCharactersPerExecution - 8, budget.RemainingCharacters);
+        Assert.Equal("resultado-1", budget.ReduceAndConsumeToolResult("resultado-1"));
+        Assert.Equal("resultado-2", budget.ReduceAndConsumeToolResult("resultado-2"));
+        Assert.Equal(
+            AgentContextBudget.MaximumCharactersPerExecution - 30,
+            budget.RemainingCharacters);
+    }
+
+    [Fact]
+    public void Begin_WhenOperationalContextConsumesBudget_ReportsExhausted()
+    {
+        var sut = new AgentContextBudget();
+        var budget = sut.Begin(
+            new string('A', AgentContextBudget.MaximumCharactersPerExecution));
+
+        Assert.True(budget.IsExhausted);
+        Assert.Empty(budget.ReduceAndConsumeToolResult("resultado"));
+    }
+
+    [Fact]
     public void ReduceToolResult_WhenContentFitsBudget_ReturnsNormalizedContent()
     {
         var sut = new AgentContextBudget();

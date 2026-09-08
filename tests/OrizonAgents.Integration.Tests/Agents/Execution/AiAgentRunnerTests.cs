@@ -181,6 +181,91 @@ public sealed class AiAgentRunnerTests
     }
 
     [Fact]
+    public async Task RunAsync_RepeatedToolWithEquivalentJson_DoesNotExecuteTwice()
+    {
+        (OrizonAgentsDbContext db, AiAgent agent) = await CreateDbWithAgentAsync();
+        await using (db)
+        {
+            Guid toolId = Guid.NewGuid();
+            var provider = new CountingChatProvider(
+                AiProvider.GoogleGemini.ToString(),
+                ToolCallResponse(toolId, "{\"first\":1,\"second\":2}"),
+                ToolCallResponse(toolId, "{\"second\":2,\"first\":1}"));
+            var executor = new RecordingToolExecutor(
+                AgentToolExecutionResult.Success(200, "resultado"));
+
+            OperationResult<AiAgentRunResult> result = await CreateRunner(
+                db, provider, new StubToolCatalog(CreateTool(toolId)),
+                new EmptyKnowledgeRetriever(), executor)
+                .RunAsync(agent.Id, new AgentRunRequest("Teste"));
+
+            Assert.False(result.Succeeded);
+            Assert.Contains("repetiu", result.FirstError);
+            Assert.Single(executor.Requests);
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenContextBudgetIsExhausted_DoesNotExecuteAnotherTool()
+    {
+        (OrizonAgentsDbContext db, AiAgent agent) = await CreateDbWithAgentAsync();
+        await using (db)
+        {
+            Guid toolId = Guid.NewGuid();
+            var provider = new CountingChatProvider(
+                AiProvider.GoogleGemini.ToString(), ToolCallResponse(toolId));
+            var executor = new RecordingToolExecutor();
+            var knowledgeRetriever = new StubKnowledgeRetriever(
+                new KnowledgeRetrievalResult(
+                    Guid.NewGuid(), "Base", Guid.NewGuid(), "Documento", 0,
+                    new string('A', AgentContextBudget.MaximumCharactersPerExecution)));
+
+            OperationResult<AiAgentRunResult> result = await CreateRunner(
+                db, provider, new StubToolCatalog(CreateTool(toolId)),
+                knowledgeRetriever, executor)
+                .RunAsync(agent.Id, new AgentRunRequest("Teste"));
+
+            Assert.False(result.Succeeded);
+            Assert.Contains("limite de contexto", result.FirstError);
+            Assert.Empty(executor.Requests);
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_RepeatedStructuredToolWithDifferentCorrelationId_DoesNotExecuteTwice()
+    {
+        (OrizonAgentsDbContext db, AiAgent agent) =
+            await CreateDbWithAgentAsync(AiProvider.OpenAI);
+        await using (db)
+        {
+            Guid toolId = Guid.NewGuid();
+            JsonElement input = JsonSerializer.SerializeToElement(new { value = 1 });
+            var provider = new StructuredChatProvider(
+                AiProvider.OpenAI.ToString(),
+                new AiChatCompletionResult(string.Empty)
+                {
+                    ToolCalls = [new AgentToolCall(toolId, input, "call_1")],
+                    ContinuationToken = "resp_123"
+                },
+                new AiChatCompletionResult(string.Empty)
+                {
+                    ToolCalls = [new AgentToolCall(toolId, input, "call_2")],
+                    ContinuationToken = "resp_456"
+                });
+            var executor = new RecordingToolExecutor(
+                AgentToolExecutionResult.Success(200, "resultado"));
+
+            OperationResult<AiAgentRunResult> result = await CreateRunner(
+                db, provider, new StubToolCatalog(CreateTool(toolId)),
+                new EmptyKnowledgeRetriever(), executor)
+                .RunAsync(agent.Id, new AgentRunRequest("Teste"));
+
+            Assert.False(result.Succeeded);
+            Assert.Single(executor.Requests);
+        }
+    }
+
+    [Fact]
     public async Task RunAsync_StructuredProvider_ExecutesInternalToolCalls()
     {
         (OrizonAgentsDbContext db, AiAgent agent) =
@@ -261,8 +346,8 @@ public sealed class AiAgentRunnerTests
             var provider = new CountingChatProvider(
                 AiProvider.GoogleGemini.ToString(),
                 ToolCallResponse(searchToolId),
-                ToolCallResponse(readToolId),
-                ToolCallResponse(readToolId),
+                ToolCallResponse(readToolId, "{\"messageId\":\"message-1\"}"),
+                ToolCallResponse(readToolId, "{\"messageId\":\"message-2\"}"),
                 "Li as duas mensagens.");
             provider.Usages.Enqueue(new AiChatUsage(10, 5, 15));
             provider.Usages.Enqueue(new AiChatUsage(20, 7, 27));
@@ -711,7 +796,8 @@ public sealed class AiAgentRunnerTests
         {
             Guid toolId = Guid.NewGuid();
             string[] responses =
-                Enumerable.Repeat(ToolCallResponse(toolId), 8)
+                Enumerable.Range(1, 8)
+                    .Select(index => ToolCallResponse(toolId, $"{{\"index\":{index}}}"))
                     .Append("Resposta final após os resultados.")
                     .ToArray();
             var provider = new CountingChatProvider(
@@ -1493,11 +1579,11 @@ public sealed class AiAgentRunnerTests
             kind);
     }
 
-    private static string ToolCallResponse(Guid toolId)
+    private static string ToolCallResponse(Guid toolId, string input = "{}")
     {
         return
             $"{{\"action\":\"tool_call\",\"toolId\":\"{toolId}\"," +
-            "\"input\":{}}";
+            $"\"input\":{input}}}";
     }
 
     private static string ToolCallsResponse(params Guid[] toolIds)
