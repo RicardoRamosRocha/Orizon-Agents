@@ -48,6 +48,7 @@ public interface IAiChatProvider
         IReadOnlyList<AgentToolDefinition> tools,
         string continuationToken,
         IReadOnlyList<AgentToolResult> toolResults,
+        string? operationalContext = null,
         CancellationToken cancellationToken = default)
     {
         throw new NotSupportedException(

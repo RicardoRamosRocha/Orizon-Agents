@@ -212,7 +212,10 @@ public sealed class AiAgentRunnerTests
                 db,
                 provider,
                 new StubToolCatalog(CreateTool(toolId, AgentToolKind.GmailSearch)),
-                new EmptyKnowledgeRetriever(),
+                new StubKnowledgeRetriever(
+                    new KnowledgeRetrievalResult(
+                        Guid.NewGuid(), "Base", Guid.NewGuid(), "Documento", 0,
+                        "RAG_CONTEXT")),
                 toolExecutor);
 
             OperationResult<AiAgentRunResult> result = await runner.RunAsync(
@@ -229,6 +232,10 @@ public sealed class AiAgentRunnerTests
                 execution.Input?.GetProperty("query").GetString());
             Assert.Equal(2, provider.ToolSets.Count);
             Assert.All(provider.ToolSets, tools => Assert.Single(tools));
+            Assert.Equal(2, provider.OperationalContexts.Count);
+            Assert.All(
+                provider.OperationalContexts,
+                context => Assert.Contains("RAG_CONTEXT", context));
             AgentToolResult continuedResult = Assert.Single(provider.ContinuedResults);
             Assert.Equal("call_123", continuedResult.CorrelationId);
             Assert.Contains("RESULTADO EXTERNO", continuedResult.Content);
@@ -1121,6 +1128,8 @@ public sealed class AiAgentRunnerTests
 
         public List<AgentToolResult> ContinuedResults { get; } = [];
 
+        public List<string?> OperationalContexts { get; } = [];
+
         public Task<AiChatCompletionResult> CompleteAsync(
             string model,
             string systemPrompt,
@@ -1141,11 +1150,13 @@ public sealed class AiAgentRunnerTests
             IReadOnlyList<AgentToolDefinition> tools,
             string continuationToken,
             IReadOnlyList<AgentToolResult> toolResults,
+            string? operationalContext = null,
             CancellationToken cancellationToken = default)
         {
             Assert.Equal("resp_123", continuationToken);
             ContinuedResults.AddRange(toolResults);
             ToolSets.Add(tools);
+            OperationalContexts.Add(operationalContext);
             return Task.FromResult(_responses.Dequeue());
         }
         public Task<AiChatCompletionResult> CompleteWithToolsAsync(
@@ -1160,6 +1171,7 @@ public sealed class AiAgentRunnerTests
         {
             SystemPrompts.Add(systemPrompt);
             ToolSets.Add(tools);
+            OperationalContexts.Add(operationalContext);
             return Task.FromResult(_responses.Dequeue());
         }
     }

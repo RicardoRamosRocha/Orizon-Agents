@@ -76,6 +76,7 @@ public sealed class OpenAiChatProvider(
         IReadOnlyList<AgentToolDefinition> tools,
         string continuationToken,
         IReadOnlyList<AgentToolResult> toolResults,
+        string? operationalContext = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(continuationToken);
@@ -83,7 +84,7 @@ public sealed class OpenAiChatProvider(
 
         return CompleteCoreAsync(
             model, systemPrompt, string.Empty, [], temperature, tools,
-            null, continuationToken, toolResults, cancellationToken);
+            operationalContext, continuationToken, toolResults, cancellationToken);
     }
     private async Task<AiChatCompletionResult> CompleteCoreAsync(
         string model,

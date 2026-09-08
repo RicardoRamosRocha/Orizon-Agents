@@ -359,6 +359,7 @@ public sealed class AiAgentRunner : IAiAgentRunner
                         provider, telemetry, agent.Model, effectiveSystemPrompt,
                         agent.Temperature, availableTools,
                         modelCompletion.ContinuationToken, structuredToolResults,
+                        operationalContext,
                         cancellationToken)
                     : await CompleteWithTelemetryAsync(
                         provider, telemetry, agent.Model, effectiveSystemPrompt,
@@ -453,6 +454,7 @@ await _dbContext.SaveChangesAsync(cancellationToken);
         IReadOnlyList<AgentToolDefinition> tools,
         string? continuationToken,
         IReadOnlyList<AgentToolResult> toolResults,
+        string? operationalContext,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(continuationToken))
@@ -464,7 +466,7 @@ await _dbContext.SaveChangesAsync(cancellationToken);
         telemetry.RecordModelCall();
         AiChatCompletionResult result = await provider.ContinueWithToolsAsync(
             model, systemPrompt, temperature, tools, continuationToken,
-            toolResults, cancellationToken);
+            toolResults, operationalContext, cancellationToken);
         telemetry.RecordModelUsage(result.Usage);
         return result;
     }

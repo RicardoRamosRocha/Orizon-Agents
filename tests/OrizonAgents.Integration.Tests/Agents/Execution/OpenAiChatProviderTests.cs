@@ -280,9 +280,11 @@ public sealed class OpenAiChatProviderTests
         AgentToolDefinition tool = CreateTool(toolId);
         const string originalUserMessage =
             "Procure no meu Gmail os 3 e-mails mais recentes e informe assunto e remetente.";
+        const string operationalContext = "RAG_CONTEXT: política interna aplicável.";
 
         AiChatCompletionResult first = await provider.CompleteWithToolsAsync(
-            "gpt-4.1-mini", "system", originalUserMessage, [], 0.2, [tool]);
+            "gpt-4.1-mini", "system", originalUserMessage, [], 0.2, [tool],
+            operationalContext);
         AgentToolCall call = Assert.Single(first.ToolCalls);
         Assert.Equal("call_123", call.CorrelationId);
 
@@ -294,7 +296,8 @@ public sealed class OpenAiChatProviderTests
             first.ContinuationToken!,
             [new AgentToolResult(
                 call.CorrelationId!,
-                "{\"messages\":[{\"id\":\"message-1\",\"subject\":\"Subject 1\",\"from\":\"sender@example.test\"}]}")]);
+                "{\"messages\":[{\"id\":\"message-1\",\"subject\":\"Subject 1\",\"from\":\"sender@example.test\"}]}")],
+            operationalContext);
 
         Assert.Equal("Encontrei tres mensagens.", second.Content);
         Assert.Equal(2, handler.CallCount);
@@ -303,6 +306,10 @@ public sealed class OpenAiChatProviderTests
         JsonElement root = continuationRequest.RootElement;
         Assert.False(root.GetProperty("store").GetBoolean());
         Assert.False(root.TryGetProperty("previous_response_id", out _));
+
+        string instructions = root.GetProperty("instructions").GetString()!;
+        Assert.Contains(operationalContext, instructions);
+        Assert.Equal(1, Count(instructions, operationalContext));
 
         JsonElement input = root.GetProperty("input");
         Assert.Contains(
@@ -321,6 +328,49 @@ public sealed class OpenAiChatProviderTests
                     item.GetProperty("call_id").GetString() == "call_123" &&
                     item.GetProperty("output").GetString()!.Contains("Subject 1", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public async Task ContinueWithToolsAsync_MultipleRoundsPreservesOperationalContextWithoutDuplication()
+    {
+        Guid toolId = Guid.NewGuid();
+        var handler = new SequencedRecordingHandler(
+            """{"output":[{"type":"function_call","call_id":"call_1","name":"orizon_tool_1","arguments":"{}"}]}""",
+            """{"output":[{"type":"function_call","call_id":"call_2","name":"orizon_tool_1","arguments":"{}"}]}""",
+            """{"output":[{"type":"message","content":[{"type":"output_text","text":"Resposta final"}]}]}""");
+        OpenAiChatProvider provider = CreateProvider(handler);
+        AgentToolDefinition tool = CreateTool(toolId);
+        const string userMessage = "Pergunta original";
+        const string operationalContext = "RAG_CONTEXT: dado não confiável.";
+
+        AiChatCompletionResult first = await provider.CompleteWithToolsAsync(
+            "gpt-test", "system", userMessage, [], 0.2, [tool], operationalContext);
+        AiChatCompletionResult second = await provider.ContinueWithToolsAsync(
+            "gpt-test", "system", 0.2, [tool], first.ContinuationToken!,
+            [new AgentToolResult("call_1", "resultado-1")], operationalContext);
+        AiChatCompletionResult third = await provider.ContinueWithToolsAsync(
+            "gpt-test", "system", 0.2, [tool], second.ContinuationToken!,
+            [new AgentToolResult("call_2", "resultado-2")], operationalContext);
+
+        Assert.Equal("Resposta final", third.Content);
+        Assert.Equal(3, handler.CallCount);
+
+        foreach (string requestBody in handler.RequestBodies)
+        {
+            using JsonDocument request = JsonDocument.Parse(requestBody);
+            JsonElement root = request.RootElement;
+            Assert.False(root.GetProperty("store").GetBoolean());
+            Assert.False(root.TryGetProperty("previous_response_id", out _));
+            Assert.Equal(1, Count(root.GetProperty("instructions").GetString()!, operationalContext));
+        }
+
+        using JsonDocument finalRequest = JsonDocument.Parse(handler.RequestBodies[2]);
+        Assert.Contains(
+            finalRequest.RootElement.GetProperty("input").EnumerateArray(),
+            item => item.TryGetProperty("role", out JsonElement role) &&
+                    role.GetString() == "user" &&
+                    item.GetProperty("content").GetString() == userMessage);
+    }
+
     [Fact]
     public async Task CompleteAsync_WhenUsageIsAbsent_ReturnsNullUsage()
     {
