@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Microsoft.Extensions.Configuration;
 using OrizonAgents.Application.Agents.Execution;
 using OrizonAgents.Application.Agents.Credentials;
 using OrizonAgents.Domain.Agents;
@@ -12,17 +11,14 @@ namespace OrizonAgents.Infrastructure.Agents.Execution;
 public sealed class GeminiChatProvider : IAiChatProvider
 {
     private readonly HttpClient _httpClient;
-    private readonly IConfiguration _configuration;
-    private readonly IAiProviderCredentialService _credentialService;
+    private readonly IAiProviderApiKeyResolver _apiKeyResolver;
 
     public GeminiChatProvider(
         HttpClient httpClient,
-        IConfiguration configuration,
-        IAiProviderCredentialService credentialService)
+        IAiProviderApiKeyResolver apiKeyResolver)
     {
         _httpClient = httpClient;
-        _configuration = configuration;
-        _credentialService = credentialService;
+        _apiKeyResolver = apiKeyResolver;
     }
 
     public string ProviderName => "GoogleGemini";
@@ -37,13 +33,9 @@ public sealed class GeminiChatProvider : IAiChatProvider
         CancellationToken cancellationToken = default)
     {
         string? apiKey =
-            await _credentialService.ResolveAsync(
+            await _apiKeyResolver.ResolveAsync(
                 AiProvider.GoogleGemini,
                 cancellationToken);
-
-        apiKey ??=
-            _configuration["GEMINI_API_KEY"]
-            ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY");
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {

@@ -1,6 +1,5 @@
 ﻿using System.Net.Http.Headers;
 using System.Text.Json;
-using Microsoft.Extensions.Configuration;
 using OrizonAgents.Application.Agents.Credentials;
 using OrizonAgents.Application.Agents.Models;
 using OrizonAgents.Domain.Agents;
@@ -10,17 +9,14 @@ namespace OrizonAgents.Infrastructure.Agents.Execution;
 public sealed class GroqModelCatalog : IAiProviderSpecificModelCatalog
 {
     private readonly HttpClient _httpClient;
-    private readonly IConfiguration _configuration;
-    private readonly IAiProviderCredentialService _credentialService;
+    private readonly IAiProviderApiKeyResolver _apiKeyResolver;
 
     public GroqModelCatalog(
         HttpClient httpClient,
-        IConfiguration configuration,
-        IAiProviderCredentialService credentialService)
+        IAiProviderApiKeyResolver apiKeyResolver)
     {
         _httpClient = httpClient;
-        _configuration = configuration;
-        _credentialService = credentialService;
+        _apiKeyResolver = apiKeyResolver;
     }
 
     public AiProvider Provider => AiProvider.Groq;
@@ -32,13 +28,9 @@ public sealed class GroqModelCatalog : IAiProviderSpecificModelCatalog
     {
 
         string? apiKey =
-            await _credentialService.ResolveAsync(
+            await _apiKeyResolver.ResolveAsync(
                 AiProvider.Groq,
                 cancellationToken);
-
-        apiKey ??=
-            _configuration["GROQ_API_KEY"]
-            ?? Environment.GetEnvironmentVariable("GROQ_API_KEY");
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
@@ -68,7 +60,7 @@ public sealed class GroqModelCatalog : IAiProviderSpecificModelCatalog
         if (!response.IsSuccessStatusCode)
         {
             throw new InvalidOperationException(
-                $"Groq retornou {(int)response.StatusCode} ao consultar modelos: {responseBody}");
+                $"Groq retornou {(int)response.StatusCode} ao consultar modelos.");
         }
 
         using JsonDocument document =

@@ -6,6 +6,7 @@ using OrizonAgents.Application.Agents.Execution.Context;
 using OrizonAgents.Application.Agents.Execution.Models;
 using OrizonAgents.Application.Agents.Execution.Telemetry;
 using OrizonAgents.Application.Common.Results;
+using OrizonAgents.Application.Common.Tenancy;
 using OrizonAgents.Application.Knowledge.Retrieval;
 using OrizonAgents.Application.Knowledge.Retrieval.Models;
 using OrizonAgents.Application.Tools;
@@ -31,6 +32,7 @@ public sealed class AiAgentRunner : IAiAgentRunner
     private readonly IAgentModelDecisionParser _decisionParser;
     private readonly IAgentContextBudget _contextBudget;
     private readonly IAgentExecutionTelemetry _executionTelemetry;
+    private readonly ICurrentTenant _currentTenant;
     private readonly ILogger<AiAgentRunner> _logger;
 
     public AiAgentRunner(
@@ -42,6 +44,7 @@ public sealed class AiAgentRunner : IAiAgentRunner
         IAgentModelDecisionParser decisionParser,
         IAgentContextBudget contextBudget,
         IAgentExecutionTelemetry executionTelemetry,
+        ICurrentTenant currentTenant,
         ILogger<AiAgentRunner> logger)
     {
         _dbContext = dbContext;
@@ -52,6 +55,7 @@ public sealed class AiAgentRunner : IAiAgentRunner
         _decisionParser = decisionParser;
         _contextBudget = contextBudget;
         _executionTelemetry = executionTelemetry;
+        _currentTenant = currentTenant;
         _logger = logger;
     }
 
@@ -60,6 +64,14 @@ public sealed class AiAgentRunner : IAiAgentRunner
         AgentRunRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (!_currentTenant.HasTenant ||
+            _currentTenant.TenantId is not Guid tenantId ||
+            tenantId == Guid.Empty)
+        {
+            return OperationResult<AiAgentRunResult>.Failure(
+                "Nenhum tenant ativo est\u00e1 dispon\u00edvel para executar o agente.");
+        }
+
         if (string.IsNullOrWhiteSpace(request.Message))
         {
             return OperationResult<AiAgentRunResult>.Failure(
@@ -69,7 +81,9 @@ public sealed class AiAgentRunner : IAiAgentRunner
         AiAgent? agent = await _dbContext.AiAgents
             .AsNoTracking()
             .SingleOrDefaultAsync(
-                candidate => candidate.Id == agentId,
+                candidate =>
+                    candidate.Id == agentId &&
+                    candidate.TenantId == tenantId,
                 cancellationToken);
 
         if (agent is null)

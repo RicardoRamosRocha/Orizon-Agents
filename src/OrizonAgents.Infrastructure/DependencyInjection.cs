@@ -226,6 +226,7 @@ public static class DependencyInjection
         services.AddScoped<IEntitlementService, EntitlementService>();
         services.AddScoped<IBillingCycleProcessor, BillingCycleProcessor>();
         services.AddScoped<IAiProviderCredentialService, AiProviderCredentialService>();
+        services.AddScoped<IAiProviderApiKeyResolver, AiProviderApiKeyResolver>();
         services.AddScoped<IAiProviderCredentialProtector, DataProtectionAiProviderCredentialProtector>();
         services.AddScoped<IWhatsAppTokenProtector, DataProtectionWhatsAppTokenProtector>();
         services.AddScoped<IWhatsAppConnectionService, WhatsAppService>();

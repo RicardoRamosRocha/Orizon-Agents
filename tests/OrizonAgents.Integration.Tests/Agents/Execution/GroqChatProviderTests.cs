@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text;
-using Microsoft.Extensions.Configuration;
 using OrizonAgents.Application.Agents.Credentials;
 using OrizonAgents.Application.Agents.Execution.Models;
 using OrizonAgents.Domain.Agents;
@@ -11,23 +10,13 @@ namespace OrizonAgents.Integration.Tests.Agents.Execution;
 public sealed class GroqChatProviderTests
 {
     [Fact]
-    public async Task CompleteAsync_PrefersTenantCredentialOverConfiguration()
+    public async Task CompleteAsync_UsesResolvedTenantCredential()
     {
         var handler = new RecordingHttpMessageHandler();
 
-        IConfiguration configuration =
-            new ConfigurationBuilder()
-                .AddInMemoryCollection(
-                    new Dictionary<string, string?>
-                    {
-                        ["GROQ_API_KEY"] = "configuration-key"
-                    })
-                .Build();
-
         var provider = CreateProvider(
             handler,
-            configuration,
-            new StubCredentialService("tenant-key"));
+            new StubApiKeyResolver("tenant-key"));
 
         AiChatCompletionResult result = await CompleteAsync(provider);
 
@@ -38,29 +27,17 @@ public sealed class GroqChatProviderTests
     }
 
     [Fact]
-    public async Task CompleteAsync_UsesConfigurationWhenTenantCredentialIsMissing()
+    public async Task CompleteAsync_FailsWhenNoCredentialCanBeResolved()
     {
         var handler = new RecordingHttpMessageHandler();
 
-        IConfiguration configuration =
-            new ConfigurationBuilder()
-                .AddInMemoryCollection(
-                    new Dictionary<string, string?>
-                    {
-                        ["GROQ_API_KEY"] = "configuration-key"
-                    })
-                .Build();
-
         var provider = CreateProvider(
             handler,
-            configuration,
-            new StubCredentialService(null));
+            new StubApiKeyResolver(null));
 
-        AiChatCompletionResult result = await CompleteAsync(provider);
-
-        Assert.Equal("Resposta Groq", result.Content);
-        Assert.Equal("Bearer", handler.AuthorizationScheme);
-        Assert.Equal("configuration-key", handler.AuthorizationParameter);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CompleteAsync(provider));
+        Assert.Null(handler.AuthorizationParameter);
     }
 
     private static Task<AiChatCompletionResult> CompleteAsync(
@@ -76,8 +53,7 @@ public sealed class GroqChatProviderTests
 
     private static GroqChatProvider CreateProvider(
         HttpMessageHandler handler,
-        IConfiguration configuration,
-        IAiProviderCredentialService credentialService)
+        IAiProviderApiKeyResolver apiKeyResolver)
     {
         var client = new HttpClient(handler)
         {
@@ -86,8 +62,7 @@ public sealed class GroqChatProviderTests
 
         return new GroqChatProvider(
             client,
-            configuration,
-            credentialService);
+            apiKeyResolver);
     }
 
     private sealed class RecordingHttpMessageHandler :
@@ -134,44 +109,14 @@ public sealed class GroqChatProviderTests
         }
     }
 
-    private sealed class StubCredentialService :
-        IAiProviderCredentialService
+    private sealed class StubApiKeyResolver(string? apiKey)
+        : IAiProviderApiKeyResolver
     {
-        private readonly string? _apiKey;
-
-        public StubCredentialService(string? apiKey)
-        {
-            _apiKey = apiKey;
-        }
-
         public Task<string?> ResolveAsync(
             AiProvider provider,
             CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(_apiKey);
-        }
-
-        public Task SaveAsync(
-            AiProvider provider,
-            string apiKey,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task<bool> HasCredentialAsync(
-            AiProvider provider,
-            CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(
-                !string.IsNullOrWhiteSpace(_apiKey));
-        }
-
-        public Task RemoveAsync(
-            AiProvider provider,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
+            return Task.FromResult(apiKey);
         }
     }
 }

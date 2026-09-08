@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text;
-using Microsoft.Extensions.Configuration;
 using OrizonAgents.Application.Agents.Credentials;
 using OrizonAgents.Application.Agents.Execution.Models;
 using OrizonAgents.Domain.Agents;
@@ -152,13 +151,9 @@ public sealed class GeminiChatProviderTests
                 new Uri("https://generativelanguage.googleapis.com/")
         };
 
-        IConfiguration configuration =
-            new ConfigurationBuilder().Build();
-
         return new GeminiChatProvider(
             client,
-            configuration,
-            new StubCredentialService("test-api-key"));
+            new StubApiKeyResolver("test-api-key"));
     }
 
     private static HttpResponseMessage Response(
@@ -262,43 +257,14 @@ public sealed class GeminiChatProviderTests
         }
     }
 
-    private sealed class StubCredentialService :
-        IAiProviderCredentialService
+    private sealed class StubApiKeyResolver(string? apiKey)
+        : IAiProviderApiKeyResolver
     {
-        private readonly string _apiKey;
-
-        public StubCredentialService(string apiKey)
-        {
-            _apiKey = apiKey;
-        }
-
         public Task<string?> ResolveAsync(
             AiProvider provider,
             CancellationToken cancellationToken = default)
         {
-            return Task.FromResult<string?>(_apiKey);
-        }
-
-        public Task SaveAsync(
-            AiProvider provider,
-            string apiKey,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task<bool> HasCredentialAsync(
-            AiProvider provider,
-            CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(true);
-        }
-
-        public Task RemoveAsync(
-            AiProvider provider,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
+            return Task.FromResult(apiKey);
         }
     }
 }

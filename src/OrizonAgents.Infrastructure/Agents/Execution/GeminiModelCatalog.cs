@@ -1,5 +1,4 @@
 ﻿using System.Text.Json;
-using Microsoft.Extensions.Configuration;
 using OrizonAgents.Application.Agents.Credentials;
 using OrizonAgents.Application.Agents.Models;
 using OrizonAgents.Domain.Agents;
@@ -9,17 +8,14 @@ namespace OrizonAgents.Infrastructure.Agents.Execution;
 public sealed class GeminiModelCatalog : IAiProviderSpecificModelCatalog
 {
     private readonly HttpClient _httpClient;
-    private readonly IConfiguration _configuration;
-    private readonly IAiProviderCredentialService _credentialService;
+    private readonly IAiProviderApiKeyResolver _apiKeyResolver;
 
     public GeminiModelCatalog(
         HttpClient httpClient,
-        IConfiguration configuration,
-        IAiProviderCredentialService credentialService)
+        IAiProviderApiKeyResolver apiKeyResolver)
     {
         _httpClient = httpClient;
-        _configuration = configuration;
-        _credentialService = credentialService;
+        _apiKeyResolver = apiKeyResolver;
     }
 
     public AiProvider Provider => AiProvider.GoogleGemini;
@@ -31,13 +27,9 @@ public sealed class GeminiModelCatalog : IAiProviderSpecificModelCatalog
     {
 
         string? apiKey =
-            await _credentialService.ResolveAsync(
+            await _apiKeyResolver.ResolveAsync(
                 AiProvider.GoogleGemini,
                 cancellationToken);
-
-        apiKey ??=
-            _configuration["GEMINI_API_KEY"]
-            ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY");
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
@@ -63,7 +55,7 @@ public sealed class GeminiModelCatalog : IAiProviderSpecificModelCatalog
         if (!response.IsSuccessStatusCode)
         {
             throw new InvalidOperationException(
-                $"Gemini retornou {(int)response.StatusCode} ao consultar modelos: {responseBody}");
+                $"Gemini retornou {(int)response.StatusCode} ao consultar modelos.");
         }
 
         using JsonDocument document =

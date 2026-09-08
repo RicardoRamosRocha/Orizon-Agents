@@ -25,6 +25,58 @@ namespace OrizonAgents.Integration.Tests.Agents.Execution;
 public sealed class AiAgentRunnerTests
 {
     [Fact]
+    public async Task RunAsync_WithoutActiveTenant_FailsBeforeLoadingAgentOrDependencies()
+    {
+        var currentTenant = new CurrentTenant();
+        var options = new DbContextOptionsBuilder<OrizonAgentsDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var db = new OrizonAgentsDbContext(options, currentTenant);
+        var agent = new AiAgent(
+            Guid.NewGuid(), "Agente", "Sistema", AiProvider.Groq, "test-model");
+        db.AiAgents.Add(agent);
+        await db.SaveChangesAsync();
+        var provider = new CountingChatProvider(AiProvider.Groq.ToString(), "Resposta");
+
+        OperationResult<AiAgentRunResult> result = await CreateRunner(
+            db, provider, new StubToolCatalog(), new EmptyKnowledgeRetriever(),
+            new RecordingToolExecutor(), currentTenant: currentTenant)
+            .RunAsync(agent.Id, new AgentRunRequest("Olá"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("tenant ativo", result.FirstError);
+        Assert.Equal(0, provider.CallCount);
+    }
+
+    [Fact]
+    public async Task RunAsync_ForAnotherTenantAgent_IsBlockedBeforeProviderExecution()
+    {
+        Guid tenantA = Guid.NewGuid();
+        Guid tenantB = Guid.NewGuid();
+        var currentTenant = new CurrentTenant();
+        currentTenant.SetTenantId(tenantA);
+        var options = new DbContextOptionsBuilder<OrizonAgentsDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var db = new OrizonAgentsDbContext(options, currentTenant);
+        var agent = new AiAgent(
+            tenantA, "Agente", "Sistema", AiProvider.Groq, "test-model");
+        db.AiAgents.Add(agent);
+        await db.SaveChangesAsync();
+        currentTenant.SetTenantId(tenantB);
+        var provider = new CountingChatProvider(AiProvider.Groq.ToString(), "Resposta");
+
+        OperationResult<AiAgentRunResult> result = await CreateRunner(
+            db, provider, new StubToolCatalog(), new EmptyKnowledgeRetriever(),
+            new RecordingToolExecutor(), currentTenant: currentTenant)
+            .RunAsync(agent.Id, new AgentRunRequest("Olá"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("Agente", result.FirstError);
+        Assert.Equal(0, provider.CallCount);
+    }
+
+    [Fact]
     public async Task RunAsync_OpenAiUsage_FlowsToProviderIndependentTelemetry()
     {
         (OrizonAgentsDbContext db, AiAgent agent) =
@@ -822,6 +874,7 @@ public sealed class AiAgentRunnerTests
             decisionParser,
             new AgentContextBudget(),
             new RecordingAgentExecutionTelemetry(),
+            currentTenant,
             NullLogger<AiAgentRunner>.Instance);
 
         OperationResult<AiAgentRunResult> result =
@@ -944,6 +997,7 @@ public sealed class AiAgentRunnerTests
                 AgentModelDecision.FinalResponse("Resposta final.")),
             new AgentContextBudget(),
             new RecordingAgentExecutionTelemetry(),
+            currentTenant,
             NullLogger<AiAgentRunner>.Instance);
 
         OperationResult<AiAgentRunResult> result =
@@ -1298,7 +1352,8 @@ public sealed class AiAgentRunnerTests
         IAgentToolCatalog toolCatalog,
         IKnowledgeRetriever knowledgeRetriever,
         IAgentToolExecutor toolExecutor,
-        RecordingAgentExecutionTelemetry? telemetry = null)
+        RecordingAgentExecutionTelemetry? telemetry = null,
+        ICurrentTenant? currentTenant = null)
     {
         return new AiAgentRunner(
             db,
@@ -1309,7 +1364,19 @@ public sealed class AiAgentRunnerTests
             new AgentModelDecisionParser(),
             new AgentContextBudget(),
             telemetry ?? new RecordingAgentExecutionTelemetry(),
+            currentTenant ?? CreateCurrentTenant(db),
             NullLogger<AiAgentRunner>.Instance);
+    }
+
+    private static ICurrentTenant CreateCurrentTenant(OrizonAgentsDbContext db)
+    {
+        Guid tenantId = db.AiAgents
+            .AsNoTracking()
+            .Select(agent => agent.TenantId)
+            .First();
+        var tenant = new CurrentTenant();
+        tenant.SetTenantId(tenantId);
+        return tenant;
     }
 
     private sealed class RecordingAgentExecutionTelemetry
