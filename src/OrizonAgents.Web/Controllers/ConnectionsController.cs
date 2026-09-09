@@ -121,6 +121,8 @@ public sealed class ConnectionsController(
         CancellationToken cancellationToken)
     {
         bool isGmailReadAuthorized = false;
+        bool isGmailComposeAuthorized = false;
+        bool isGmailReplyAuthorized = false;
         if (connection.Provider == IntegrationProvider.Gmail &&
             connection.IsActive &&
             connection.Status == IntegrationConnectionStatus.Connected)
@@ -130,6 +132,14 @@ public sealed class ConnectionsController(
                 isGmailReadAuthorized = await capabilities.HasCapabilityAsync(
                     connection.Id,
                     GoogleOAuthCapability.GmailRead,
+                    cancellationToken);
+                isGmailComposeAuthorized = await capabilities.HasCapabilityAsync(
+                    connection.Id,
+                    GoogleOAuthCapability.GmailCreateDraft,
+                    cancellationToken);
+                isGmailReplyAuthorized = await capabilities.HasCapabilityAsync(
+                    connection.Id,
+                    GoogleOAuthCapability.GmailReply,
                     cancellationToken);
             }
             catch (Exception exception) when (
@@ -145,7 +155,9 @@ public sealed class ConnectionsController(
         {
             Connection = connection,
             Edit = edit,
-            IsGmailReadAuthorized = isGmailReadAuthorized
+            IsGmailReadAuthorized = isGmailReadAuthorized,
+            IsGmailComposeAuthorized = isGmailComposeAuthorized,
+            IsGmailReplyAuthorized = isGmailReplyAuthorized
         };
     }
 

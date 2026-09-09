@@ -63,10 +63,30 @@
                 <div class="border rounded-3 bg-light p-3 mb-4">
                     <h3 class="h6 mb-1">Cria\u00e7\u00e3o de rascunhos</h3>
                     <p class="text-muted mb-2">Exige autoriza\u00e7\u00e3o adicional do Gmail. Criar um rascunho n\u00e3o envia e-mail.</p>
-                    <form asp-controller="GoogleConnections" asp-action="UpgradeGmailCreateDraft" asp-route-id="@Model.Connection.Id" method="post">
-                        @Html.AntiForgeryToken()
-                        <button class="btn btn-outline-primary" type="submit">Permitir cria\u00e7\u00e3o de rascunhos</button>
-                    </form>
+                    <span class="badge @(Model.IsGmailComposeAuthorized ? "text-bg-success" : "text-bg-secondary")">
+                        @(Model.IsGmailComposeAuthorized ? "Autorizada" : "N\u00e3o autorizada")
+                    </span>
+                    @if (!Model.IsGmailComposeAuthorized)
+                    {
+                        <form asp-controller="GoogleConnections" asp-action="UpgradeGmailCreateDraft" asp-route-id="@Model.Connection.Id" method="post" class="mt-2">
+                            @Html.AntiForgeryToken()
+                            <button class="btn btn-outline-primary" type="submit">Permitir cria\u00e7\u00e3o de rascunhos</button>
+                        </form>
+                    }
+                </div>
+                <div class="border rounded-3 bg-light p-3 mb-4">
+                    <h3 class="h6 mb-1">Respostas a e-mails</h3>
+                    <p class="text-muted mb-2">Exige leitura e envio. Cada resposta requer aprova\u00e7\u00e3o humana.</p>
+                    <span class="badge @(Model.IsGmailReplyAuthorized ? "text-bg-success" : "text-bg-secondary")">
+                        @(Model.IsGmailReplyAuthorized ? "Autorizada" : "N\u00e3o autorizada")
+                    </span>
+                    @if (!Model.IsGmailReplyAuthorized)
+                    {
+                        <form asp-controller="GoogleConnections" asp-action="UpgradeGmailReply" asp-route-id="@Model.Connection.Id" method="post" class="mt-2">
+                            @Html.AntiForgeryToken()
+                            <button class="btn btn-outline-primary" type="submit">Permitir respostas a e-mails</button>
+                        </form>
+                    }
                 </div>
                 <div class="d-flex gap-2 flex-wrap mb-4">
                     @if (Model.Connection.Status != IntegrationConnectionStatus.Connected)

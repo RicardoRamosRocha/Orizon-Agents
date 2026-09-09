@@ -35,6 +35,8 @@ public sealed class ConnectionDetailsViewModel
     public required IntegrationConnectionDto Connection { get; init; }
     public ConnectionEditViewModel Edit { get; init; } = new();
     public bool IsGmailReadAuthorized { get; init; }
+    public bool IsGmailComposeAuthorized { get; init; }
+    public bool IsGmailReplyAuthorized { get; init; }
 
     public static string StatusLabel(IntegrationConnectionStatus status) => status switch
     {

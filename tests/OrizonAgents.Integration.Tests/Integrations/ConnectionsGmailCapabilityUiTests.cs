@@ -28,9 +28,11 @@ public sealed class ConnectionsGmailCapabilityUiTests
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<ConnectionDetailsViewModel>(view.Model);
         Assert.Equal(granted, model.IsGmailReadAuthorized);
-        Assert.Equal(1, capabilities.Calls);
+        Assert.Equal(3, capabilities.Calls);
         Assert.Equal(connectionId, capabilities.ConnectionId);
-        Assert.Equal(GoogleOAuthCapability.GmailRead, capabilities.Capability);
+        Assert.Equal(GoogleOAuthCapability.GmailReply, capabilities.Capability);
+        Assert.Equal(granted, model.IsGmailComposeAuthorized);
+        Assert.Equal(granted, model.IsGmailReplyAuthorized);
     }
 
     [Fact]
@@ -48,6 +50,8 @@ public sealed class ConnectionsGmailCapabilityUiTests
 
         var model = Assert.IsType<ConnectionDetailsViewModel>(Assert.IsType<ViewResult>(result).Model);
         Assert.False(model.IsGmailReadAuthorized);
+        Assert.False(model.IsGmailComposeAuthorized);
+        Assert.False(model.IsGmailReplyAuthorized);
         Assert.Equal(0, capabilities.Calls);
     }
 
@@ -73,6 +77,8 @@ public sealed class ConnectionsGmailCapabilityUiTests
 
         var model = Assert.IsType<ConnectionDetailsViewModel>(Assert.IsType<ViewResult>(result).Model);
         Assert.False(model.IsGmailReadAuthorized);
+        Assert.False(model.IsGmailComposeAuthorized);
+        Assert.False(model.IsGmailReplyAuthorized);
         Assert.Equal(0, capabilities.Calls);
     }
 
@@ -104,6 +110,7 @@ public sealed class ConnectionsGmailCapabilityUiTests
             root, "src", "OrizonAgents.Web", "Views", "Connections", "Details.cshtml"));
 
         Assert.Contains("asp-action=\"UpgradeGmailRead\"", view);
+        Assert.Contains("asp-action=\"UpgradeGmailReply\"", view);
         Assert.Contains("method=\"post\"", view);
         Assert.Contains("@Html.AntiForgeryToken()", view);
         Assert.Contains("Permitir leitura do Gmail", view);
@@ -120,12 +127,14 @@ public sealed class ConnectionsGmailCapabilityUiTests
             .GetProperties()
             .Select(property => property.Name)
             .ToArray();
-        Assert.Equal(new[] { "Connection", "Edit", "IsGmailReadAuthorized" }, viewModelProperties);
+        Assert.Equal(new[] { "Connection", "Edit", "IsGmailReadAuthorized", "IsGmailComposeAuthorized", "IsGmailReplyAuthorized" }, viewModelProperties);
 
         string serialized = JsonSerializer.Serialize(new ConnectionDetailsViewModel
         {
             Connection = Connected(Guid.NewGuid()),
-            IsGmailReadAuthorized = false
+            IsGmailReadAuthorized = false,
+            IsGmailComposeAuthorized = false,
+            IsGmailReplyAuthorized = false
         });
         Assert.DoesNotContain("Scope", serialized, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Token", serialized, StringComparison.OrdinalIgnoreCase);

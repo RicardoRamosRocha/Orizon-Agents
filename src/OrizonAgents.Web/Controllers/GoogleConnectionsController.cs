@@ -32,6 +32,16 @@ public sealed class GoogleConnectionsController(IGoogleOAuthService oauth) : Con
             GoogleOAuthCapability.GmailCreateDraft,
             cancellationToken);
 
+    [HttpPost("{id:guid}/google/ampliar/gmail-respostas")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpgradeGmailReply(
+        Guid id,
+        CancellationToken cancellationToken) =>
+        await BeginAuthorization(
+            id,
+            GoogleOAuthCapability.GmailReply,
+            cancellationToken);
+
     private async Task<IActionResult> BeginAuthorization(
         Guid id,
         GoogleOAuthCapability? capability,

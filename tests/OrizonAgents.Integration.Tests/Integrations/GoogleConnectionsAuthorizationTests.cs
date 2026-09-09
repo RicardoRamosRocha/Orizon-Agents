@@ -12,7 +12,7 @@ public sealed class GoogleConnectionsAuthorizationTests
         var type = typeof(GoogleConnectionsController);
         Assert.Equal("TenantAdminOnly", Assert.Single(type.GetCustomAttributes(typeof(AuthorizeAttribute), true).Cast<AuthorizeAttribute>()).Policy);
         Assert.Empty(type.GetCustomAttributes(typeof(AllowAnonymousAttribute), true));
-        foreach (string action in new[] { "Connect", "UpgradeGmailRead", "Disconnect" })
+        foreach (string action in new[] { "Connect", "UpgradeGmailRead", "UpgradeGmailReply", "Disconnect" })
         {
             var method = type.GetMethod(action)!;
             Assert.True(method.IsDefined(typeof(HttpPostAttribute), true));
