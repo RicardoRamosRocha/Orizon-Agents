@@ -1,6 +1,7 @@
 using OrizonAgents.Infrastructure.Tools.Validation;
 using System.Net;
 using System.Text.Json;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -707,6 +708,7 @@ public sealed class HttpAgentToolExecutorTests
                     Guid.NewGuid().ToString()));
 
         services.AddHttpClient();
+        services.AddDataProtection();
 
         return services.BuildServiceProvider();
     }
@@ -741,7 +743,10 @@ public sealed class HttpAgentToolExecutorTests
             new AgentToolInputValidator(),
             new ToolExecutionApprovalService(
                 provider.GetRequiredService<OrizonAgentsDbContext>(),
-                provider.GetRequiredService<ICurrentTenant>()),
+                provider.GetRequiredService<ICurrentTenant>(),
+                new SensitiveToolExecutionFactory(
+                    new SensitiveToolExecutionPayloadProtector(
+                        provider.GetRequiredService<IDataProtectionProvider>()))),
             httpExecutor,
             gmailExecutor,
             provider.GetRequiredService<

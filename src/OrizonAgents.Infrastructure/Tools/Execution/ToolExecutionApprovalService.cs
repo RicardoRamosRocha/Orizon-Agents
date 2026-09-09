@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using OrizonAgents.Application.Common.Tenancy;
 using OrizonAgents.Application.Tools.Execution;
 using OrizonAgents.Application.Tools.Execution.Models;
@@ -16,13 +17,19 @@ public sealed class ToolExecutionApprovalService
 
     private readonly OrizonAgentsDbContext _dbContext;
     private readonly ICurrentTenant _currentTenant;
+    private const string OpenEquivalentRequestIndexName =
+        "IX_ToolExecutionApprovals_OpenEquivalentRequest";
+
+    private readonly ISensitiveToolExecutionFactory? _executionFactory;
 
     public ToolExecutionApprovalService(
         OrizonAgentsDbContext dbContext,
-        ICurrentTenant currentTenant)
+        ICurrentTenant currentTenant,
+        ISensitiveToolExecutionFactory? executionFactory = null)
     {
         _dbContext = dbContext;
         _currentTenant = currentTenant;
+        _executionFactory = executionFactory;
     }
 
     public async Task<IReadOnlyList<ToolExecutionApprovalListItemDto>> ListPendingAsync(
@@ -57,6 +64,7 @@ public sealed class ToolExecutionApprovalService
     public async Task<ToolExecutionAuthorizationResult> AuthorizeAsync(
         Guid agentId,
         AgentTool tool,
+        AgentToolBinding binding,
         JsonElement? input,
         CancellationToken cancellationToken = default)
     {
@@ -72,6 +80,8 @@ public sealed class ToolExecutionApprovalService
             throw new ArgumentNullException(nameof(tool));
         }
 
+        ArgumentNullException.ThrowIfNull(binding);
+
         EnsureCurrentTenant(tool.TenantId);
 
         if (tool.RiskLevel != AgentToolRiskLevel.Sensitive)
@@ -86,6 +96,7 @@ public sealed class ToolExecutionApprovalService
 
         ToolExecutionApproval? approval =
             await _dbContext.ToolExecutionApprovals
+                .Include(x => x.SensitiveToolExecution)
                 .Where(x =>
                     x.AgentId == agentId &&
                     x.ToolId == tool.Id &&
@@ -99,12 +110,14 @@ public sealed class ToolExecutionApprovalService
         {
             if (approval.ExpiresAtUtc <= utcNow)
             {
-                if (approval.Status == ToolExecutionApprovalStatus.Pending)
-                {
-                    approval.Expire(utcNow);
-                    await _dbContext.SaveChangesAsync(cancellationToken);
-                }
-
+                approval.Expire(utcNow);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                approval = null;
+            }
+            else if (approval.SensitiveToolExecution is null)
+            {
+                approval.Expire(utcNow);
+                await _dbContext.SaveChangesAsync(cancellationToken);
                 approval = null;
             }
             else if (approval.Status == ToolExecutionApprovalStatus.Approved)
@@ -128,12 +141,78 @@ public sealed class ToolExecutionApprovalService
             inputHash,
             utcNow.Add(ApprovalLifetime));
 
-        _dbContext.ToolExecutionApprovals.Add(pending);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        SensitiveToolExecution execution =
+            await (_executionFactory ?? throw new InvalidOperationException(
+                "Sensitive Tool execution factory is not configured.")).CreateAsync(
+                pending,
+                tool,
+                binding,
+                input,
+                cancellationToken);
+
+        try
+        {
+            _dbContext.SensitiveToolExecutions.Add(execution);
+            _dbContext.ToolExecutionApprovals.Add(pending);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (IsOpenEquivalentRequestConflict(exception))
+        {
+            _dbContext.ChangeTracker.Clear();
+
+            ToolExecutionApproval? winner = await FindOpenApprovalAsync(
+                agentId,
+                tool.Id,
+                inputHash,
+                cancellationToken);
+
+            if (winner is not null &&
+                winner.ExpiresAtUtc > DateTime.UtcNow &&
+                winner.SensitiveToolExecution is not null)
+            {
+                if (winner.Status == ToolExecutionApprovalStatus.Pending)
+                {
+                    return ToolExecutionAuthorizationResult.ApprovalRequired(winner.Id);
+                }
+
+                if (winner.Status == ToolExecutionApprovalStatus.Approved)
+                {
+                    winner.Consume(DateTime.UtcNow);
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                    return ToolExecutionAuthorizationResult.Allowed();
+                }
+            }
+
+            throw;
+        }
 
         return ToolExecutionAuthorizationResult.ApprovalRequired(
             pending.Id);
     }
+
+    private async Task<ToolExecutionApproval?> FindOpenApprovalAsync(
+        Guid agentId,
+        Guid toolId,
+        string inputHash,
+        CancellationToken cancellationToken) =>
+        await _dbContext.ToolExecutionApprovals
+            .Include(x => x.SensitiveToolExecution)
+            .Where(x =>
+                x.AgentId == agentId &&
+                x.ToolId == toolId &&
+                x.InputHash == inputHash &&
+                (x.Status == ToolExecutionApprovalStatus.Pending ||
+                 x.Status == ToolExecutionApprovalStatus.Approved))
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    private static bool IsOpenEquivalentRequestConflict(
+        DbUpdateException exception) =>
+        exception.InnerException is PostgresException
+        {
+            SqlState: "23505",
+            ConstraintName: OpenEquivalentRequestIndexName
+        };
 
     public async Task<bool> ApproveAsync(
         Guid approvalId,
@@ -156,7 +235,8 @@ public sealed class ToolExecutionApprovalService
         if (approval.Status != ToolExecutionApprovalStatus.Pending ||
             approval.ExpiresAtUtc <= utcNow)
         {
-            if (approval.Status == ToolExecutionApprovalStatus.Pending &&
+            if ((approval.Status is ToolExecutionApprovalStatus.Pending or
+                 ToolExecutionApprovalStatus.Approved) &&
                 approval.ExpiresAtUtc <= utcNow)
             {
                 approval.Expire(utcNow);

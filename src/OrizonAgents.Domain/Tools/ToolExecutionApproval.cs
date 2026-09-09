@@ -105,7 +105,13 @@ public sealed class ToolExecutionApproval : AuditableEntity, ITenantOwnedEntity
     public void Expire(DateTime utcNow)
     {
         EnsureUtc(utcNow, nameof(utcNow));
-        EnsurePending();
+
+        if (Status is not ToolExecutionApprovalStatus.Pending and
+            not ToolExecutionApprovalStatus.Approved)
+        {
+            throw new InvalidOperationException(
+                "Only a pending or approved approval can expire.");
+        }
 
         Status = ToolExecutionApprovalStatus.Expired;
     }

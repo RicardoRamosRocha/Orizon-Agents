@@ -102,6 +102,7 @@ public static class DependencyInjection
         services.AddScoped<IAgentToolExecutor, AgentToolExecutor>();
         services.AddScoped<IToolExecutionApprovalService, ToolExecutionApprovalService>();
         services.AddScoped<ISensitiveToolExecutionPayloadProtector, SensitiveToolExecutionPayloadProtector>();
+        services.AddScoped<ISensitiveToolExecutionFactory, SensitiveToolExecutionFactory>();
         services.AddScoped<IAgentToolInputValidator, AgentToolInputValidator>();
         services.AddScoped<IAgentModelDecisionParser, AgentModelDecisionParser>();
         services.AddScoped<IAgentToolCatalog, AgentToolCatalog>();

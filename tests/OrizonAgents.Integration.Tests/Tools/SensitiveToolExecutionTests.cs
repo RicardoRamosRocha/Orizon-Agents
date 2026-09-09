@@ -47,6 +47,15 @@ public sealed class SensitiveToolExecutionTests
                     nameof(SensitiveToolExecution.TenantId),
                     nameof(SensitiveToolExecution.ApprovalId)
                 })).IsUnique);
+
+        var approvalEntity = db.Model.FindEntityType(typeof(ToolExecutionApproval))!;
+        var openRequestIndex = approvalEntity.GetIndexes().Single(index =>
+            index.GetDatabaseName() ==
+            "IX_ToolExecutionApprovals_OpenEquivalentRequest");
+        Assert.True(openRequestIndex.IsUnique);
+        Assert.Equal(
+            "\"Status\" IN ('Pending', 'Approved')",
+            openRequestIndex.GetFilter());
     }
 
     [Fact]

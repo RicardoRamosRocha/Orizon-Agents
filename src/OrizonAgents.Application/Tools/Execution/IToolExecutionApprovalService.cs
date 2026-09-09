@@ -12,6 +12,7 @@ public interface IToolExecutionApprovalService
     Task<ToolExecutionAuthorizationResult> AuthorizeAsync(
         Guid agentId,
         AgentTool tool,
+        AgentToolBinding binding,
         JsonElement? input,
         CancellationToken cancellationToken = default);
 

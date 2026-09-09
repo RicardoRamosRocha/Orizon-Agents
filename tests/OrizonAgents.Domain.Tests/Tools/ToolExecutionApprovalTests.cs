@@ -81,6 +81,47 @@ public sealed class ToolExecutionApprovalTests
     }
 
     [Fact]
+    public void Expire_ShouldChangeUnconsumedApprovedApprovalToExpired()
+    {
+        var approval = CreateApproval();
+        approval.Approve(DateTime.UtcNow);
+
+        approval.Expire(DateTime.UtcNow.AddMinutes(11));
+
+        Assert.Equal(ToolExecutionApprovalStatus.Expired, approval.Status);
+        Assert.Throws<InvalidOperationException>(
+            () => approval.Consume(DateTime.UtcNow.AddMinutes(12)));
+    }
+
+    [Theory]
+    [InlineData(ToolExecutionApprovalStatus.Rejected)]
+    [InlineData(ToolExecutionApprovalStatus.Consumed)]
+    [InlineData(ToolExecutionApprovalStatus.Expired)]
+    public void Expire_ShouldRejectTerminalApprovalStates(
+        ToolExecutionApprovalStatus terminalState)
+    {
+        var approval = CreateApproval();
+        DateTime now = DateTime.UtcNow;
+
+        switch (terminalState)
+        {
+            case ToolExecutionApprovalStatus.Rejected:
+                approval.Reject(now);
+                break;
+            case ToolExecutionApprovalStatus.Consumed:
+                approval.Approve(now);
+                approval.Consume(now.AddSeconds(1));
+                break;
+            case ToolExecutionApprovalStatus.Expired:
+                approval.Expire(now);
+                break;
+        }
+
+        Assert.Throws<InvalidOperationException>(
+            () => approval.Expire(now.AddMinutes(1)));
+    }
+
+    [Fact]
     public void Approve_ShouldRejectExpiredApproval()
     {
         var approval = CreateApproval(

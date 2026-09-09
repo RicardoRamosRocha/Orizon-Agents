@@ -49,7 +49,7 @@ public sealed class AgentToolExecutor : IAgentToolExecutor
                 "ToolId é obrigatório.");
         }
 
-        AgentTool? tool = await (
+        ResolvedAgentTool? resolvedTool = await (
             from candidateTool in _dbContext.AgentTools.AsNoTracking()
             join binding in _dbContext.AgentToolBindings.AsNoTracking()
                 on candidateTool.Id equals binding.ToolId
@@ -61,14 +61,16 @@ public sealed class AgentToolExecutor : IAgentToolExecutor
                   && binding.TenantId == agent.TenantId
                   && candidateTool.IsActive
                   && binding.IsActive
-            select candidateTool)
+            select new ResolvedAgentTool(candidateTool, binding))
             .SingleOrDefaultAsync(cancellationToken);
 
-        if (tool is null)
+        if (resolvedTool is null)
         {
             return AgentToolExecutionResult.Failure(
                 "Tool não encontrada, inativa ou não vinculada ao agente.");
         }
+
+        AgentTool tool = resolvedTool.Tool;
 
         if (GmailToolPolicy.IsGmail(tool.Kind) &&
             tool.RiskLevel != GmailToolPolicy.RequiredRiskLevel(tool.Kind))
@@ -100,6 +102,7 @@ public sealed class AgentToolExecutor : IAgentToolExecutor
             await _approvalService.AuthorizeAsync(
                 request.AgentId,
                 tool,
+                resolvedTool.Binding,
                 request.Input,
                 cancellationToken);
 
@@ -150,4 +153,8 @@ public sealed class AgentToolExecutor : IAgentToolExecutor
                 "O tipo configurado para a Tool não é suportado.")
         };
     }
+
+    private sealed record ResolvedAgentTool(
+        AgentTool Tool,
+        AgentToolBinding Binding);
 }

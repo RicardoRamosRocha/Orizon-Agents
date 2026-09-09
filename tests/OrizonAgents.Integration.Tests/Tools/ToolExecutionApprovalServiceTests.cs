@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using OrizonAgents.Application.Common.Tenancy;
@@ -450,7 +451,10 @@ public sealed class ToolExecutionApprovalServiceTests
         ServiceProvider provider) =>
         new(
             provider.GetRequiredService<OrizonAgentsDbContext>(),
-            provider.GetRequiredService<ICurrentTenant>());
+            provider.GetRequiredService<ICurrentTenant>(),
+            new SensitiveToolExecutionFactory(
+                new SensitiveToolExecutionPayloadProtector(
+                    new EphemeralDataProtectionProvider())));
 
     private static AgentTool CreateTool(
         Guid tenantId,
@@ -508,4 +512,20 @@ public sealed class ToolExecutionApprovalServiceTests
 
         return services.BuildServiceProvider();
     }
+}
+
+internal static class ToolExecutionApprovalServiceTestExtensions
+{
+    public static Task<ToolExecutionAuthorizationResult> AuthorizeAsync(
+        this ToolExecutionApprovalService service,
+        Guid agentId,
+        AgentTool tool,
+        JsonElement? input,
+        CancellationToken cancellationToken = default) =>
+        service.AuthorizeAsync(
+            agentId,
+            tool,
+            new AgentToolBinding(tool.TenantId, agentId, tool.Id),
+            input,
+            cancellationToken);
 }

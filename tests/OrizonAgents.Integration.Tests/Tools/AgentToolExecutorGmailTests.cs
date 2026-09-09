@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -383,7 +384,7 @@ public sealed class AgentToolExecutorGmailTests
     public async Task GmailTool_SensitiveRisk_RequiresApprovalBeforeExecution()
     {
         await using var fixture = new Fixture();
-        var (agent, tool, _) = await fixture.SeedAsync(
+        var (agent, tool, binding) = await fixture.SeedAsync(
             AgentToolKind.GmailSend,
             Guid.NewGuid());
 
@@ -404,6 +405,16 @@ public sealed class AgentToolExecutorGmailTests
         Assert.Equal(
             ToolExecutionApprovalStatus.Pending,
             approval.Status);
+        SensitiveToolExecution execution =
+            await fixture.Db.SensitiveToolExecutions.SingleAsync();
+        Assert.Equal(approval.Id, execution.ApprovalId);
+        Assert.Equal(agent.TenantId, execution.TenantId);
+        Assert.Equal(agent.Id, execution.AgentId);
+        Assert.Equal(tool.Id, execution.ToolId);
+        Assert.Equal(binding!.Id, execution.AgentToolBindingId);
+        Assert.Equal(AgentToolKind.GmailSend, execution.ToolKind);
+        Assert.Equal(tool.IntegrationConnectionId, execution.IntegrationConnectionId);
+        Assert.Equal(SensitiveToolExecutionState.AwaitingApproval, execution.State);
 
         Assert.True(await new ToolExecutionApprovalService(fixture.Db, fixture.Tenant)
             .ApproveAsync(result.ApprovalId!.Value));
@@ -649,7 +660,12 @@ public sealed class AgentToolExecutorGmailTests
             Executor = new AgentToolExecutor(
                 Db,
                 new Infrastructure.Tools.Validation.AgentToolInputValidator(),
-                new ToolExecutionApprovalService(Db, Tenant),
+                new ToolExecutionApprovalService(
+                    Db,
+                    Tenant,
+                    new SensitiveToolExecutionFactory(
+                        new SensitiveToolExecutionPayloadProtector(
+                            new EphemeralDataProtectionProvider()))),
                 httpExecutor,
                 gmailExecutor,
                 NullLogger<AgentToolExecutor>.Instance);

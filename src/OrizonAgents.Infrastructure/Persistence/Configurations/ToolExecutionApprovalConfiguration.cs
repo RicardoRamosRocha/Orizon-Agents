@@ -46,6 +46,17 @@ public sealed class ToolExecutionApprovalConfiguration
             x.Status
         });
 
+        builder.HasIndex(x => new
+        {
+            x.TenantId,
+            x.AgentId,
+            x.ToolId,
+            x.InputHash
+        })
+            .HasDatabaseName("IX_ToolExecutionApprovals_OpenEquivalentRequest")
+            .HasFilter("\"Status\" IN ('Pending', 'Approved')")
+            .IsUnique();
+
         builder.HasIndex(x => x.ExpiresAtUtc);
     }
 }

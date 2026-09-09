@@ -8,8 +8,14 @@ internal static class ToolExecutionInputHasher
 {
     public static string Compute(JsonElement? input)
     {
-        using var stream = new MemoryStream();
+        byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(Canonicalize(input)));
 
+        return Convert.ToHexString(hash);
+    }
+
+    public static string Canonicalize(JsonElement? input)
+    {
+        using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream))
         {
             if (input.HasValue)
@@ -22,9 +28,27 @@ internal static class ToolExecutionInputHasher
             }
         }
 
-        byte[] hash = SHA256.HashData(stream.ToArray());
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
 
-        return Convert.ToHexString(hash);
+    public static string? CanonicalizeSchema(string? inputSchema)
+    {
+        if (inputSchema is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(inputSchema);
+            return Canonicalize(document.RootElement);
+        }
+        catch (JsonException)
+        {
+            throw new ArgumentException(
+                "The Tool input schema is invalid.",
+                nameof(inputSchema));
+        }
     }
 
     private static void WriteCanonical(
