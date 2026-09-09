@@ -24,6 +24,12 @@ public interface IGmailClient
         Guid connectionId,
         string draftId,
         CancellationToken cancellationToken = default);
+
+    Task<GmailReplyMessage> ReplyAsync(
+        Guid connectionId,
+        string messageId,
+        string body,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record GmailSearchResult(
@@ -53,5 +59,9 @@ public sealed record GmailDraft(
     string? ThreadId);
 
 public sealed record GmailSentMessage(
+    string MessageId,
+    string? ThreadId);
+
+public sealed record GmailReplyMessage(
     string MessageId,
     string? ThreadId);

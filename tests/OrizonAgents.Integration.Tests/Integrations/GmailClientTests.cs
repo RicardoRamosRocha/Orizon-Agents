@@ -2,10 +2,14 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.EntityFrameworkCore;
 using OrizonAgents.Application.Common.Results;
+using OrizonAgents.Domain.Integrations;
 using OrizonAgents.Application.Integrations.Gmail;
 using OrizonAgents.Application.Integrations.Google;
 using OrizonAgents.Infrastructure.Integrations.Gmail;
+using OrizonAgents.Infrastructure.Persistence;
+using OrizonAgents.Infrastructure.Tenancy;
 
 namespace OrizonAgents.Integration.Tests.Integrations;
 
@@ -580,9 +584,63 @@ public sealed class GmailClientTests
         Assert.DoesNotContain("test-access-token", handler.RequestBody!);
     }
 
+    [Fact]
+    public async Task ReplyAsync_DerivesThreadAndRecipient_AndSendsOnlyServerGeneratedMime()
+    {
+        Guid connectionId = Guid.NewGuid();
+        await using OrizonAgentsDbContext db = CreateConnectedGmailContext(connectionId, "me@example.com");
+        var handler = new RecordingHttpMessageHandler(
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = Json("""{"id":"original","threadId":"thread-1","payload":{"headers":[{"name":"From","value":"Sender <sender@example.com>"},{"name":"To","value":"me@example.com"},{"name":"Subject","value":"Status"},{"name":"Message-ID","value":"<original@example.com>"},{"name":"References","value":"<earlier@example.com>"}]}}""")
+            },
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = Json("""{"id":"reply-1","threadId":"thread-1"}""")
+            });
+
+        GmailReplyMessage reply = await CreateClient(handler, db: db).ReplyAsync(
+            connectionId, "original", "Linha 1\nLinha 2");
+
+        Assert.Equal("reply-1", reply.MessageId);
+        Assert.Equal("thread-1", reply.ThreadId);
+        Assert.Equal(2, handler.RequestCount);
+        Assert.Equal("/gmail/v1/users/me/messages/original", handler.RequestUris[0]!.AbsolutePath);
+        Assert.Equal("/gmail/v1/users/me/messages/send", handler.RequestUris[1]!.AbsolutePath);
+        using JsonDocument request = JsonDocument.Parse(handler.RequestBodies[1]!);
+        Assert.Equal("thread-1", request.RootElement.GetProperty("threadId").GetString());
+        string raw = request.RootElement.GetProperty("raw").GetString()!;
+        string mime = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(raw));
+        Assert.Contains("To: sender@example.com\r\n", mime);
+        Assert.Contains("Subject: =?utf-8?B?", mime);
+        Assert.Contains("UmU6IFN0YXR1cw", mime);
+        Assert.Contains("In-Reply-To: <original@example.com>\r\n", mime);
+        Assert.Contains("References: <earlier@example.com>\r\n", mime);
+        Assert.DoesNotContain("me@example.com", mime);
+    }
+
+    [Fact]
+    public async Task ReplyAsync_RejectsUntrustedHeaderInjectionBeforeSending()
+    {
+        Guid connectionId = Guid.NewGuid();
+        await using OrizonAgentsDbContext db = CreateConnectedGmailContext(connectionId, "me@example.com");
+        var handler = new RecordingHttpMessageHandler(
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = Json("""{"id":"original","threadId":"thread-1","payload":{"headers":[{"name":"From","value":"sender@example.com"},{"name":"Subject","value":"Status\r\nBcc: attacker@example.com"}]}}""")
+            });
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            CreateClient(handler, db: db).ReplyAsync(connectionId, "original", "Resposta"));
+
+        Assert.Equal(1, handler.RequestCount);
+        Assert.DoesNotContain("send", handler.RequestUris[0]!.AbsolutePath, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static GmailClient CreateClient(
         RecordingHttpMessageHandler handler,
-        IGoogleOAuthTokenService? tokenService = null)
+        IGoogleOAuthTokenService? tokenService = null,
+        OrizonAgentsDbContext? db = null)
     {
         return new GmailClient(
             new FakeHttpClientFactory(handler),
@@ -590,7 +648,26 @@ public sealed class GmailClientTests
             new StubGoogleOAuthTokenService(
                 OperationResult<GoogleAccessToken>.Success(
                     new GoogleAccessToken("test-access-token"))),
-            new GmailMessageContentReducer());
+            new GmailMessageContentReducer(),
+            db);
+    }
+
+    private static OrizonAgentsDbContext CreateConnectedGmailContext(Guid connectionId, string email)
+    {
+        var tenant = new CurrentTenant();
+        Guid tenantId = Guid.NewGuid();
+        tenant.SetTenantId(tenantId);
+        var options = new DbContextOptionsBuilder<OrizonAgentsDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        var db = new OrizonAgentsDbContext(options, tenant);
+        var connection = new IntegrationConnection(tenantId, "Gmail", IntegrationProvider.Gmail);
+        connection.Connect(email, "protected-credentials");
+        typeof(IntegrationConnection).GetProperty(nameof(IntegrationConnection.Id))!
+            .SetValue(connection, connectionId);
+        db.IntegrationConnections.Add(connection);
+        db.SaveChanges();
+        return db;
     }
 
     private static StubGoogleOAuthTokenService SuccessfulTokenService() =>
@@ -660,11 +737,12 @@ public sealed class GmailClientTests
     }
 
     private sealed class RecordingHttpMessageHandler(
-        HttpResponseMessage response)
+        params HttpResponseMessage[] responses)
         : HttpMessageHandler
     {
-        private readonly HttpStatusCode _statusCode = response.StatusCode;
-        private readonly string _body = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+        private readonly List<(HttpStatusCode StatusCode, string Body)> _responses = responses
+            .Select(response => (response.StatusCode, response.Content.ReadAsStringAsync().GetAwaiter().GetResult()))
+            .ToList();
         public int RequestCount { get; private set; }
 
         public HttpMethod? Method { get; private set; }
@@ -676,6 +754,8 @@ public sealed class GmailClientTests
         public string? AuthorizationParameter { get; private set; }
 
         public string? RequestBody { get; private set; }
+        public List<Uri?> RequestUris { get; } = [];
+        public List<string?> RequestBodies { get; } = [];
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
@@ -698,10 +778,13 @@ public sealed class GmailClientTests
             RequestBody = request.Content is null
                 ? null
                 : await request.Content.ReadAsStringAsync(cancellationToken);
+            RequestUris.Add(request.RequestUri);
+            RequestBodies.Add(RequestBody);
+            (HttpStatusCode statusCode, string body) = _responses[Math.Min(RequestCount - 1, _responses.Count - 1)];
 
-            return new HttpResponseMessage(_statusCode)
+            return new HttpResponseMessage(statusCode)
             {
-                Content = new StringContent(_body, Encoding.UTF8, "application/json")
+                Content = new StringContent(body, Encoding.UTF8, "application/json")
             };
         }
     }

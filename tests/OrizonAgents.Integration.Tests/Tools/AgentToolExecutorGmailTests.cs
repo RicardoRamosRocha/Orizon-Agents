@@ -439,6 +439,27 @@ public sealed class AgentToolExecutorGmailTests
     }
 
     [Fact]
+    public async Task GmailReply_WithoutCapability_DoesNotSendAfterApproval()
+    {
+        await using var fixture = new Fixture();
+        var (agent, tool, _) = await fixture.SeedAsync(AgentToolKind.GmailReply, Guid.NewGuid());
+        JsonElement input = Json("""{"messageId":"message-1","body":"Resposta"}""");
+
+        AgentToolExecutionResult pending = await fixture.Executor.ExecuteAsync(
+            new AgentToolExecutionRequest(agent.Id, tool.Id, input));
+        Assert.True(await new ToolExecutionApprovalService(fixture.Db, fixture.Tenant)
+            .ApproveAsync(pending.ApprovalId!.Value));
+        fixture.Capabilities.Granted = false;
+
+        AgentToolExecutionResult result = await fixture.Executor.ExecuteAsync(
+            new AgentToolExecutionRequest(agent.Id, tool.Id, input));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(GoogleOAuthCapability.GmailReply, fixture.Capabilities.Capability);
+        Assert.Equal(0, fixture.Gmail.ReplyCalls);
+    }
+
+    [Fact]
     public async Task GmailFailure_DoesNotExposeProviderContentOrToken()
     {
         const string token = "SENSITIVE-GOOGLE-ACCESS-TOKEN";
@@ -541,31 +562,32 @@ public sealed class AgentToolExecutorGmailTests
         Assert.DoesNotContain(secret, string.Join(" ", fixture.GmailLogger.Messages));
     }
 
-    [Theory]
-    [InlineData(AgentToolKind.GmailReply, GoogleOAuthCapability.GmailReply)]
-    public async Task GmailWriteTool_RequiresItsCapability_AndNeverCallsGmailBeforeImplementation(
-        AgentToolKind kind,
-        GoogleOAuthCapability capability)
+    [Fact]
+    public async Task GmailReply_RequiresApprovalAndCapability_BeforeServerSideExecution()
     {
         await using var fixture = new Fixture();
-        var (agent, tool, _) = await fixture.SeedAsync(kind, Guid.NewGuid());
+        var (agent, tool, _) = await fixture.SeedAsync(AgentToolKind.GmailReply, Guid.NewGuid());
+        JsonElement input = Json("""{"messageId":"message-1","body":"Resposta"}""");
 
         AgentToolExecutionResult result = await fixture.Executor.ExecuteAsync(
-            new AgentToolExecutionRequest(agent.Id, tool.Id, Json("{}")));
+            new AgentToolExecutionRequest(agent.Id, tool.Id, input));
 
-        if (tool.RiskLevel == AgentToolRiskLevel.Sensitive)
-        {
-            Assert.True(result.RequiresApproval);
-            Assert.True(await new ToolExecutionApprovalService(fixture.Db, fixture.Tenant)
-                .ApproveAsync(result.ApprovalId!.Value));
-            result = await fixture.Executor.ExecuteAsync(
-                new AgentToolExecutionRequest(agent.Id, tool.Id, Json("{}")));
-        }
+        Assert.True(result.RequiresApproval);
+        Assert.Equal(0, fixture.Capabilities.Calls);
+        Assert.Equal(0, fixture.Gmail.ReplyCalls);
+        Assert.True(await new ToolExecutionApprovalService(fixture.Db, fixture.Tenant)
+            .ApproveAsync(result.ApprovalId!.Value));
 
-        Assert.False(result.Succeeded);
-        Assert.Equal(capability, fixture.Capabilities.Capability);
-        Assert.Equal(0, fixture.Gmail.SearchCalls);
-        Assert.Equal(0, fixture.Gmail.ReadCalls);
+        result = await fixture.Executor.ExecuteAsync(
+            new AgentToolExecutionRequest(agent.Id, tool.Id, input));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(GoogleOAuthCapability.GmailReply, fixture.Capabilities.Capability);
+        Assert.Equal(1, fixture.Gmail.ReplyCalls);
+        Assert.Equal("message-1", fixture.Gmail.ReplyToMessageId);
+        Assert.Equal("Resposta", fixture.Gmail.ReplyBody);
+        Assert.DoesNotContain("Resposta", result.Content!);
+        Assert.Contains("reply-message-id", result.Content!);
     }
 
     [Fact]
@@ -756,6 +778,7 @@ public sealed class AgentToolExecutorGmailTests
         public int ReadCalls { get; private set; }
         public int DraftCalls { get; private set; }
         public int SendDraftCalls { get; private set; }
+        public int ReplyCalls { get; private set; }
         public Guid? ConnectionId { get; private set; }
         public string? Query { get; private set; }
         public int? MaxResults { get; private set; }
@@ -763,6 +786,8 @@ public sealed class AgentToolExecutorGmailTests
         public string? DraftTo { get; private set; }
         public string? DraftSubject { get; private set; }
         public string? DraftBody { get; private set; }
+        public string? ReplyToMessageId { get; private set; }
+        public string? ReplyBody { get; private set; }
 
         public Task<GmailSearchResult> SearchMessagesAsync(
             Guid connectionId,
@@ -820,6 +845,18 @@ public sealed class AgentToolExecutorGmailTests
         {
             SendDraftCalls++;
             return Task.FromResult(new GmailSentMessage("sent-message-id", "sent-thread-id"));
+        }
+
+        public Task<GmailReplyMessage> ReplyAsync(
+            Guid connectionId,
+            string messageId,
+            string body,
+            CancellationToken cancellationToken = default)
+        {
+            ReplyCalls++;
+            ReplyToMessageId = messageId;
+            ReplyBody = body;
+            return Task.FromResult(new GmailReplyMessage("reply-message-id", "reply-thread-id"));
         }
     }
 

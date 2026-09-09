@@ -5,17 +5,96 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.EntityFrameworkCore;
 using OrizonAgents.Application.Integrations.Gmail;
 using OrizonAgents.Application.Integrations.Google;
+using OrizonAgents.Infrastructure.Persistence;
 
 namespace OrizonAgents.Infrastructure.Integrations.Gmail;
 
 public sealed class GmailClient(
     IHttpClientFactory clients,
     IGoogleOAuthTokenService tokens,
-    IGmailMessageContentReducer contentReducer) : IGmailClient
+    IGmailMessageContentReducer contentReducer,
+    OrizonAgentsDbContext? dbContext = null) : IGmailClient
 {
     public const string HttpClientName = "Gmail";
+
+    public async Task<GmailReplyMessage> ReplyAsync(
+        Guid connectionId,
+        string messageId,
+        string body,
+        CancellationToken cancellationToken = default)
+    {
+        if (connectionId == Guid.Empty) throw new ArgumentException("ConnectionId \u00e9 obrigat\u00f3rio.", nameof(connectionId));
+        ArgumentException.ThrowIfNullOrWhiteSpace(messageId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(body);
+        if (dbContext is null) throw new InvalidOperationException("Conex\u00e3o Gmail indispon\u00edvel.");
+
+        string? accountEmail = await dbContext.IntegrationConnections.AsNoTracking()
+            .Where(connection => connection.Id == connectionId)
+            .Select(connection => connection.ConnectedAccountEmail)
+            .SingleOrDefaultAsync(cancellationToken);
+        string ownAddress = NormalizeMailboxHeader(accountEmail ?? throw new InvalidOperationException("Conta Gmail conectada indispon\u00edvel."));
+        var tokenResult = await tokens.GetAccessTokenAsync(connectionId, cancellationToken);
+        if (!tokenResult.Succeeded || tokenResult.Value is null)
+            throw new InvalidOperationException(tokenResult.FirstError ?? "N\u00e3o foi poss\u00edvel obter o token Google.");
+
+        using var client = clients.CreateClient(HttpClientName);
+        using var originalRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"https://gmail.googleapis.com/gmail/v1/users/me/messages/{Uri.EscapeDataString(messageId.Trim())}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Reply-To&metadataHeaders=Subject&metadataHeaders=Message-ID&metadataHeaders=References");
+        originalRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenResult.Value.Value);
+        using HttpResponseMessage originalResponse = await client.SendAsync(originalRequest, cancellationToken);
+        if (!originalResponse.IsSuccessStatusCode) throw new GmailApiException(originalResponse.StatusCode);
+        using JsonDocument original = JsonDocument.Parse(await originalResponse.Content.ReadAsStringAsync(cancellationToken));
+        JsonElement root = original.RootElement;
+        string? threadId = ReadString(root, "threadId");
+        if (string.IsNullOrWhiteSpace(threadId)) throw new InvalidOperationException("A mensagem Gmail n\u00e3o possui thread v\u00e1lida.");
+        JsonElement payload = root.GetProperty("payload");
+        string? from = ReadHeader(payload, "From");
+        string? to = ReadHeader(payload, "To");
+        string? replyTo = ReadHeader(payload, "Reply-To");
+        string recipient = AddressesEqual(from, ownAddress)
+            ? NormalizeMailboxHeader(to ?? throw new InvalidOperationException("Destinat\u00e1rio da resposta indispon\u00edvel."))
+            : NormalizeMailboxHeader(replyTo ?? from ?? throw new InvalidOperationException("Destinat\u00e1rio da resposta indispon\u00edvel."));
+        if (AddressesEqual(recipient, ownAddress)) throw new InvalidOperationException("Destinat\u00e1rio da resposta inv\u00e1lido.");
+        string subject = NormalizeHeaderValue(ReadHeader(payload, "Subject") ?? "Re:", "subject");
+        if (!subject.StartsWith("Re:", StringComparison.OrdinalIgnoreCase)) subject = "Re: " + subject;
+        string? originalMessageId = ReadHeader(payload, "Message-ID");
+        string? references = ReadHeader(payload, "References");
+        string mime = BuildReplyMime(recipient, subject, body, originalMessageId, references);
+        string raw = Base64UrlEncode(Encoding.UTF8.GetBytes(mime));
+        using var sendRequest = new HttpRequestMessage(HttpMethod.Post, "https://gmail.googleapis.com/gmail/v1/users/me/messages/send")
+        {
+            Content = JsonContent.Create(new { raw, threadId })
+        };
+        sendRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenResult.Value.Value);
+        using HttpResponseMessage sendResponse = await client.SendAsync(sendRequest, cancellationToken);
+        if (!sendResponse.IsSuccessStatusCode) throw new GmailApiException(sendResponse.StatusCode);
+        using JsonDocument sent = JsonDocument.Parse(await sendResponse.Content.ReadAsStringAsync(cancellationToken));
+        string? sentId = ReadString(sent.RootElement, "id");
+        if (string.IsNullOrWhiteSpace(sentId)) throw new InvalidOperationException("A API Gmail n\u00e3o retornou o identificador da resposta.");
+        return new GmailReplyMessage(sentId, ReadString(sent.RootElement, "threadId"));
+    }
+
+    private static bool AddressesEqual(string? value, string address)
+    {
+        try { return !string.IsNullOrWhiteSpace(value) && string.Equals(NormalizeMailboxHeader(value), address, StringComparison.OrdinalIgnoreCase); }
+        catch (ArgumentException) { return false; }
+    }
+
+    private static string BuildReplyMime(string to, string subject, string body, string? messageId, string? references)
+    {
+        string mime = BuildPlainTextMime(to, subject, body);
+        int split = mime.IndexOf("\r\n\r\n", StringComparison.Ordinal);
+        string threading = string.Empty;
+        if (!string.IsNullOrWhiteSpace(messageId)) threading += "In-Reply-To: " + NormalizeHeaderValue(messageId, "messageId") + "\r\n";
+        if (!string.IsNullOrWhiteSpace(references)) threading += "References: " + NormalizeHeaderValue(references, "references") + "\r\n";
+        return string.IsNullOrEmpty(threading)
+            ? mime
+            : mime[..split] + "\r\n" + threading + "\r\n" + mime[(split + 4)..];
+    }
 
     public async Task<GmailSentMessage> SendDraftAsync(
         Guid connectionId,
@@ -140,6 +219,19 @@ public sealed class GmailClient(
         catch (FormatException exception)
         {
             throw new ArgumentException("Destinat\u00e1rio Gmail inv\u00e1lido.", nameof(value), exception);
+        }
+    }
+
+    private static string NormalizeMailboxHeader(string value)
+    {
+        string candidate = NormalizeHeaderValue(value, nameof(value));
+        try
+        {
+            return new MailAddress(candidate).Address;
+        }
+        catch (FormatException exception)
+        {
+            throw new ArgumentException("Endere\u00e7o Gmail inv\u00e1lido.", nameof(value), exception);
         }
     }
 

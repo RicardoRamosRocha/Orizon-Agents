@@ -80,9 +80,9 @@ public sealed class GmailAgentToolExecutor
                         cancellationToken),
 
                 AgentToolKind.GmailReply =>
-                    await ExecuteUnavailableWriteOperationAsync(
+                    await ExecuteReplyAsync(
                         tool.IntegrationConnectionId.Value,
-                        tool.Kind,
+                        input.Value,
                         cancellationToken),
 
                 _ => AgentToolExecutionResult.Failure(
@@ -202,7 +202,7 @@ public sealed class GmailAgentToolExecutor
         }
 
         return AgentToolExecutionResult.Failure(
-            "A operaÃ§Ã£o de escrita Gmail ainda nÃ£o estÃ¡ disponÃ­vel.");
+            "A opera\u00e7\u00e3o de escrita Gmail ainda n\u00e3o est\u00e1 dispon\u00edvel.");
     }
 
     private async Task<AgentToolExecutionResult> ExecuteCreateDraftAsync(
@@ -251,6 +251,16 @@ public sealed class GmailAgentToolExecutor
         return AgentToolExecutionResult.Success(
             null,
             JsonSerializer.Serialize(sent, JsonOptions));
+    }
+
+    private async Task<AgentToolExecutionResult> ExecuteReplyAsync(Guid connectionId, JsonElement input, CancellationToken cancellationToken)
+    {
+        if (!TryReadRequiredString(input, "messageId", out string messageId) ||
+            !TryReadRequiredString(input, "body", out string body)) return InvalidArguments();
+        if (!await HasRequiredCapabilityAsync(connectionId, AgentToolKind.GmailReply, cancellationToken))
+            return MissingGmailAuthorization();
+        GmailReplyMessage reply = await _gmailClient.ReplyAsync(connectionId, messageId, body, cancellationToken);
+        return AgentToolExecutionResult.Success(null, JsonSerializer.Serialize(reply, JsonOptions));
     }
 
     private static bool TryReadRequiredString(
