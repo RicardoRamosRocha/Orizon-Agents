@@ -809,6 +809,13 @@ public sealed class HttpAgentToolExecutorTests
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException(
                 "Gmail n\u00e3o deveria ser chamado por uma Tool HTTP.");
+
+        public Task<GmailSentMessage> SendDraftAsync(
+            Guid connectionId,
+            string draftId,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException(
+                "Gmail n\u00e3o deveria ser chamado por uma Tool HTTP.");
     }
 
     private sealed class UnexpectedGoogleOAuthCapabilityService : IGoogleOAuthCapabilityService

@@ -17,6 +17,55 @@ public sealed class GmailClient(
 {
     public const string HttpClientName = "Gmail";
 
+    public async Task<GmailSentMessage> SendDraftAsync(
+        Guid connectionId,
+        string draftId,
+        CancellationToken cancellationToken = default)
+    {
+        if (connectionId == Guid.Empty)
+        {
+            throw new ArgumentException("ConnectionId \u00e9 obrigat\u00f3rio.", nameof(connectionId));
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(draftId);
+        string normalizedDraftId = draftId.Trim();
+
+        var tokenResult = await tokens.GetAccessTokenAsync(connectionId, cancellationToken);
+        if (!tokenResult.Succeeded || tokenResult.Value is null)
+        {
+            throw new InvalidOperationException(
+                tokenResult.FirstError ?? "N\u00e3o foi poss\u00edvel obter o token Google.");
+        }
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            "https://gmail.googleapis.com/gmail/v1/users/me/drafts/send")
+        {
+            Content = JsonContent.Create(new { id = normalizedDraftId })
+        };
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokenResult.Value.Value);
+
+        using var client = clients.CreateClient(HttpClientName);
+        using HttpResponseMessage response = await client.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new GmailApiException(response.StatusCode);
+        }
+
+        using JsonDocument json = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        string? messageId = ReadString(json.RootElement, "id");
+        if (string.IsNullOrWhiteSpace(messageId))
+        {
+            throw new InvalidOperationException("A API Gmail n\u00e3o retornou o identificador da mensagem enviada.");
+        }
+
+        return new GmailSentMessage(
+            messageId,
+            ReadString(json.RootElement, "threadId"));
+    }
+
     public async Task<GmailDraft> CreateDraftAsync(
         Guid connectionId,
         string to,

@@ -73,7 +73,12 @@ public sealed class GmailAgentToolExecutor
                         input.Value,
                         cancellationToken),
 
-                AgentToolKind.GmailSend or
+                AgentToolKind.GmailSend =>
+                    await ExecuteSendDraftAsync(
+                        tool.IntegrationConnectionId.Value,
+                        input.Value,
+                        cancellationToken),
+
                 AgentToolKind.GmailReply =>
                     await ExecuteUnavailableWriteOperationAsync(
                         tool.IntegrationConnectionId.Value,
@@ -223,6 +228,29 @@ public sealed class GmailAgentToolExecutor
         return AgentToolExecutionResult.Success(
             null,
             JsonSerializer.Serialize(draft, JsonOptions));
+    }
+
+    private async Task<AgentToolExecutionResult> ExecuteSendDraftAsync(
+        Guid connectionId,
+        JsonElement input,
+        CancellationToken cancellationToken)
+    {
+        if (!TryReadRequiredString(input, "draftId", out string draftId))
+        {
+            return InvalidArguments();
+        }
+
+        if (!await HasRequiredCapabilityAsync(
+                connectionId, AgentToolKind.GmailSend, cancellationToken))
+        {
+            return MissingGmailAuthorization();
+        }
+
+        GmailSentMessage sent = await _gmailClient.SendDraftAsync(
+            connectionId, draftId, cancellationToken);
+        return AgentToolExecutionResult.Success(
+            null,
+            JsonSerializer.Serialize(sent, JsonOptions));
     }
 
     private static bool TryReadRequiredString(

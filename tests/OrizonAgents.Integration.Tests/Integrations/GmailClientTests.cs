@@ -556,6 +556,30 @@ public sealed class GmailClientTests
         Assert.Equal(0, handler.RequestCount);
     }
 
+    [Fact]
+    public async Task SendDraftAsync_PostsOnlyDraftIdAndReturnsMinimalMetadata()
+    {
+        var handler = new RecordingHttpMessageHandler(
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = Json("""{"id":"message-1","threadId":"thread-1"}""")
+            });
+
+        GmailSentMessage sent = await CreateClient(handler).SendDraftAsync(
+            Guid.NewGuid(), "draft-1");
+
+        Assert.Equal("message-1", sent.MessageId);
+        Assert.Equal("thread-1", sent.ThreadId);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/gmail/v1/users/me/drafts/send", handler.RequestUri!.AbsolutePath);
+        using JsonDocument payload = JsonDocument.Parse(handler.RequestBody!);
+        JsonProperty id = Assert.Single(payload.RootElement.EnumerateObject());
+        Assert.Equal("id", id.Name);
+        Assert.Equal("draft-1", id.Value.GetString());
+        Assert.DoesNotContain("raw", handler.RequestBody!, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("test-access-token", handler.RequestBody!);
+    }
+
     private static GmailClient CreateClient(
         RecordingHttpMessageHandler handler,
         IGoogleOAuthTokenService? tokenService = null)

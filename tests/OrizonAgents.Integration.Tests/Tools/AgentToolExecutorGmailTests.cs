@@ -404,6 +404,38 @@ public sealed class AgentToolExecutorGmailTests
         Assert.Equal(
             ToolExecutionApprovalStatus.Pending,
             approval.Status);
+
+        Assert.True(await new ToolExecutionApprovalService(fixture.Db, fixture.Tenant)
+            .ApproveAsync(result.ApprovalId!.Value));
+        AgentToolExecutionResult approved = await fixture.Executor.ExecuteAsync(
+            new AgentToolExecutionRequest(
+                agent.Id,
+                tool.Id,
+                Json("""{"draftId":"draft-1"}""")));
+        Assert.True(approved.Succeeded);
+        Assert.Equal(GoogleOAuthCapability.GmailSend, fixture.Capabilities.Capability);
+        Assert.Equal(1, fixture.Gmail.SendDraftCalls);
+    }
+
+    [Fact]
+    public async Task GmailSend_WithoutCapability_DoesNotSendAfterApproval()
+    {
+        await using var fixture = new Fixture();
+        var (agent, tool, _) = await fixture.SeedAsync(
+            AgentToolKind.GmailSend, Guid.NewGuid());
+        JsonElement input = Json("""{"draftId":"draft-1"}""");
+
+        AgentToolExecutionResult pending = await fixture.Executor.ExecuteAsync(
+            new AgentToolExecutionRequest(agent.Id, tool.Id, input));
+        Assert.True(await new ToolExecutionApprovalService(fixture.Db, fixture.Tenant)
+            .ApproveAsync(pending.ApprovalId!.Value));
+        fixture.Capabilities.Granted = false;
+
+        AgentToolExecutionResult result = await fixture.Executor.ExecuteAsync(
+            new AgentToolExecutionRequest(agent.Id, tool.Id, input));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, fixture.Gmail.SendDraftCalls);
     }
 
     [Fact]
@@ -510,7 +542,6 @@ public sealed class AgentToolExecutorGmailTests
     }
 
     [Theory]
-    [InlineData(AgentToolKind.GmailSend, GoogleOAuthCapability.GmailSend)]
     [InlineData(AgentToolKind.GmailReply, GoogleOAuthCapability.GmailReply)]
     public async Task GmailWriteTool_RequiresItsCapability_AndNeverCallsGmailBeforeImplementation(
         AgentToolKind kind,
@@ -724,6 +755,7 @@ public sealed class AgentToolExecutorGmailTests
         public int SearchCalls { get; private set; }
         public int ReadCalls { get; private set; }
         public int DraftCalls { get; private set; }
+        public int SendDraftCalls { get; private set; }
         public Guid? ConnectionId { get; private set; }
         public string? Query { get; private set; }
         public int? MaxResults { get; private set; }
@@ -779,6 +811,15 @@ public sealed class AgentToolExecutorGmailTests
             DraftSubject = subject;
             DraftBody = body;
             return Task.FromResult(new GmailDraft("draft-id", "message-id", "thread-id"));
+        }
+
+        public Task<GmailSentMessage> SendDraftAsync(
+            Guid connectionId,
+            string draftId,
+            CancellationToken cancellationToken = default)
+        {
+            SendDraftCalls++;
+            return Task.FromResult(new GmailSentMessage("sent-message-id", "sent-thread-id"));
         }
     }
 
