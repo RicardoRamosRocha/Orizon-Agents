@@ -217,18 +217,11 @@ public sealed class OpenAiChatProvider(
 
         if (!response.IsSuccessStatusCode)
         {
-            OpenAiErrorDiagnostics error = ReadErrorDiagnostics(responseBody);
             logger.LogWarning(
                 "OpenAI Responses request failed. HttpStatusCode: {HttpStatusCode}; " +
-                "ErrorType: {ErrorType}; ErrorCode: {ErrorCode}; " +
-                "ErrorParam: {ErrorParam}; ErrorMessage: {ErrorMessage}; " +
                 "IsContinuation: {IsContinuation}; FunctionCallOutputCount: {FunctionCallOutputCount}; " +
-                "PreviousResponseIdSent: {PreviousResponseIdSent}.",
+                "UsesStatelessContinuation: {UsesStatelessContinuation}.",
                 (int)response.StatusCode,
-                error.Type ?? "(not available)",
-                error.Code ?? "(not available)",
-                error.Param ?? "(not available)",
-                error.Message ?? "(not available)",
                 !string.IsNullOrWhiteSpace(continuationToken),
                 toolResults.Count,
                 !string.IsNullOrWhiteSpace(continuationToken));
@@ -293,7 +286,7 @@ public sealed class OpenAiChatProvider(
         return !string.IsNullOrWhiteSpace(apiKey)
             ? apiKey
             : throw new InvalidOperationException(
-                "Nenhuma credencial da OpenAI estÃ¯Â¿Â½ configurada para este tenant.");
+                "Nenhuma credencial da OpenAI est\u00e1 configurada para este tenant.");
     }
 
     private static string BuildInstructions(
@@ -306,8 +299,8 @@ public sealed class OpenAiChatProvider(
         }
 
         return systemPrompt +
-            "\n\nContexto operacional fornecido pela aplicaÃ¯Â¿Â½Ã¯Â¿Â½o consumidora " +
-            "para esta execuÃ¯Â¿Â½Ã¯Â¿Â½o:\n" +
+            "\n\nContexto operacional fornecido pela aplica\u00e7\u00e3o consumidora " +
+            "para esta execu\u00e7\u00e3o:\n" +
             operationalContext;
     }
 
@@ -358,7 +351,7 @@ public sealed class OpenAiChatProvider(
             if (schema.RootElement.ValueKind != JsonValueKind.Object)
             {
                 throw new InvalidOperationException(
-                    $"O schema de entrada da Tool {tool.Name} nÃ¯Â¿Â½o Ã¯Â¿Â½ um objeto JSON.");
+                    $"O schema de entrada da Tool {tool.Name} n\u00e3o \u00e9 um objeto JSON.");
             }
 
             return schema.RootElement.Clone();
@@ -366,7 +359,7 @@ public sealed class OpenAiChatProvider(
         catch (JsonException exception)
         {
             throw new InvalidOperationException(
-                $"O schema de entrada da Tool {tool.Name} nÃ¯Â¿Â½o contÃ¯Â¿Â½m JSON vÃ¯Â¿Â½lido.",
+                $"O schema de entrada da Tool {tool.Name} n\u00e3o cont\u00e9m JSON v\u00e1lido.",
                 exception);
         }
     }
@@ -432,7 +425,7 @@ public sealed class OpenAiChatProvider(
                 argumentsElement.ValueKind != JsonValueKind.String)
             {
                 throw new InvalidOperationException(
-                    "A OpenAI retornou argumentos de Tool invÃ¯Â¿Â½lidos.");
+                    "A OpenAI retornou argumentos de Tool inv\u00e1lidos.");
             }
 
             try
@@ -451,7 +444,7 @@ public sealed class OpenAiChatProvider(
             catch (JsonException exception)
             {
                 throw new InvalidOperationException(
-                    "A OpenAI retornou argumentos de Tool que nÃ¯Â¿Â½o contÃ¯Â¿Â½m JSON vÃ¯Â¿Â½lido.",
+                    "A OpenAI retornou argumentos de Tool que n\u00e3o cont\u00e9m JSON v\u00e1lido.",
                     exception);
             }
         }
@@ -553,38 +546,12 @@ public sealed class OpenAiChatProvider(
         try { return JsonSerializer.Deserialize<OpenAiContinuationState>(Encoding.UTF8.GetString(Convert.FromBase64String(token))) ?? throw new InvalidOperationException("Estado de continuação OpenAI inválido."); }
         catch (Exception exception) when (exception is FormatException or JsonException) { throw new InvalidOperationException("Estado de continuação OpenAI inválido.", exception); }
     }
-    private static OpenAiErrorDiagnostics ReadErrorDiagnostics(
-        string responseBody)
-    {
-        try
-        {
-            using JsonDocument document = JsonDocument.Parse(responseBody);
-            if (!document.RootElement.TryGetProperty("error", out JsonElement error) ||
-                error.ValueKind != JsonValueKind.Object)
-            {
-                return new OpenAiErrorDiagnostics(null, null, null, null);
-            }
-
-            return new OpenAiErrorDiagnostics(
-                ReadString(error, "type"),
-                ReadString(error, "code"),
-                ReadString(error, "param"),
-                TruncateForLog(ReadString(error, "message")));
-        }
-        catch (JsonException)
-        {
-            return new OpenAiErrorDiagnostics(null, null, null, null);
-        }
-    }
-
     private static string? ReadString(JsonElement element, string propertyName) =>
         element.TryGetProperty(propertyName, out JsonElement value) &&
         value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;
 
-    private static string? TruncateForLog(string? value) =>
-        value is null ? null : value.Length <= 500 ? value : value[..500];
     private static string ReadOutputText(JsonElement root)
     {
         if (!root.TryGetProperty("output", out JsonElement output) ||
@@ -654,12 +621,6 @@ public sealed class OpenAiChatProvider(
         IReadOnlyList<OpenAiInputMessage> Messages,
         IReadOnlyList<OpenAiFunctionCall> FunctionCalls,
         IReadOnlyList<OpenAiFunctionCallOutput> FunctionCallOutputs);
-    private sealed record OpenAiErrorDiagnostics(
-        string? Type,
-        string? Code,
-        string? Param,
-        string? Message);
-
     private sealed record OpenAiResponseDiagnostics(
         string? ResponseId,
         IReadOnlyList<string> OutputTypes,

@@ -390,7 +390,8 @@ public sealed class AiAgentRunner : IAiAgentRunner
                 _dbContext.AiConversationMessages.Add(userMessageEntity);
                 _dbContext.AiConversationMessages.Add(assistantMessageEntity);
             }
-await _dbContext.SaveChangesAsync(cancellationToken);
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
             telemetryConversationId = conversation.Id;
             telemetrySucceeded = true;
 
@@ -478,6 +479,7 @@ await _dbContext.SaveChangesAsync(cancellationToken);
         telemetry.RecordModelUsage(result.Usage);
         return result;
     }
+
     private AgentModelDecision ResolveDecision(
         AiChatCompletionResult completion)
     {

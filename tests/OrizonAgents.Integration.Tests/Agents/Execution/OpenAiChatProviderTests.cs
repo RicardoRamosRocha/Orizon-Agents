@@ -401,13 +401,14 @@ public sealed class OpenAiChatProviderTests
     public async Task CompleteAsync_HttpError_DoesNotExposeResponseBodyOrKey()
     {
         const string sensitiveBody = "SENSITIVE OPENAI RESPONSE";
+        var diagnosticLogger = new RecordingLogger<OpenAiChatProvider>();
         var handler = new RecordingHandler(
             HttpStatusCode.BadRequest,
             sensitiveBody);
 
         InvalidOperationException exception =
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                CreateProvider(handler).CompleteAsync(
+                CreateProvider(handler, logger: diagnosticLogger).CompleteAsync(
                     "gpt-test",
                     "secret prompt",
                     "secret message",
@@ -418,6 +419,13 @@ public sealed class OpenAiChatProviderTests
         Assert.DoesNotContain(sensitiveBody, exception.Message);
         Assert.DoesNotContain("tenant-openai-key", exception.Message);
         Assert.DoesNotContain("secret prompt", exception.Message);
+
+        string logs = string.Join(Environment.NewLine, diagnosticLogger.Messages);
+        Assert.Contains("HttpStatusCode: 400", logs);
+        Assert.DoesNotContain(sensitiveBody, logs);
+        Assert.DoesNotContain("secret prompt", logs);
+        Assert.DoesNotContain("secret message", logs);
+        Assert.DoesNotContain("tenant-openai-key", logs);
     }
 
     [Fact]
