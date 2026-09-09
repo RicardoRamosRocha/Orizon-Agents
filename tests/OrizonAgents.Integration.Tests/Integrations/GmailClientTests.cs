@@ -1,6 +1,9 @@
 using System.Net;
 using System.Text;
+using System.Text.Json;
+using Microsoft.AspNetCore.WebUtilities;
 using OrizonAgents.Application.Common.Results;
+using OrizonAgents.Application.Integrations.Gmail;
 using OrizonAgents.Application.Integrations.Google;
 using OrizonAgents.Infrastructure.Integrations.Gmail;
 
@@ -506,6 +509,53 @@ public sealed class GmailClientTests
         Assert.DoesNotContain("test-access-token", exception.Message);
     }
 
+    [Fact]
+    public async Task CreateDraftAsync_PostsOnlyServerGeneratedBase64UrlMimeAndReturnsMinimalMetadata()
+    {
+        var handler = new RecordingHttpMessageHandler(
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = Json("""{"id":"draft-1","message":{"id":"message-1","threadId":"thread-1"}}""")
+            });
+
+        GmailDraft draft = await CreateClient(handler).CreateDraftAsync(
+            Guid.NewGuid(), "destino@example.com", "Assunto \u00e1gil", "Linha 1\nLinha 2");
+
+        Assert.Equal("draft-1", draft.DraftId);
+        Assert.Equal("message-1", draft.MessageId);
+        Assert.Equal("thread-1", draft.ThreadId);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/gmail/v1/users/me/drafts", handler.RequestUri!.AbsolutePath);
+        Assert.DoesNotContain("send", handler.RequestUri.ToString(), StringComparison.OrdinalIgnoreCase);
+        using JsonDocument request = JsonDocument.Parse(handler.RequestBody!);
+        string raw = request.RootElement.GetProperty("raw").GetString()!;
+        Assert.DoesNotContain('=', raw);
+        string mime = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(raw));
+        Assert.Contains("To: destino@example.com\r\n", mime);
+        Assert.Contains("Content-Type: text/plain; charset=utf-8", mime);
+        Assert.Contains("Subject: =?utf-8?B?", mime);
+        Assert.Contains("TGlu", mime);
+        Assert.DoesNotContain("test-access-token", handler.RequestBody!);
+    }
+
+    [Theory]
+    [InlineData("destino@example.com\r\nBcc: secret@example.com", "Assunto")]
+    [InlineData("destino@example.com", "Assunto\r\nBcc: secret@example.com")]
+    public async Task CreateDraftAsync_RejectsHeaderInjectionBeforeTokenOrHttp(
+        string to,
+        string subject)
+    {
+        var handler = new RecordingHttpMessageHandler(new HttpResponseMessage(HttpStatusCode.OK));
+        var tokenService = SuccessfulTokenService();
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            CreateClient(handler, tokenService).CreateDraftAsync(
+                Guid.NewGuid(), to, subject, "body"));
+
+        Assert.Equal(0, tokenService.RequestCount);
+        Assert.Equal(0, handler.RequestCount);
+    }
+
     private static GmailClient CreateClient(
         RecordingHttpMessageHandler handler,
         IGoogleOAuthTokenService? tokenService = null)
@@ -601,7 +651,9 @@ public sealed class GmailClientTests
 
         public string? AuthorizationParameter { get; private set; }
 
-        protected override Task<HttpResponseMessage> SendAsync(
+        public string? RequestBody { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
@@ -619,10 +671,14 @@ public sealed class GmailClientTests
             AuthorizationParameter =
                 request.Headers.Authorization?.Parameter;
 
-            return Task.FromResult(new HttpResponseMessage(_statusCode)
+            RequestBody = request.Content is null
+                ? null
+                : await request.Content.ReadAsStringAsync(cancellationToken);
+
+            return new HttpResponseMessage(_statusCode)
             {
                 Content = new StringContent(_body, Encoding.UTF8, "application/json")
-            });
+            };
         }
     }
 }

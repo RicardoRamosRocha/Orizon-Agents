@@ -71,6 +71,36 @@ public sealed class GoogleOAuthTests
     }
 
     [Fact]
+    public async Task GmailComposeUpgrade_IsExplicitAndPreservesPreviouslyGrantedReadScope()
+    {
+        await using var f = new Fixture();
+        await f.SeedConnected(scope: Fixture.GmailScopes);
+        var begin = await f.Service.BeginUpgradeAsync(
+            f.Connection.Id,
+            GoogleOAuthCapability.GmailCreateDraft,
+            Fixture.RedirectUri,
+            Fixture.Correlation);
+
+        Assert.True(begin.Succeeded);
+        Dictionary<string, string> query = QueryHelpers.ParseQuery(
+            new Uri(begin.Value!).Query).ToDictionary(x => x.Key, x => x.Value.ToString());
+        Assert.Contains(GoogleOAuthScopeCatalog.GmailCompose, query["scope"]);
+        Assert.Equal("true", query["include_granted_scopes"]);
+
+        string state = query["state"];
+        f.EnqueueToken("compose-access", Fixture.UpgradedRefreshToken, GoogleOAuthScopeCatalog.GmailCompose);
+        f.EnqueueIdentity();
+        Assert.True((await f.Service.CompleteAsync(
+            state, "compose-code", null, Fixture.Correlation)).Succeeded);
+
+        string scopes = f.ReadPayload().GetProperty("Scope").GetString()!;
+        Assert.True(GoogleOAuthScopeCatalog.HasCapability(
+            scopes, GoogleOAuthCapability.GmailRead));
+        Assert.True(GoogleOAuthScopeCatalog.HasCapability(
+            scopes, GoogleOAuthCapability.GmailCreateDraft));
+    }
+
+    [Fact]
     public async Task BeginUpgrade_RejectsUnknownCapabilityAndOtherTenant()
     {
         await using var f = new Fixture();

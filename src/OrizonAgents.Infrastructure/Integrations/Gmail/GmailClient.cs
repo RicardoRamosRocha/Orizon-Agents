@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.Net.Mail;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.WebUtilities;
@@ -14,6 +16,106 @@ public sealed class GmailClient(
     IGmailMessageContentReducer contentReducer) : IGmailClient
 {
     public const string HttpClientName = "Gmail";
+
+    public async Task<GmailDraft> CreateDraftAsync(
+        Guid connectionId,
+        string to,
+        string subject,
+        string body,
+        CancellationToken cancellationToken = default)
+    {
+        if (connectionId == Guid.Empty)
+        {
+            throw new ArgumentException("ConnectionId \u00e9 obrigat\u00f3rio.", nameof(connectionId));
+        }
+
+        string recipient = NormalizeRecipient(to);
+        string normalizedSubject = NormalizeHeaderValue(subject, nameof(subject));
+        ArgumentException.ThrowIfNullOrWhiteSpace(body);
+
+        var tokenResult = await tokens.GetAccessTokenAsync(connectionId, cancellationToken);
+        if (!tokenResult.Succeeded || tokenResult.Value is null)
+        {
+            throw new InvalidOperationException(
+                tokenResult.FirstError ?? "N\u00e3o foi poss\u00edvel obter o token Google.");
+        }
+
+        string rawMime = BuildPlainTextMime(recipient, normalizedSubject, body);
+        string raw = Base64UrlEncode(Encoding.UTF8.GetBytes(rawMime));
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            "https://gmail.googleapis.com/gmail/v1/users/me/drafts")
+        {
+            Content = JsonContent.Create(new { raw })
+        };
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokenResult.Value.Value);
+
+        using var client = clients.CreateClient(HttpClientName);
+        using HttpResponseMessage response = await client.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new GmailApiException(response.StatusCode);
+        }
+
+        using JsonDocument json = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        string? draftId = ReadString(json.RootElement, "id");
+        if (string.IsNullOrWhiteSpace(draftId))
+        {
+            throw new InvalidOperationException("A API Gmail n\u00e3o retornou o identificador do rascunho.");
+        }
+
+        JsonElement message;
+        return new GmailDraft(
+            draftId,
+            json.RootElement.TryGetProperty("message", out message) &&
+            message.ValueKind == JsonValueKind.Object ? ReadString(message, "id") : null,
+            json.RootElement.TryGetProperty("message", out message) &&
+            message.ValueKind == JsonValueKind.Object ? ReadString(message, "threadId") : null);
+    }
+
+    private static string NormalizeRecipient(string value)
+    {
+        string candidate = NormalizeHeaderValue(value, nameof(value));
+        try
+        {
+            var address = new MailAddress(candidate);
+            if (!string.Equals(address.Address, candidate, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("Destinat\u00e1rio Gmail inv\u00e1lido.", nameof(value));
+            }
+
+            return address.Address;
+        }
+        catch (FormatException exception)
+        {
+            throw new ArgumentException("Destinat\u00e1rio Gmail inv\u00e1lido.", nameof(value), exception);
+        }
+    }
+
+    private static string NormalizeHeaderValue(string value, string parameterName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(value, parameterName);
+        string normalized = value.Trim();
+        if (normalized.Contains('\r') || normalized.Contains('\n'))
+        {
+            throw new ArgumentException("Cabe\u00e7alho Gmail inv\u00e1lido.", parameterName);
+        }
+
+        return normalized;
+    }
+
+    private static string BuildPlainTextMime(string to, string subject, string body) =>
+        $"To: {to}\r\n" +
+        $"Subject: =?utf-8?B?{Convert.ToBase64String(Encoding.UTF8.GetBytes(subject))}?=\r\n" +
+        "MIME-Version: 1.0\r\n" +
+        "Content-Type: text/plain; charset=utf-8\r\n" +
+        "Content-Transfer-Encoding: base64\r\n\r\n" +
+        Convert.ToBase64String(Encoding.UTF8.GetBytes(body));
+
+    private static string Base64UrlEncode(byte[] value) =>
+        Convert.ToBase64String(value).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
     public async Task<GmailSearchResult> SearchMessagesAsync(
         Guid connectionId,

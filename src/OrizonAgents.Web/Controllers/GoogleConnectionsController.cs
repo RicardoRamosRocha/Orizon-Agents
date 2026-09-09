@@ -22,6 +22,16 @@ public sealed class GoogleConnectionsController(IGoogleOAuthService oauth) : Con
     public async Task<IActionResult> UpgradeGmailRead(Guid id, CancellationToken cancellationToken)
         => await BeginAuthorization(id, GoogleOAuthCapability.GmailRead, cancellationToken);
 
+    [HttpPost("{id:guid}/google/ampliar/gmail-rascunhos")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpgradeGmailCreateDraft(
+        Guid id,
+        CancellationToken cancellationToken) =>
+        await BeginAuthorization(
+            id,
+            GoogleOAuthCapability.GmailCreateDraft,
+            cancellationToken);
+
     private async Task<IActionResult> BeginAuthorization(
         Guid id,
         GoogleOAuthCapability? capability,

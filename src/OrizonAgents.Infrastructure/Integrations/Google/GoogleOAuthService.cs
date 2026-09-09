@@ -177,7 +177,8 @@ public sealed class GoogleOAuthService(
                     AccessToken = tokens.AccessToken,
                     RefreshToken = tokens.RefreshToken,
                     ExpiresAtUtc = clock.GetUtcNow().AddSeconds(tokens.ExpiresInSeconds),
-                    Scope = GoogleOAuthScopeCatalog.Normalize(tokens.Scope),
+                    Scope = GoogleOAuthScopeCatalog.Normalize(
+                        upgradeCredentials.Scope + " " + tokens.Scope),
                     Subject = identity.Subject,
                     ClientId = _options.ClientId
                 };

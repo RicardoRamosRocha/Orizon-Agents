@@ -60,6 +60,14 @@
                     </div>
                 }
                 <p class="text-muted">A autorização identifica e conecta sua conta Google aos recursos permitidos.</p>
+                <div class="border rounded-3 bg-light p-3 mb-4">
+                    <h3 class="h6 mb-1">Cria\u00e7\u00e3o de rascunhos</h3>
+                    <p class="text-muted mb-2">Exige autoriza\u00e7\u00e3o adicional do Gmail. Criar um rascunho n\u00e3o envia e-mail.</p>
+                    <form asp-controller="GoogleConnections" asp-action="UpgradeGmailCreateDraft" asp-route-id="@Model.Connection.Id" method="post">
+                        @Html.AntiForgeryToken()
+                        <button class="btn btn-outline-primary" type="submit">Permitir cria\u00e7\u00e3o de rascunhos</button>
+                    </form>
+                </div>
                 <div class="d-flex gap-2 flex-wrap mb-4">
                     @if (Model.Connection.Status != IntegrationConnectionStatus.Connected)
                     {

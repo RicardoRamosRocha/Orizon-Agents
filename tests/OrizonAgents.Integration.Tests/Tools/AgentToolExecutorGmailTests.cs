@@ -510,7 +510,6 @@ public sealed class AgentToolExecutorGmailTests
     }
 
     [Theory]
-    [InlineData(AgentToolKind.GmailCreateDraft, GoogleOAuthCapability.GmailCreateDraft)]
     [InlineData(AgentToolKind.GmailSend, GoogleOAuthCapability.GmailSend)]
     [InlineData(AgentToolKind.GmailReply, GoogleOAuthCapability.GmailReply)]
     public async Task GmailWriteTool_RequiresItsCapability_AndNeverCallsGmailBeforeImplementation(
@@ -536,6 +535,29 @@ public sealed class AgentToolExecutorGmailTests
         Assert.Equal(capability, fixture.Capabilities.Capability);
         Assert.Equal(0, fixture.Gmail.SearchCalls);
         Assert.Equal(0, fixture.Gmail.ReadCalls);
+    }
+
+    [Fact]
+    public async Task GmailCreateDraft_RequiresCapabilityAndReturnsOnlyDraftMetadata()
+    {
+        await using var fixture = new Fixture();
+        var (agent, tool, _) = await fixture.SeedAsync(
+            AgentToolKind.GmailCreateDraft, Guid.NewGuid());
+
+        AgentToolExecutionResult result = await fixture.Executor.ExecuteAsync(
+            new AgentToolExecutionRequest(
+                agent.Id,
+                tool.Id,
+                Json("""{"to":"destino@example.com","subject":"Assunto","body":"Corpo"}""")));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(GoogleOAuthCapability.GmailCreateDraft, fixture.Capabilities.Capability);
+        Assert.Equal(1, fixture.Gmail.DraftCalls);
+        Assert.Equal("destino@example.com", fixture.Gmail.DraftTo);
+        Assert.Equal("Assunto", fixture.Gmail.DraftSubject);
+        Assert.Equal("Corpo", fixture.Gmail.DraftBody);
+        Assert.DoesNotContain("Corpo", result.Content!);
+        Assert.Contains("draft-id", result.Content!);
     }
 
     private static JsonElement Json(string json)
@@ -701,10 +723,14 @@ public sealed class AgentToolExecutorGmailTests
         public Exception? Exception { get; set; }
         public int SearchCalls { get; private set; }
         public int ReadCalls { get; private set; }
+        public int DraftCalls { get; private set; }
         public Guid? ConnectionId { get; private set; }
         public string? Query { get; private set; }
         public int? MaxResults { get; private set; }
         public string? MessageId { get; private set; }
+        public string? DraftTo { get; private set; }
+        public string? DraftSubject { get; private set; }
+        public string? DraftBody { get; private set; }
 
         public Task<GmailSearchResult> SearchMessagesAsync(
             Guid connectionId,
@@ -740,6 +766,19 @@ public sealed class AgentToolExecutorGmailTests
             }
 
             return Task.FromResult(Message);
+        }
+        public Task<GmailDraft> CreateDraftAsync(
+            Guid connectionId,
+            string to,
+            string subject,
+            string body,
+            CancellationToken cancellationToken = default)
+        {
+            DraftCalls++;
+            DraftTo = to;
+            DraftSubject = subject;
+            DraftBody = body;
+            return Task.FromResult(new GmailDraft("draft-id", "message-id", "thread-id"));
         }
     }
 
