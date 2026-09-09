@@ -174,7 +174,13 @@ public sealed class GmailClient(
             HttpMethod.Post,
             "https://gmail.googleapis.com/gmail/v1/users/me/drafts")
         {
-            Content = JsonContent.Create(new { raw })
+            Content = JsonContent.Create(new
+            {
+                message = new
+                {
+                    raw
+                }
+            })
         };
         request.Headers.Authorization =
             new AuthenticationHeaderValue("Bearer", tokenResult.Value.Value);

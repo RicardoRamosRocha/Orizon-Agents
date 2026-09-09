@@ -531,8 +531,14 @@ public sealed class GmailClientTests
         Assert.Equal(HttpMethod.Post, handler.Method);
         Assert.Equal("/gmail/v1/users/me/drafts", handler.RequestUri!.AbsolutePath);
         Assert.DoesNotContain("send", handler.RequestUri.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("application/json", handler.ContentType);
         using JsonDocument request = JsonDocument.Parse(handler.RequestBody!);
-        string raw = request.RootElement.GetProperty("raw").GetString()!;
+        JsonProperty message = Assert.Single(request.RootElement.EnumerateObject());
+        Assert.Equal("message", message.Name);
+        Assert.Equal(JsonValueKind.Object, message.Value.ValueKind);
+        JsonProperty rawProperty = Assert.Single(message.Value.EnumerateObject());
+        Assert.Equal("raw", rawProperty.Name);
+        string raw = rawProperty.Value.GetString()!;
         Assert.DoesNotContain('=', raw);
         string mime = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(raw));
         Assert.Contains("To: destino@example.com\r\n", mime);
@@ -754,6 +760,7 @@ public sealed class GmailClientTests
         public string? AuthorizationParameter { get; private set; }
 
         public string? RequestBody { get; private set; }
+        public string? ContentType { get; private set; }
         public List<Uri?> RequestUris { get; } = [];
         public List<string?> RequestBodies { get; } = [];
 
@@ -778,6 +785,7 @@ public sealed class GmailClientTests
             RequestBody = request.Content is null
                 ? null
                 : await request.Content.ReadAsStringAsync(cancellationToken);
+            ContentType = request.Content?.Headers.ContentType?.MediaType;
             RequestUris.Add(request.RequestUri);
             RequestBodies.Add(RequestBody);
             (HttpStatusCode statusCode, string body) = _responses[Math.Min(RequestCount - 1, _responses.Count - 1)];

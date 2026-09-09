@@ -115,6 +115,14 @@ public sealed class ConnectionsGmailCapabilityUiTests
         Assert.Contains("@Html.AntiForgeryToken()", view);
         Assert.Contains("Permitir leitura do Gmail", view);
         Assert.Contains("Leitura do Gmail", view);
+        Assert.Contains("Cria&#xE7;&#xE3;o de rascunhos", view);
+        Assert.Contains("autoriza&#xE7;&#xE3;o adicional", view);
+        Assert.Contains("n&#xE3;o envia", view);
+        Assert.Contains("aprova&#xE7;&#xE3;o humana", view);
+        Assert.DoesNotContain("Cria\\u00", view);
+        Assert.DoesNotContain("autoriza\\u00", view);
+        Assert.DoesNotContain("n\\u00e3o envia", view);
+        Assert.DoesNotContain("aprova\\u00", view);
         Assert.Contains("Não autorizada", view);
         Assert.Contains("Autorizada", view);
         Assert.DoesNotContain("gmail.readonly", view, StringComparison.OrdinalIgnoreCase);
