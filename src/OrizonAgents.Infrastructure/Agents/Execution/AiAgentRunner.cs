@@ -402,6 +402,27 @@ public sealed class AiAgentRunner : IAiAgentRunner
                     runStatus,
                     approvalId));
         }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            if (exception.Entries.Count == 0)
+            {
+                _logger.LogError(
+                    "Conflito de concorrência ao persistir execução do agente sem entradas identificadas pelo EF Core.");
+            }
+            else
+            {
+                foreach (var entry in exception.Entries)
+                {
+                    _logger.LogError(
+                        "Conflito de concorrência ao persistir execução do agente. EntityType: {EntityType}; EntityState: {EntityState}.",
+                        entry.Metadata.ClrType.Name,
+                        entry.State);
+                }
+            }
+
+            return OperationResult<AiAgentRunResult>.Failure(
+                "Não foi possível obter uma resposta da Inteligência Artificial.");
+        }
         catch (Exception exception)
         {
             _logger.LogError(
