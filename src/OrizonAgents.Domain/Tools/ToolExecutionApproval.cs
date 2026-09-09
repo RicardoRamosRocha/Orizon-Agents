@@ -56,6 +56,7 @@ public sealed class ToolExecutionApproval : AuditableEntity, ITenantOwnedEntity
     public DateTime? ApprovedAtUtc { get; private set; }
     public DateTime? RejectedAtUtc { get; private set; }
     public DateTime? ConsumedAtUtc { get; private set; }
+    public SensitiveToolExecution? SensitiveToolExecution { get; private set; }
 
     public void Approve(DateTime utcNow)
     {

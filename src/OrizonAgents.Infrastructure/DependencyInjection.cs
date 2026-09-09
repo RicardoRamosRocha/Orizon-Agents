@@ -101,6 +101,7 @@ public static class DependencyInjection
         services.AddScoped<GmailAgentToolExecutor>();
         services.AddScoped<IAgentToolExecutor, AgentToolExecutor>();
         services.AddScoped<IToolExecutionApprovalService, ToolExecutionApprovalService>();
+        services.AddScoped<ISensitiveToolExecutionPayloadProtector, SensitiveToolExecutionPayloadProtector>();
         services.AddScoped<IAgentToolInputValidator, AgentToolInputValidator>();
         services.AddScoped<IAgentModelDecisionParser, AgentModelDecisionParser>();
         services.AddScoped<IAgentToolCatalog, AgentToolCatalog>();

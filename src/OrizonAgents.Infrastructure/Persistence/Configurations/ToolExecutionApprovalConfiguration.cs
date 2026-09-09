@@ -35,6 +35,8 @@ public sealed class ToolExecutionApprovalConfiguration
         builder.Property(x => x.ExpiresAtUtc)
             .IsRequired();
 
+        builder.HasAlternateKey(x => new { x.TenantId, x.Id });
+
         builder.HasIndex(x => new
         {
             x.TenantId,
