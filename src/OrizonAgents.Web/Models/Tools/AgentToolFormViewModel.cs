@@ -13,7 +13,10 @@ public enum AgentToolCategory
 public enum GmailToolAction
 {
     SearchEmails = 1,
-    ReadEmail = 2
+    ReadEmail = 2,
+    CreateDraft = 3,
+    SendDraft = 4,
+    ReplyToEmail = 5
 }
 
 public sealed class AgentToolFormViewModel

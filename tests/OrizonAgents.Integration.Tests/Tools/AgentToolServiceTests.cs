@@ -143,6 +143,9 @@ public sealed class AgentToolServiceTests
     [Theory]
     [InlineData(AgentToolKind.GmailSearch)]
     [InlineData(AgentToolKind.GmailReadMessage)]
+    [InlineData(AgentToolKind.GmailCreateDraft)]
+    [InlineData(AgentToolKind.GmailSend)]
+    [InlineData(AgentToolKind.GmailReply)]
     public async Task CreateAsync_CreatesGmailKindWithConnectionAndNoTechnicalConfiguration(AgentToolKind kind)
     {
         await using ServiceProvider provider = CreateProvider();
@@ -156,18 +159,26 @@ public sealed class AgentToolServiceTests
 
         var result = await service.CreateAsync(new CreateAgentToolRequest(
             tenantId, "Gmail", "Ação Gmail.", "", "", "malicious-schema", Guid.NewGuid(),
-            AgentToolRiskLevel.Read, kind, connection.Id));
+            GmailToolPolicy.RequiredRiskLevel(kind), kind, connection.Id));
 
         Assert.True(result.Succeeded);
         AgentTool tool = await db.AgentTools.IgnoreQueryFilters().SingleAsync();
         Assert.Equal(kind, tool.Kind);
         Assert.Equal(connection.Id, tool.IntegrationConnectionId);
-        Assert.Equal("GET", tool.HttpMethod);
+        Assert.Equal(
+            kind is AgentToolKind.GmailSearch or AgentToolKind.GmailReadMessage ? "GET" : "POST",
+            tool.HttpMethod);
         Assert.StartsWith("gmail://", tool.Endpoint);
         Assert.Null(tool.InputSchema);
         Assert.Null(tool.ToolCredentialId);
         Assert.Equal(connection.Id, capabilities.ConnectionId);
-        Assert.Equal(GoogleOAuthCapability.GmailRead, capabilities.Capability);
+        Assert.Equal(kind switch
+        {
+            AgentToolKind.GmailSearch or AgentToolKind.GmailReadMessage => GoogleOAuthCapability.GmailRead,
+            AgentToolKind.GmailCreateDraft => GoogleOAuthCapability.GmailCreateDraft,
+            AgentToolKind.GmailSend => GoogleOAuthCapability.GmailSend,
+            _ => GoogleOAuthCapability.GmailReply
+        }, capabilities.Capability);
     }
 
     [Theory]

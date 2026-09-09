@@ -73,7 +73,7 @@
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Ação</label>
-                            <p class="form-control-plaintext">@(Model.GmailAction == GmailToolAction.SearchEmails ? "Pesquisar e-mails" : "Ler e-mail")</p>
+                            <p class="form-control-plaintext">@(Model.GmailAction switch { GmailToolAction.SearchEmails => "Pesquisar e-mails", GmailToolAction.ReadEmail => "Ler e-mail", GmailToolAction.CreateDraft => "Criar rascunho (escrita)", GmailToolAction.SendDraft => "Enviar rascunho (sensível)", GmailToolAction.ReplyToEmail => "Responder e-mail (sensível)", _ => "Gmail" })</p>
                         </div>
                         <div class="col-md-6">
                             <label asp-for="IntegrationConnectionId" class="form-label fw-semibold"></label>

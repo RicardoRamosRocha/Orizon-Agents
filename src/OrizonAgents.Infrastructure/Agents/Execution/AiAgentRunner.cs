@@ -706,6 +706,18 @@ public sealed class AiAgentRunner : IAiAgentRunner
                     builder.AppendLine(
                         "  Opera\u00e7\u00e3o: Leitura de uma mensagem do Gmail");
                     break;
+
+                case AgentToolKind.GmailCreateDraft:
+                    builder.AppendLine("  Opera\u00e7\u00e3o: Cria\u00e7\u00e3o de rascunho Gmail (escrita)");
+                    break;
+
+                case AgentToolKind.GmailSend:
+                    builder.AppendLine("  Opera\u00e7\u00e3o: Envio de rascunho Gmail (sens\u00edvel)");
+                    break;
+
+                case AgentToolKind.GmailReply:
+                    builder.AppendLine("  Opera\u00e7\u00e3o: Resposta a mensagem Gmail (sens\u00edvel)");
+                    break;
             }
 
             builder.AppendLine($"  Classifica\u00e7\u00e3o de risco: {tool.RiskLevel}");

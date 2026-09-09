@@ -32,8 +32,7 @@ public sealed class GmailAgentToolExecutor
         JsonElement? input,
         CancellationToken cancellationToken = default)
     {
-        if (tool.Kind is not
-            (AgentToolKind.GmailSearch or AgentToolKind.GmailReadMessage))
+        if (!GmailToolPolicy.IsGmail(tool.Kind))
         {
             return AgentToolExecutionResult.Failure(
                 "A Tool informada não é uma Tool Gmail.");
@@ -66,6 +65,14 @@ public sealed class GmailAgentToolExecutor
                     await ExecuteReadMessageAsync(
                         tool.IntegrationConnectionId.Value,
                         input.Value,
+                        cancellationToken),
+
+                AgentToolKind.GmailCreateDraft or
+                AgentToolKind.GmailSend or
+                AgentToolKind.GmailReply =>
+                    await ExecuteUnavailableWriteOperationAsync(
+                        tool.IntegrationConnectionId.Value,
+                        tool.Kind,
                         cancellationToken),
 
                 _ => AgentToolExecutionResult.Failure(
@@ -123,7 +130,8 @@ public sealed class GmailAgentToolExecutor
             }
         }
 
-        if (!await HasGmailReadAsync(connectionId, cancellationToken))
+        if (!await HasRequiredCapabilityAsync(
+                connectionId, AgentToolKind.GmailSearch, cancellationToken))
         {
             return MissingGmailAuthorization();
         }
@@ -156,7 +164,8 @@ public sealed class GmailAgentToolExecutor
             return InvalidArguments();
         }
 
-        if (!await HasGmailReadAsync(connectionId, cancellationToken))
+        if (!await HasRequiredCapabilityAsync(
+                connectionId, AgentToolKind.GmailReadMessage, cancellationToken))
         {
             return MissingGmailAuthorization();
         }
@@ -170,6 +179,20 @@ public sealed class GmailAgentToolExecutor
         return AgentToolExecutionResult.Success(
             null,
             JsonSerializer.Serialize(result, JsonOptions));
+    }
+
+    private async Task<AgentToolExecutionResult> ExecuteUnavailableWriteOperationAsync(
+        Guid connectionId,
+        AgentToolKind kind,
+        CancellationToken cancellationToken)
+    {
+        if (!await HasRequiredCapabilityAsync(connectionId, kind, cancellationToken))
+        {
+            return MissingGmailAuthorization();
+        }
+
+        return AgentToolExecutionResult.Failure(
+            "A operaÃ§Ã£o de escrita Gmail ainda nÃ£o estÃ¡ disponÃ­vel.");
     }
 
     private static bool TryReadRequiredString(
@@ -199,12 +222,23 @@ public sealed class GmailAgentToolExecutor
         AgentToolExecutionResult.Failure(
             "Os argumentos fornecidos para a Tool Gmail são inválidos.");
 
-    private Task<bool> HasGmailReadAsync(
+    private static GoogleOAuthCapability RequiredCapability(AgentToolKind kind) => kind switch
+    {
+        AgentToolKind.GmailSearch or AgentToolKind.GmailReadMessage =>
+            GoogleOAuthCapability.GmailRead,
+        AgentToolKind.GmailCreateDraft => GoogleOAuthCapability.GmailCreateDraft,
+        AgentToolKind.GmailSend => GoogleOAuthCapability.GmailSend,
+        AgentToolKind.GmailReply => GoogleOAuthCapability.GmailReply,
+        _ => throw new ArgumentOutOfRangeException(nameof(kind))
+    };
+
+    private Task<bool> HasRequiredCapabilityAsync(
         Guid connectionId,
+        AgentToolKind kind,
         CancellationToken cancellationToken) =>
         _capabilities.HasCapabilityAsync(
             connectionId,
-            GoogleOAuthCapability.GmailRead,
+            RequiredCapability(kind),
             cancellationToken);
 
     private static AgentToolExecutionResult MissingGmailAuthorization() =>

@@ -70,6 +70,16 @@ public sealed class AgentToolExecutor : IAgentToolExecutor
                 "Tool não encontrada, inativa ou não vinculada ao agente.");
         }
 
+        if (GmailToolPolicy.IsGmail(tool.Kind) &&
+            tool.RiskLevel != GmailToolPolicy.RequiredRiskLevel(tool.Kind))
+        {
+            _logger.LogWarning(
+                "Execu\u00e7\u00e3o da Tool Gmail {ToolId} bloqueada por classifica\u00e7\u00e3o de risco inv\u00e1lida.",
+                tool.Id);
+            return AgentToolExecutionResult.Failure(
+                "A classifica\u00e7\u00e3o de risco da Tool Gmail \u00e9 inv\u00e1lida.");
+        }
+
         AgentToolInputValidationResult inputValidation =
             _inputValidator.Validate(
                 tool.InputSchema,
@@ -127,7 +137,10 @@ public sealed class AgentToolExecutor : IAgentToolExecutor
                     cancellationToken),
 
             AgentToolKind.GmailSearch or
-            AgentToolKind.GmailReadMessage =>
+            AgentToolKind.GmailReadMessage or
+            AgentToolKind.GmailCreateDraft or
+            AgentToolKind.GmailSend or
+            AgentToolKind.GmailReply =>
                 await _gmailExecutor.ExecuteAsync(
                     tool,
                     request.Input,

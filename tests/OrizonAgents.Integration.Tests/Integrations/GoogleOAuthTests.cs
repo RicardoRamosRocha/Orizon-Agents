@@ -389,6 +389,19 @@ public sealed class GoogleOAuthTests
         Assert.Equal(expected, GoogleOAuthScopeCatalog.HasCapability(grantedScopes, GoogleOAuthCapability.GmailRead));
     }
 
+    [Theory]
+    [InlineData(GoogleOAuthCapability.GmailCreateDraft, GoogleOAuthScopeCatalog.GmailCompose)]
+    [InlineData(GoogleOAuthCapability.GmailSend, GoogleOAuthScopeCatalog.GmailCompose)]
+    [InlineData(GoogleOAuthCapability.GmailReply, GoogleOAuthScopeCatalog.GmailSend)]
+    public void GmailWriteCapabilities_RequireTheirExplicitScopes(
+        GoogleOAuthCapability capability,
+        string requiredScope)
+    {
+        Assert.True(GoogleOAuthScopeCatalog.IsUpgradeCapability(capability));
+        Assert.Contains(requiredScope, GoogleOAuthScopeCatalog.AuthorizationScopes(capability));
+        Assert.False(GoogleOAuthScopeCatalog.HasCapability("openid email", capability));
+    }
+
     [Fact]
     public async Task ExistingIdentityConnection_RemainsUsableButHasNoGmailCapability()
     {

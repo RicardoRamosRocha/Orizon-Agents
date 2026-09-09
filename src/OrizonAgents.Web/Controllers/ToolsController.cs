@@ -83,7 +83,7 @@ public sealed class ToolsController : Controller
                 form.HttpMethod,
                 form.InputSchema,
                 form.ToolCredentialId,
-                form.RiskLevel,
+                isGmail ? GmailToolPolicy.RequiredRiskLevel(kind) : form.RiskLevel,
                 kind,
                 isGmail ? form.IntegrationConnectionId : null),
             cancellationToken);
@@ -155,7 +155,9 @@ public sealed class ToolsController : Controller
                 form.HttpMethod,
                 form.InputSchema,
                 form.ToolCredentialId,
-                form.RiskLevel,
+                tool.Kind == AgentToolKind.Http
+                    ? form.RiskLevel
+                    : GmailToolPolicy.RequiredRiskLevel(tool.Kind),
                 tool.Kind == AgentToolKind.Http ? null : form.IntegrationConnectionId),
             cancellationToken);
 
@@ -288,6 +290,9 @@ public sealed class ToolsController : Controller
     {
         GmailToolAction.SearchEmails => AgentToolKind.GmailSearch,
         GmailToolAction.ReadEmail => AgentToolKind.GmailReadMessage,
+        GmailToolAction.CreateDraft => AgentToolKind.GmailCreateDraft,
+        GmailToolAction.SendDraft => AgentToolKind.GmailSend,
+        GmailToolAction.ReplyToEmail => AgentToolKind.GmailReply,
         _ => throw new ArgumentOutOfRangeException(nameof(action))
     };
 
@@ -295,9 +300,14 @@ public sealed class ToolsController : Controller
     {
         form.IsEdit = true;
         form.Category = tool.Kind == AgentToolKind.Http ? AgentToolCategory.Http : AgentToolCategory.Gmail;
-        form.GmailAction = tool.Kind == AgentToolKind.GmailReadMessage
-            ? GmailToolAction.ReadEmail
-            : GmailToolAction.SearchEmails;
+        form.GmailAction = tool.Kind switch
+        {
+            AgentToolKind.GmailReadMessage => GmailToolAction.ReadEmail,
+            AgentToolKind.GmailCreateDraft => GmailToolAction.CreateDraft,
+            AgentToolKind.GmailSend => GmailToolAction.SendDraft,
+            AgentToolKind.GmailReply => GmailToolAction.ReplyToEmail,
+            _ => GmailToolAction.SearchEmails
+        };
         form.IntegrationConnectionId = tool.IntegrationConnectionId;
     }
 

@@ -377,6 +377,12 @@ public sealed class OpenAiChatProvider(
             AgentToolKind.GmailReadMessage =>
                 "L\u00ea uma mensagem espec\u00edfica da conta Gmail conectada e autorizada. " +
                 "Use somente quando o conte\u00fado da mensagem for realmente necess\u00e1rio.",
+            AgentToolKind.GmailCreateDraft =>
+                "Cria um rascunho Gmail na conta conectada e autorizada. Opera\u00e7\u00e3o de escrita.",
+            AgentToolKind.GmailSend =>
+                "Envia um rascunho Gmail previamente criado. Opera\u00e7\u00e3o sens\u00edvel sujeita a aprova\u00e7\u00e3o humana.",
+            AgentToolKind.GmailReply =>
+                "Responde a uma mensagem Gmail existente. Opera\u00e7\u00e3o sens\u00edvel sujeita a aprova\u00e7\u00e3o humana.",
             AgentToolKind.Http =>
                 $"{tool.Name}. {tool.Description} Opera\u00e7\u00e3o HTTP autorizada. " +
                 $"Classifica\u00e7\u00e3o de risco: {tool.RiskLevel}.",

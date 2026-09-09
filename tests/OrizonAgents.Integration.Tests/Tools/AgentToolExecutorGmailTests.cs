@@ -384,15 +384,14 @@ public sealed class AgentToolExecutorGmailTests
     {
         await using var fixture = new Fixture();
         var (agent, tool, _) = await fixture.SeedAsync(
-            AgentToolKind.GmailReadMessage,
-            Guid.NewGuid(),
-            sensitive: true);
+            AgentToolKind.GmailSend,
+            Guid.NewGuid());
 
         AgentToolExecutionResult result = await fixture.Executor.ExecuteAsync(
             new AgentToolExecutionRequest(
                 agent.Id,
                 tool.Id,
-                Json("""{"messageId":"message-1"}""")));
+                Json("""{"draftId":"draft-1"}""")));
 
         Assert.True(result.RequiresApproval);
         Assert.NotNull(result.ApprovalId);
@@ -510,6 +509,35 @@ public sealed class AgentToolExecutorGmailTests
         Assert.DoesNotContain(secret, string.Join(" ", fixture.GmailLogger.Messages));
     }
 
+    [Theory]
+    [InlineData(AgentToolKind.GmailCreateDraft, GoogleOAuthCapability.GmailCreateDraft)]
+    [InlineData(AgentToolKind.GmailSend, GoogleOAuthCapability.GmailSend)]
+    [InlineData(AgentToolKind.GmailReply, GoogleOAuthCapability.GmailReply)]
+    public async Task GmailWriteTool_RequiresItsCapability_AndNeverCallsGmailBeforeImplementation(
+        AgentToolKind kind,
+        GoogleOAuthCapability capability)
+    {
+        await using var fixture = new Fixture();
+        var (agent, tool, _) = await fixture.SeedAsync(kind, Guid.NewGuid());
+
+        AgentToolExecutionResult result = await fixture.Executor.ExecuteAsync(
+            new AgentToolExecutionRequest(agent.Id, tool.Id, Json("{}")));
+
+        if (tool.RiskLevel == AgentToolRiskLevel.Sensitive)
+        {
+            Assert.True(result.RequiresApproval);
+            Assert.True(await new ToolExecutionApprovalService(fixture.Db, fixture.Tenant)
+                .ApproveAsync(result.ApprovalId!.Value));
+            result = await fixture.Executor.ExecuteAsync(
+                new AgentToolExecutionRequest(agent.Id, tool.Id, Json("{}")));
+        }
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(capability, fixture.Capabilities.Capability);
+        Assert.Equal(0, fixture.Gmail.SearchCalls);
+        Assert.Equal(0, fixture.Gmail.ReadCalls);
+    }
+
     private static JsonElement Json(string json)
     {
         using JsonDocument document = JsonDocument.Parse(json);
@@ -580,6 +608,11 @@ public sealed class AgentToolExecutorGmailTests
                 connectionId,
                 endpoint,
                 httpMethod);
+
+            if (GmailToolPolicy.IsGmail(kind))
+            {
+                tool.SetRiskLevel(GmailToolPolicy.RequiredRiskLevel(kind));
+            }
 
             if (inputSchema is not null)
             {

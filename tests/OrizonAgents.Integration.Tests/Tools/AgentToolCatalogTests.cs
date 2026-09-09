@@ -215,6 +215,37 @@ public sealed class AgentToolCatalogTests
         Assert.Equal(configuredSchema, definition.InputSchema);
     }
 
+    [Theory]
+    [InlineData(AgentToolKind.GmailCreateDraft, "to", "subject", "body")]
+    [InlineData(AgentToolKind.GmailSend, "draftId", null, null)]
+    [InlineData(AgentToolKind.GmailReply, "messageId", "body", null)]
+    public async Task GetAvailableToolsAsync_GmailWriteOperations_UseMinimalDerivedSchemas(
+        AgentToolKind kind,
+        string firstRequired,
+        string? secondRequired,
+        string? thirdRequired)
+    {
+        await using ServiceProvider provider = CreateProvider();
+        OrizonAgentsDbContext db = provider.GetRequiredService<OrizonAgentsDbContext>();
+        Guid tenantId = Guid.NewGuid();
+        var agent = CreateAgent(tenantId);
+        var tool = CreateGmailTool(tenantId, kind, Guid.NewGuid());
+        tool.SetRiskLevel(GmailToolPolicy.RequiredRiskLevel(kind));
+        db.AddRange(agent, tool, new AgentToolBinding(tenantId, agent.Id, tool.Id));
+        await db.SaveChangesAsync();
+
+        AgentToolDefinition definition = Assert.Single(
+            await new AgentToolCatalog(db).GetAvailableToolsAsync(agent.Id));
+        using JsonDocument schema = JsonDocument.Parse(definition.InputSchema!);
+        JsonElement root = schema.RootElement;
+        Assert.True(root.GetProperty("properties").TryGetProperty(firstRequired, out _));
+        if (secondRequired is not null) Assert.True(root.GetProperty("properties").TryGetProperty(secondRequired, out _));
+        if (thirdRequired is not null) Assert.True(root.GetProperty("properties").TryGetProperty(thirdRequired, out _));
+        Assert.False(root.GetProperty("properties").TryGetProperty("accessToken", out _));
+        Assert.False(root.GetProperty("properties").TryGetProperty("connectionId", out _));
+        Assert.False(root.GetProperty("additionalProperties").GetBoolean());
+    }
+
     [Fact]
     public async Task GetAvailableToolsAsync_DoesNotReturnCrossTenantTool()
     {

@@ -77,9 +77,13 @@ public sealed class AgentToolService
             return OperationResult<Guid>.Failure("Tipo de Tool inválido.");
         }
 
-        bool isGmail = request.Kind is AgentToolKind.GmailSearch or AgentToolKind.GmailReadMessage;
+        bool isGmail = GmailToolPolicy.IsGmail(request.Kind);
+        if (isGmail && request.RiskLevel != GmailToolPolicy.RequiredRiskLevel(request.Kind))
+        {
+            return OperationResult<Guid>.Failure("O nÃ­vel de risco da Tool Gmail nÃ£o corresponde Ã  operaÃ§Ã£o selecionada.");
+        }
         if (isGmail && !await IsEligibleGmailConnectionAsync(
-                request.TenantId, request.IntegrationConnectionId, cancellationToken))
+                request.TenantId, request.Kind, request.IntegrationConnectionId, cancellationToken))
         {
             return OperationResult<Guid>.Failure(GmailConnectionUnavailable);
         }
@@ -102,7 +106,7 @@ public sealed class AgentToolService
         try
         {
             string endpoint = isGmail ? GmailEndpoint(request.Kind) : request.Endpoint;
-            string httpMethod = isGmail ? "GET" : request.HttpMethod;
+            string httpMethod = isGmail ? GmailHttpMethod(request.Kind) : request.HttpMethod;
             string? inputSchema = isGmail ? null : request.InputSchema;
             Guid? credentialId = isGmail ? null : request.ToolCredentialId;
             var tool = new AgentTool(
@@ -152,9 +156,13 @@ public sealed class AgentToolService
                 "Tool não encontrada.");
         }
 
-        bool isGmail = tool.Kind is AgentToolKind.GmailSearch or AgentToolKind.GmailReadMessage;
+        bool isGmail = GmailToolPolicy.IsGmail(tool.Kind);
+        if (isGmail && request.RiskLevel != GmailToolPolicy.RequiredRiskLevel(tool.Kind))
+        {
+            return OperationResult.Failure("O nÃ­vel de risco da Tool Gmail nÃ£o corresponde Ã  operaÃ§Ã£o selecionada.");
+        }
         if (isGmail && !await IsEligibleGmailConnectionAsync(
-                tool.TenantId, request.IntegrationConnectionId, cancellationToken))
+                tool.TenantId, tool.Kind, request.IntegrationConnectionId, cancellationToken))
         {
             return OperationResult.Failure(GmailConnectionUnavailable);
         }
@@ -177,7 +185,7 @@ public sealed class AgentToolService
         try
         {
             string endpoint = isGmail ? GmailEndpoint(tool.Kind) : request.Endpoint;
-            string httpMethod = isGmail ? "GET" : request.HttpMethod;
+            string httpMethod = isGmail ? GmailHttpMethod(tool.Kind) : request.HttpMethod;
             tool.Update(
                 request.Name,
                 request.Description,
@@ -225,6 +233,7 @@ public sealed class AgentToolService
 
     private async Task<bool> IsEligibleGmailConnectionAsync(
         Guid tenantId,
+        AgentToolKind kind,
         Guid? connectionId,
         CancellationToken cancellationToken)
     {
@@ -249,7 +258,7 @@ public sealed class AgentToolService
         {
             return await capabilities.HasCapabilityAsync(
                 connectionId.Value,
-                GoogleOAuthCapability.GmailRead,
+                RequiredCapabilityForGmailTool(kind),
                 cancellationToken);
         }
         catch (Exception exception) when (
@@ -263,6 +272,26 @@ public sealed class AgentToolService
     {
         AgentToolKind.GmailSearch => "gmail://messages/search",
         AgentToolKind.GmailReadMessage => "gmail://messages/read",
+        AgentToolKind.GmailCreateDraft => "gmail://drafts/create",
+        AgentToolKind.GmailSend => "gmail://drafts/send",
+        AgentToolKind.GmailReply => "gmail://messages/reply",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind))
+    };
+
+    private static string GmailHttpMethod(AgentToolKind kind) => kind switch
+    {
+        AgentToolKind.GmailSearch or AgentToolKind.GmailReadMessage => "GET",
+        AgentToolKind.GmailCreateDraft or AgentToolKind.GmailSend or AgentToolKind.GmailReply => "POST",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind))
+    };
+
+    private static GoogleOAuthCapability RequiredCapabilityForGmailTool(
+        AgentToolKind kind) => kind switch
+    {
+        AgentToolKind.GmailSearch or AgentToolKind.GmailReadMessage => GoogleOAuthCapability.GmailRead,
+        AgentToolKind.GmailCreateDraft => GoogleOAuthCapability.GmailCreateDraft,
+        AgentToolKind.GmailSend => GoogleOAuthCapability.GmailSend,
+        AgentToolKind.GmailReply => GoogleOAuthCapability.GmailReply,
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
 

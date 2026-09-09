@@ -43,6 +43,42 @@ public sealed class AgentToolCatalog : IAgentToolCatalog
         }
         """;
 
+    private const string GmailCreateDraftInputSchema = """
+        {
+          "type": "object",
+          "properties": {
+            "to": { "type": "string", "format": "email" },
+            "subject": { "type": "string", "minLength": 1 },
+            "body": { "type": "string", "minLength": 1 }
+          },
+          "required": ["to", "subject", "body"],
+          "additionalProperties": false
+        }
+        """;
+
+    private const string GmailSendInputSchema = """
+        {
+          "type": "object",
+          "properties": {
+            "draftId": { "type": "string", "minLength": 1 }
+          },
+          "required": ["draftId"],
+          "additionalProperties": false
+        }
+        """;
+
+    private const string GmailReplyInputSchema = """
+        {
+          "type": "object",
+          "properties": {
+            "messageId": { "type": "string", "minLength": 1 },
+            "body": { "type": "string", "minLength": 1 }
+          },
+          "required": ["messageId", "body"],
+          "additionalProperties": false
+        }
+        """;
+
     private readonly OrizonAgentsDbContext _dbContext;
 
     public AgentToolCatalog(
@@ -113,6 +149,10 @@ public sealed class AgentToolCatalog : IAgentToolCatalog
 
             AgentToolKind.GmailReadMessage =>
                 GmailReadMessageInputSchema,
+
+            AgentToolKind.GmailCreateDraft => GmailCreateDraftInputSchema,
+            AgentToolKind.GmailSend => GmailSendInputSchema,
+            AgentToolKind.GmailReply => GmailReplyInputSchema,
 
             _ => null
         };

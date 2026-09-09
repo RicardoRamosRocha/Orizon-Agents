@@ -85,6 +85,9 @@
                             <select asp-for="GmailAction" class="form-select" data-category-input>
                                 <option value="SearchEmails">Pesquisar e-mails</option>
                                 <option value="ReadEmail">Ler e-mail</option>
+                                <option value="CreateDraft">Criar rascunho (escrita)</option>
+                                <option value="SendDraft">Enviar rascunho (sensível)</option>
+                                <option value="ReplyToEmail">Responder e-mail (sensível)</option>
                             </select>
                             <span asp-validation-for="GmailAction" class="text-danger"></span>
                         </div>
@@ -108,7 +111,7 @@
 
                 <div class="mb-4">
                     <label asp-for="RiskLevel" class="form-label fw-semibold"></label>
-                    <select asp-for="RiskLevel" class="form-select">
+                    <select asp-for="RiskLevel" class="form-select" id="tool-risk-level">
                         <option value="Read">Leitura</option>
                         <option value="Write">Escrita</option>
                         <option value="Sensitive">Sensível</option>
@@ -132,6 +135,8 @@
         (() => {
             const category = document.getElementById('tool-category');
             const submit = document.getElementById('tool-submit');
+            const gmailAction = document.getElementById('GmailAction');
+            const riskLevel = document.getElementById('tool-risk-level');
             const sections = document.querySelectorAll('[data-tool-section]');
             const sync = () => {
                 sections.forEach(section => {
@@ -141,8 +146,14 @@
                 });
                 const gmail = document.querySelector('[data-tool-section="Gmail"]');
                 submit.disabled = category.value === 'Gmail' && gmail.dataset.hasConnections !== 'true';
+                if (category.value === 'Gmail') {
+                    riskLevel.value = gmailAction.value === 'CreateDraft' ? 'Write'
+                        : (gmailAction.value === 'SendDraft' || gmailAction.value === 'ReplyToEmail') ? 'Sensitive'
+                        : 'Read';
+                }
             };
             category.addEventListener('change', sync);
+            gmailAction.addEventListener('change', sync);
             sync();
         })();
     </script>
