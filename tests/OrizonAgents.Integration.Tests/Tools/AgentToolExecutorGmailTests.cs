@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
@@ -416,7 +416,7 @@ public sealed class AgentToolExecutorGmailTests
         Assert.Equal(tool.IntegrationConnectionId, execution.IntegrationConnectionId);
         Assert.Equal(SensitiveToolExecutionState.AwaitingApproval, execution.State);
 
-        Assert.True(await new ToolExecutionApprovalService(fixture.Db, fixture.Tenant)
+        Assert.True(await new ToolExecutionApprovalService(fixture.DbFactory, fixture.Tenant)
             .ApproveAsync(result.ApprovalId!.Value));
         AgentToolExecutionResult approved = await fixture.Executor.ExecuteAsync(
             new AgentToolExecutionRequest(
@@ -438,7 +438,7 @@ public sealed class AgentToolExecutorGmailTests
 
         AgentToolExecutionResult pending = await fixture.Executor.ExecuteAsync(
             new AgentToolExecutionRequest(agent.Id, tool.Id, input));
-        Assert.True(await new ToolExecutionApprovalService(fixture.Db, fixture.Tenant)
+        Assert.True(await new ToolExecutionApprovalService(fixture.DbFactory, fixture.Tenant)
             .ApproveAsync(pending.ApprovalId!.Value));
         fixture.Capabilities.Granted = false;
 
@@ -458,7 +458,7 @@ public sealed class AgentToolExecutorGmailTests
 
         AgentToolExecutionResult pending = await fixture.Executor.ExecuteAsync(
             new AgentToolExecutionRequest(agent.Id, tool.Id, input));
-        Assert.True(await new ToolExecutionApprovalService(fixture.Db, fixture.Tenant)
+        Assert.True(await new ToolExecutionApprovalService(fixture.DbFactory, fixture.Tenant)
             .ApproveAsync(pending.ApprovalId!.Value));
         fixture.Capabilities.Granted = false;
 
@@ -586,7 +586,7 @@ public sealed class AgentToolExecutorGmailTests
         Assert.True(result.RequiresApproval);
         Assert.Equal(0, fixture.Capabilities.Calls);
         Assert.Equal(0, fixture.Gmail.ReplyCalls);
-        Assert.True(await new ToolExecutionApprovalService(fixture.Db, fixture.Tenant)
+        Assert.True(await new ToolExecutionApprovalService(fixture.DbFactory, fixture.Tenant)
             .ApproveAsync(result.ApprovalId!.Value));
 
         result = await fixture.Executor.ExecuteAsync(
@@ -644,6 +644,8 @@ public sealed class AgentToolExecutorGmailTests
 
             Db = new OrizonAgentsDbContext(options, Tenant);
 
+            DbFactory = new TestDbContextFactory(options, Tenant);
+
             var httpExecutor = new HttpAgentToolExecutor(
                 new StubHttpClientFactory(Http),
                 new AgentToolEndpointPolicy(
@@ -661,7 +663,7 @@ public sealed class AgentToolExecutorGmailTests
                 Db,
                 new Infrastructure.Tools.Validation.AgentToolInputValidator(),
                 new ToolExecutionApprovalService(
-                    Db,
+                    DbFactory,
                     Tenant,
                     new SensitiveToolExecutionFactory(
                         new SensitiveToolExecutionPayloadProtector(
@@ -674,12 +676,24 @@ public sealed class AgentToolExecutorGmailTests
         public Guid TenantId { get; }
         public CurrentTenant Tenant { get; } = new();
         public OrizonAgentsDbContext Db { get; }
+        public IDbContextFactory<OrizonAgentsDbContext> DbFactory { get; }
         public StubGmailClient Gmail { get; } = new();
         public RecordingCapabilityService Capabilities { get; } = new();
         public RecordingHttpMessageHandler Http { get; } = new();
         public RecordingLogger<GmailAgentToolExecutor> GmailLogger { get; } = new();
         public AgentToolExecutor Executor { get; }
 
+        private sealed class TestDbContextFactory(
+            DbContextOptions<OrizonAgentsDbContext> options,
+            CurrentTenant tenant) : IDbContextFactory<OrizonAgentsDbContext>
+        {
+            public OrizonAgentsDbContext CreateDbContext() =>
+                new(options, tenant);
+
+            public Task<OrizonAgentsDbContext> CreateDbContextAsync(
+                CancellationToken cancellationToken = default) =>
+                Task.FromResult(CreateDbContext());
+        }
         public async Task<(
             AiAgent Agent,
             AgentTool Tool,
@@ -744,7 +758,7 @@ public sealed class AgentToolExecutorGmailTests
             new(
                 tenantId,
                 "Agente de teste",
-                "Você é um agente de teste.",
+                "VocÃª Ã© um agente de teste.",
                 AiProvider.GoogleGemini,
                 "gemini-test");
 
@@ -758,7 +772,7 @@ public sealed class AgentToolExecutorGmailTests
             var tool = new AgentTool(
                 tenantId,
                 "Tool de teste",
-                "Executa uma operação de teste.",
+                "Executa uma operaÃ§Ã£o de teste.",
                 endpoint,
                 httpMethod);
 
@@ -949,3 +963,7 @@ public sealed class AgentToolExecutorGmailTests
         }
     }
 }
+
+
+
+

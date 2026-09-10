@@ -20,6 +20,10 @@ public interface IToolExecutionApprovalService
         Guid approvalId,
         CancellationToken cancellationToken = default);
 
+    Task<ToolExecutionApprovalResult> ApproveAndGetExecutionAsync(
+        Guid approvalId,
+        CancellationToken cancellationToken = default);
+
     Task<bool> RejectAsync(
         Guid approvalId,
         CancellationToken cancellationToken = default);

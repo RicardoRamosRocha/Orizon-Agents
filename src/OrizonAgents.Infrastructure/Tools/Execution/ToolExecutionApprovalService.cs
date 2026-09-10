@@ -15,7 +15,8 @@ public sealed class ToolExecutionApprovalService
     private static readonly TimeSpan ApprovalLifetime =
         TimeSpan.FromMinutes(10);
 
-    private readonly OrizonAgentsDbContext _dbContext;
+    private OrizonAgentsDbContext _dbContext = null!;
+    private readonly IDbContextFactory<OrizonAgentsDbContext> _dbContextFactory;
     private readonly ICurrentTenant _currentTenant;
     private const string OpenEquivalentRequestIndexName =
         "IX_ToolExecutionApprovals_OpenEquivalentRequest";
@@ -23,18 +24,26 @@ public sealed class ToolExecutionApprovalService
     private readonly ISensitiveToolExecutionFactory? _executionFactory;
 
     public ToolExecutionApprovalService(
-        OrizonAgentsDbContext dbContext,
+        IDbContextFactory<OrizonAgentsDbContext> dbContextFactory,
         ICurrentTenant currentTenant,
         ISensitiveToolExecutionFactory? executionFactory = null)
     {
-        _dbContext = dbContext;
+        _dbContextFactory = dbContextFactory;
         _currentTenant = currentTenant;
         _executionFactory = executionFactory;
     }
 
+
     public async Task<IReadOnlyList<ToolExecutionApprovalListItemDto>> ListPendingAsync(
         CancellationToken cancellationToken = default)
     {
+        if (_dbContext is null)
+        {
+            await using OrizonAgentsDbContext context =
+                await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+            return await CreateOperationService(context).ListPendingAsync(cancellationToken);
+        }
+
         EnsureCurrentTenant();
 
         DateTime utcNow = DateTime.UtcNow;
@@ -68,6 +77,13 @@ public sealed class ToolExecutionApprovalService
         JsonElement? input,
         CancellationToken cancellationToken = default)
     {
+        if (_dbContext is null)
+        {
+            await using OrizonAgentsDbContext context =
+                await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+            return await CreateOperationService(context).AuthorizeAsync(agentId, tool, binding, input, cancellationToken);
+        }
+
         if (agentId == Guid.Empty)
         {
             throw new ArgumentException(
@@ -110,7 +126,7 @@ public sealed class ToolExecutionApprovalService
         {
             if (approval.ExpiresAtUtc <= utcNow)
             {
-                approval.Expire(utcNow);
+                ExpireApprovalAndSensitiveToolExecution(approval, utcNow);
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 approval = null;
             }
@@ -218,6 +234,23 @@ public sealed class ToolExecutionApprovalService
         Guid approvalId,
         CancellationToken cancellationToken = default)
     {
+        ToolExecutionApprovalResult result =
+            await ApproveAndGetExecutionAsync(approvalId, cancellationToken);
+
+        return result.Approved;
+    }
+
+    public async Task<ToolExecutionApprovalResult> ApproveAndGetExecutionAsync(
+        Guid approvalId,
+        CancellationToken cancellationToken = default)
+    {
+        if (_dbContext is null)
+        {
+            await using OrizonAgentsDbContext context =
+                await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+            return await CreateOperationService(context).ApproveAndGetExecutionAsync(approvalId, cancellationToken);
+        }
+
         EnsureCurrentTenant();
 
         ToolExecutionApproval? approval =
@@ -227,7 +260,7 @@ public sealed class ToolExecutionApprovalService
 
         if (approval is null)
         {
-            return false;
+            return ToolExecutionApprovalResult.NotAvailable();
         }
 
         DateTime utcNow = DateTime.UtcNow;
@@ -239,23 +272,34 @@ public sealed class ToolExecutionApprovalService
                  ToolExecutionApprovalStatus.Approved) &&
                 approval.ExpiresAtUtc <= utcNow)
             {
-                approval.Expire(utcNow);
+                ExpireApprovalAndSensitiveToolExecution(approval, utcNow);
                 await _dbContext.SaveChangesAsync(cancellationToken);
             }
 
-            return false;
+            return ToolExecutionApprovalResult.NotAvailable();
         }
 
         approval.Approve(utcNow);
+        SensitiveToolExecution execution =
+            GetRequiredSensitiveToolExecution(approval);
+
+        execution.MarkReady(utcNow);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return true;
+        return ToolExecutionApprovalResult.Success(execution.Id);
     }
 
     public async Task<bool> RejectAsync(
         Guid approvalId,
         CancellationToken cancellationToken = default)
     {
+        if (_dbContext is null)
+        {
+            await using OrizonAgentsDbContext context =
+                await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+            return await CreateOperationService(context).RejectAsync(approvalId, cancellationToken);
+        }
+
         EnsureCurrentTenant();
 
         ToolExecutionApproval? approval =
@@ -273,12 +317,16 @@ public sealed class ToolExecutionApprovalService
 
         if (approval.ExpiresAtUtc <= utcNow)
         {
-            approval.Expire(utcNow);
+            ExpireApprovalAndSensitiveToolExecution(approval, utcNow);
             await _dbContext.SaveChangesAsync(cancellationToken);
             return false;
         }
 
         approval.Reject(utcNow);
+        SensitiveToolExecution execution =
+            GetRequiredSensitiveToolExecution(approval);
+
+        execution.Reject(utcNow);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return true;
@@ -294,9 +342,47 @@ public sealed class ToolExecutionApprovalService
         }
 
         return _dbContext.ToolExecutionApprovals
+            .Include(x => x.SensitiveToolExecution)
             .SingleOrDefaultAsync(
                 x => x.Id == approvalId,
                 cancellationToken);
+    }
+
+    private SensitiveToolExecution GetRequiredSensitiveToolExecution(
+        ToolExecutionApproval approval)
+    {
+        if (approval.SensitiveToolExecution is { } execution)
+        {
+            return execution;
+        }
+
+        throw new InvalidOperationException(
+            "Sensitive Tool execution was not found for the approval.");
+    }
+
+    private void ExpireApprovalAndSensitiveToolExecution(
+        ToolExecutionApproval approval,
+        DateTime utcNow)
+    {
+        approval.Expire(utcNow);
+
+        SensitiveToolExecution? execution = approval.SensitiveToolExecution;
+
+        if (execution is null)
+        {
+            // Approvals created before durable executions existed remain expirable.
+            return;
+        }
+
+        if (execution.State is SensitiveToolExecutionState.AwaitingApproval or
+            SensitiveToolExecutionState.Ready)
+        {
+            execution.Expire(utcNow);
+            return;
+        }
+
+        throw new InvalidOperationException(
+            "Sensitive Tool execution cannot be expired in its current state.");
     }
 
     private void EnsureCurrentTenant()
@@ -306,6 +392,17 @@ public sealed class ToolExecutionApprovalService
             throw new InvalidOperationException(
                 "Não há tenant ativo para autorizar a execução da Tool.");
         }
+    }
+
+    private ToolExecutionApprovalService CreateOperationService(
+        OrizonAgentsDbContext dbContext)
+    {
+        var service = new ToolExecutionApprovalService(
+            _dbContextFactory,
+            _currentTenant,
+            _executionFactory);
+        service._dbContext = dbContext;
+        return service;
     }
 
     private void EnsureCurrentTenant(Guid tenantId)

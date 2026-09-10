@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OrizonAgents.Application.Tools.Execution;
+using OrizonAgents.Application.Tools.Execution.Models;
 
 namespace OrizonAgents.Web.Controllers;
 
@@ -9,11 +10,14 @@ namespace OrizonAgents.Web.Controllers;
 public sealed class ToolApprovalsController : Controller
 {
     private readonly IToolExecutionApprovalService _approvalService;
+    private readonly ISensitiveToolExecutionRunner _executionRunner;
 
     public ToolApprovalsController(
-        IToolExecutionApprovalService approvalService)
+        IToolExecutionApprovalService approvalService,
+        ISensitiveToolExecutionRunner executionRunner)
     {
         _approvalService = approvalService;
+        _executionRunner = executionRunner;
     }
 
     [HttpGet("")]
@@ -32,12 +36,31 @@ public sealed class ToolApprovalsController : Controller
         Guid id,
         CancellationToken cancellationToken)
     {
-        bool approved =
-            await _approvalService.ApproveAsync(id, cancellationToken);
+        ToolExecutionApprovalResult approval =
+            await _approvalService.ApproveAndGetExecutionAsync(id, cancellationToken);
+
+        bool approved = approval.Approved && approval.ExecutionId.HasValue;
 
         TempData["StatusMessage"] = approved
             ? "Execução aprovada."
             : "A aprovação não está mais disponível.";
+
+        if (approved)
+        {
+            SensitiveToolExecutionRunResult result =
+                await _executionRunner.RunAsync(
+                    approval.ExecutionId!.Value,
+                    cancellationToken);
+
+            TempData["StatusMessage"] = result.Status switch
+            {
+                SensitiveToolExecutionRunStatus.Executed =>
+                    "Execução aprovada e concluída com sucesso.",
+                SensitiveToolExecutionRunStatus.OutcomeUnknown =>
+                    "A operação foi aprovada, mas o resultado externo ficou incerto.",
+                _ => "A operação foi aprovada, mas não pôde ser executada devido a uma alteração de estado ou configuração."
+            };
+        }
 
         return RedirectToAction(nameof(Index));
     }

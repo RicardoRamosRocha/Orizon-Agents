@@ -100,9 +100,21 @@ public static class DependencyInjection
         services.AddScoped<HttpAgentToolExecutor>();
         services.AddScoped<GmailAgentToolExecutor>();
         services.AddScoped<IAgentToolExecutor, AgentToolExecutor>();
-        services.AddScoped<IToolExecutionApprovalService, ToolExecutionApprovalService>();
+        services.AddScoped<IToolExecutionApprovalService>(provider =>
+            new ToolExecutionApprovalService(
+                provider.GetRequiredService<IDbContextFactory<OrizonAgentsDbContext>>(),
+                provider.GetRequiredService<ICurrentTenant>(),
+                provider.GetRequiredService<ISensitiveToolExecutionFactory>()));
         services.AddScoped<ISensitiveToolExecutionPayloadProtector, SensitiveToolExecutionPayloadProtector>();
         services.AddScoped<ISensitiveToolExecutionFactory, SensitiveToolExecutionFactory>();
+        services.AddScoped<ISensitiveToolExecutionRunner>(provider =>
+            new SensitiveToolExecutionRunner(
+                provider.GetRequiredService<IDbContextFactory<OrizonAgentsDbContext>>(),
+                provider.GetRequiredService<ICurrentTenant>(),
+                provider.GetRequiredService<ISensitiveToolExecutionPayloadProtector>(),
+                provider.GetRequiredService<IAgentToolInputValidator>(),
+                provider.GetRequiredService<HttpAgentToolExecutor>(),
+                provider.GetRequiredService<GmailAgentToolExecutor>()));
         services.AddScoped<IAgentToolInputValidator, AgentToolInputValidator>();
         services.AddScoped<IAgentModelDecisionParser, AgentModelDecisionParser>();
         services.AddScoped<IAgentToolCatalog, AgentToolCatalog>();

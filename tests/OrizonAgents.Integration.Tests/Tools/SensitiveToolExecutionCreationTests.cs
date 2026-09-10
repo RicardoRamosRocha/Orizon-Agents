@@ -18,11 +18,12 @@ public sealed class SensitiveToolExecutionCreationTests
         var tenant = new CurrentTenant();
         Guid tenantId = Guid.NewGuid();
         tenant.SetTenantId(tenantId);
-        await using var db = CreateDb(tenant);
+        TestDbContextFactory factory = CreateFactory(tenant);
+        await using var db = factory.CreateDbContext();
         var payloadProtector = new SensitiveToolExecutionPayloadProtector(
             new EphemeralDataProtectionProvider());
         var service = new ToolExecutionApprovalService(
-            db,
+            factory,
             tenant,
             new SensitiveToolExecutionFactory(payloadProtector));
         AgentTool tool = CreateSensitiveHttpTool(tenantId);
@@ -69,9 +70,10 @@ public sealed class SensitiveToolExecutionCreationTests
         var tenant = new CurrentTenant();
         Guid tenantId = Guid.NewGuid();
         tenant.SetTenantId(tenantId);
-        await using var db = CreateDb(tenant);
+        TestDbContextFactory factory = CreateFactory(tenant);
+        await using var db = factory.CreateDbContext();
         var service = new ToolExecutionApprovalService(
-            db,
+            factory,
             tenant,
             new SensitiveToolExecutionFactory(
                 new SensitiveToolExecutionPayloadProtector(
@@ -96,9 +98,10 @@ public sealed class SensitiveToolExecutionCreationTests
         var tenant = new CurrentTenant();
         Guid tenantId = Guid.NewGuid();
         tenant.SetTenantId(tenantId);
-        await using var db = CreateDb(tenant);
+        TestDbContextFactory factory = CreateFactory(tenant);
+        await using var db = factory.CreateDbContext();
         var service = new ToolExecutionApprovalService(
-            db,
+            factory,
             tenant,
             new SensitiveToolExecutionFactory(
                 new SensitiveToolExecutionPayloadProtector(
@@ -123,9 +126,10 @@ public sealed class SensitiveToolExecutionCreationTests
         var tenant = new CurrentTenant();
         Guid tenantId = Guid.NewGuid();
         tenant.SetTenantId(tenantId);
-        await using var db = CreateDb(tenant);
+        TestDbContextFactory factory = CreateFactory(tenant);
+        await using var db = factory.CreateDbContext();
         var service = new ToolExecutionApprovalService(
-            db,
+            factory,
             tenant,
             new SensitiveToolExecutionFactory(
                 new SensitiveToolExecutionPayloadProtector(
@@ -222,11 +226,12 @@ public sealed class SensitiveToolExecutionCreationTests
         var tenant = new CurrentTenant();
         Guid tenantId = Guid.NewGuid();
         tenant.SetTenantId(tenantId);
-        await using var db = CreateDb(tenant);
+        TestDbContextFactory factory = CreateFactory(tenant);
+        await using var db = factory.CreateDbContext();
         var payloadProtector = new SensitiveToolExecutionPayloadProtector(
             new EphemeralDataProtectionProvider());
         var service = new ToolExecutionApprovalService(
-            db, tenant, new SensitiveToolExecutionFactory(payloadProtector));
+            factory, tenant, new SensitiveToolExecutionFactory(payloadProtector));
         AgentTool tool = CreateSensitiveHttpTool(tenantId);
         var binding = new AgentToolBinding(tenantId, Guid.NewGuid(), tool.Id);
         JsonElement input = Json("""{"amount":100}""");
@@ -240,8 +245,12 @@ public sealed class SensitiveToolExecutionCreationTests
             binding.AgentId, tool, binding, input);
 
         Assert.NotEqual(legacyApproval.Id, result.ApprovalId);
-        Assert.Equal(ToolExecutionApprovalStatus.Expired, legacyApproval.Status);
-        Assert.Single(db.SensitiveToolExecutions);
+        await using OrizonAgentsDbContext verificationDb = factory.CreateDbContext();
+        ToolExecutionApproval persistedLegacyApproval =
+            await verificationDb.ToolExecutionApprovals.SingleAsync(x => x.Id == legacyApproval.Id);
+        Assert.Equal(ToolExecutionApprovalStatus.Expired, persistedLegacyApproval.Status);
+        Assert.Equal(2, await verificationDb.ToolExecutionApprovals.CountAsync());
+        Assert.Single(verificationDb.SensitiveToolExecutions);
     }
 
     [Theory]
@@ -253,9 +262,10 @@ public sealed class SensitiveToolExecutionCreationTests
         var tenant = new CurrentTenant();
         Guid tenantId = Guid.NewGuid();
         tenant.SetTenantId(tenantId);
-        await using var db = CreateDb(tenant);
+        TestDbContextFactory factory = CreateFactory(tenant);
+        await using var db = factory.CreateDbContext();
         var service = new ToolExecutionApprovalService(
-            db,
+            factory,
             tenant,
             new SensitiveToolExecutionFactory(
                 new SensitiveToolExecutionPayloadProtector(
@@ -281,9 +291,12 @@ public sealed class SensitiveToolExecutionCreationTests
             binding.AgentId, tool, binding, input);
 
         Assert.NotEqual(expired.Id, result.ApprovalId);
-        Assert.Equal(ToolExecutionApprovalStatus.Expired, expired.Status);
-        Assert.Equal(2, await db.ToolExecutionApprovals.CountAsync());
-        Assert.Single(db.SensitiveToolExecutions);
+        await using OrizonAgentsDbContext verificationDb = factory.CreateDbContext();
+        ToolExecutionApproval persistedExpiredApproval =
+            await verificationDb.ToolExecutionApprovals.SingleAsync(x => x.Id == expired.Id);
+        Assert.Equal(ToolExecutionApprovalStatus.Expired, persistedExpiredApproval.Status);
+        Assert.Equal(2, await verificationDb.ToolExecutionApprovals.CountAsync());
+        Assert.Single(verificationDb.SensitiveToolExecutions);
     }
 
     [Fact]
@@ -292,9 +305,10 @@ public sealed class SensitiveToolExecutionCreationTests
         var tenant = new CurrentTenant();
         Guid tenantId = Guid.NewGuid();
         tenant.SetTenantId(tenantId);
-        await using var db = CreateDb(tenant);
+        TestDbContextFactory factory = CreateFactory(tenant);
+        await using var db = factory.CreateDbContext();
         var service = new ToolExecutionApprovalService(
-            db,
+            factory,
             tenant,
             new SensitiveToolExecutionFactory(
                 new SensitiveToolExecutionPayloadProtector(
@@ -327,10 +341,23 @@ public sealed class SensitiveToolExecutionCreationTests
         return tool;
     }
 
-    private static OrizonAgentsDbContext CreateDb(CurrentTenant tenant) =>
-        new(new DbContextOptionsBuilder<OrizonAgentsDbContext>()
-            .UseInMemoryDatabase($"SensitiveToolExecutionCreation-{Guid.NewGuid()}")
-            .Options, tenant);
+    private static TestDbContextFactory CreateFactory(CurrentTenant tenant) =>
+        new(
+            new DbContextOptionsBuilder<OrizonAgentsDbContext>()
+                .UseInMemoryDatabase($"SensitiveToolExecutionCreation-{Guid.NewGuid()}")
+                .Options,
+            tenant);
+
+    private sealed class TestDbContextFactory(
+        DbContextOptions<OrizonAgentsDbContext> options,
+        CurrentTenant tenant) : IDbContextFactory<OrizonAgentsDbContext>
+    {
+        public OrizonAgentsDbContext CreateDbContext() => new(options, tenant);
+
+        public Task<OrizonAgentsDbContext> CreateDbContextAsync(
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(CreateDbContext());
+    }
 
     private static JsonElement Json(string json)
     {

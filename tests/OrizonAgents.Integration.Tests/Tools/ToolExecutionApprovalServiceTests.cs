@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using OrizonAgents.Application.Common.Tenancy;
 using OrizonAgents.Application.Tools.Execution.Models;
+using OrizonAgents.Domain.Agents;
 using OrizonAgents.Domain.Tools;
 using OrizonAgents.Infrastructure.Persistence;
 using OrizonAgents.Infrastructure.Tenancy;
@@ -13,6 +14,40 @@ namespace OrizonAgents.Integration.Tests.Tools;
 
 public sealed class ToolExecutionApprovalServiceTests
 {
+    [Fact]
+    public async Task AuthorizeAsync_UsesIsolatedContext_AndDoesNotSaveTrackedConversationMessage()
+    {
+        await using ServiceProvider provider = CreateProvider();
+        Guid tenantId = SetTenant(provider);
+        OrizonAgentsDbContext requestDb = provider.GetRequiredService<OrizonAgentsDbContext>();
+
+        var conversation = new AiConversation(tenantId, Guid.NewGuid());
+        AiConversationMessage message = conversation.AddUserMessage("Mensagem pendente do runner.");
+        requestDb.AiConversations.Add(conversation);
+        await requestDb.SaveChangesAsync();
+
+        requestDb.Entry(message).State = EntityState.Modified;
+
+        await using (OrizonAgentsDbContext externalDb = provider
+            .GetRequiredService<IDbContextFactory<OrizonAgentsDbContext>>()
+            .CreateDbContext())
+        {
+            AiConversationMessage persistedMessage = await externalDb.AiConversationMessages
+                .SingleAsync(x => x.Id == message.Id);
+            externalDb.Remove(persistedMessage);
+            await externalDb.SaveChangesAsync();
+        }
+
+        AgentTool tool = CreateTool(tenantId, AgentToolRiskLevel.Sensitive);
+        ToolExecutionAuthorizationResult result = await CreateService(provider).AuthorizeAsync(
+            Guid.NewGuid(), tool, Parse("""{"value":"test"}"""));
+
+        Assert.Equal(ToolExecutionAuthorizationStatus.ApprovalRequired, result.Status);
+        Assert.Equal(EntityState.Modified, requestDb.Entry(message).State);
+        Assert.Single(await requestDb.ToolExecutionApprovals.ToListAsync());
+        Assert.Single(await requestDb.SensitiveToolExecutions.ToListAsync());
+    }
+
     [Fact]
     public async Task AuthorizeAsync_ReadTool_IsAllowedImmediately()
     {
@@ -179,6 +214,15 @@ public sealed class ToolExecutionApprovalServiceTests
 
         Assert.True(approved);
 
+        OrizonAgentsDbContext db =
+            provider.GetRequiredService<OrizonAgentsDbContext>();
+
+        SensitiveToolExecution execution =
+            await db.SensitiveToolExecutions.SingleAsync(x =>
+                x.ApprovalId == pending.ApprovalId.Value);
+
+        Assert.Equal(SensitiveToolExecutionState.Ready, execution.State);
+
         ToolExecutionAuthorizationResult allowed =
             await service.AuthorizeAsync(
                 agentId,
@@ -188,9 +232,6 @@ public sealed class ToolExecutionApprovalServiceTests
         Assert.Equal(
             ToolExecutionAuthorizationStatus.Allowed,
             allowed.Status);
-
-        OrizonAgentsDbContext db =
-            provider.GetRequiredService<OrizonAgentsDbContext>();
 
         ToolExecutionApproval consumed =
             await db.ToolExecutionApprovals
@@ -318,6 +359,15 @@ public sealed class ToolExecutionApprovalServiceTests
             await service.RejectAsync(
                 pending.ApprovalId.Value));
 
+        OrizonAgentsDbContext db =
+            provider.GetRequiredService<OrizonAgentsDbContext>();
+
+        SensitiveToolExecution execution =
+            await db.SensitiveToolExecutions.SingleAsync(x =>
+                x.ApprovalId == pending.ApprovalId.Value);
+
+        Assert.Equal(SensitiveToolExecutionState.Rejected, execution.State);
+
         ToolExecutionAuthorizationResult retry =
             await service.AuthorizeAsync(
                 agentId,
@@ -332,9 +382,6 @@ public sealed class ToolExecutionApprovalServiceTests
             pending.ApprovalId,
             retry.ApprovalId);
 
-        OrizonAgentsDbContext db =
-            provider.GetRequiredService<OrizonAgentsDbContext>();
-
         ToolExecutionApproval rejected =
             await db.ToolExecutionApprovals
                 .SingleAsync(x =>
@@ -343,6 +390,145 @@ public sealed class ToolExecutionApprovalServiceTests
         Assert.Equal(
             ToolExecutionApprovalStatus.Rejected,
             rejected.Status);
+    }
+
+    [Fact]
+    public async Task AuthorizeAsync_ExpiredPendingApproval_ExpiresSensitiveExecution()
+    {
+        await using ServiceProvider provider = CreateProvider();
+
+        Guid tenantId = SetTenant(provider);
+        AgentTool tool = CreateTool(tenantId, AgentToolRiskLevel.Sensitive);
+        ToolExecutionApprovalService service = CreateService(provider);
+        Guid agentId = Guid.NewGuid();
+        JsonElement input = Parse("""{"operation":"transfer"}""");
+
+        ToolExecutionAuthorizationResult pending =
+            await service.AuthorizeAsync(agentId, tool, input);
+
+        await ExpireApprovalAndExecutionAsync(provider, pending.ApprovalId!.Value);
+
+        ToolExecutionAuthorizationResult retry =
+            await service.AuthorizeAsync(agentId, tool, input);
+
+        Assert.NotEqual(pending.ApprovalId, retry.ApprovalId);
+
+        (ToolExecutionApproval approval, SensitiveToolExecution execution) =
+            await GetApprovalAndExecutionAsync(provider, pending.ApprovalId.Value);
+
+        Assert.Equal(ToolExecutionApprovalStatus.Expired, approval.Status);
+        Assert.Equal(SensitiveToolExecutionState.Expired, execution.State);
+    }
+
+    [Fact]
+    public async Task AuthorizeAsync_ExpiredApprovedApproval_ExpiresReadyExecution()
+    {
+        await using ServiceProvider provider = CreateProvider();
+
+        Guid tenantId = SetTenant(provider);
+        AgentTool tool = CreateTool(tenantId, AgentToolRiskLevel.Sensitive);
+        ToolExecutionApprovalService service = CreateService(provider);
+        Guid agentId = Guid.NewGuid();
+        JsonElement input = Parse("""{"operation":"transfer"}""");
+
+        ToolExecutionAuthorizationResult pending =
+            await service.AuthorizeAsync(agentId, tool, input);
+
+        Assert.True(await service.ApproveAsync(pending.ApprovalId!.Value));
+
+        await ExpireApprovalAndExecutionAsync(provider, pending.ApprovalId.Value);
+
+        await service.AuthorizeAsync(agentId, tool, input);
+
+        (ToolExecutionApproval approval, SensitiveToolExecution execution) =
+            await GetApprovalAndExecutionAsync(provider, pending.ApprovalId.Value);
+
+        Assert.Equal(ToolExecutionApprovalStatus.Expired, approval.Status);
+        Assert.Equal(SensitiveToolExecutionState.Expired, execution.State);
+    }
+
+    [Fact]
+    public async Task ApproveAsync_AfterExpiration_ExpiresSensitiveExecution()
+    {
+        await using ServiceProvider provider = CreateProvider();
+
+        Guid tenantId = SetTenant(provider);
+        AgentTool tool = CreateTool(tenantId, AgentToolRiskLevel.Sensitive);
+        ToolExecutionApprovalService service = CreateService(provider);
+
+        ToolExecutionAuthorizationResult pending =
+            await service.AuthorizeAsync(Guid.NewGuid(), tool, Parse("""{"operation":"delete"}"""));
+
+        await ExpireApprovalAndExecutionAsync(provider, pending.ApprovalId!.Value);
+
+        Assert.False(await service.ApproveAsync(pending.ApprovalId.Value));
+
+        (ToolExecutionApproval approval, SensitiveToolExecution execution) =
+            await GetApprovalAndExecutionAsync(provider, pending.ApprovalId.Value);
+
+        Assert.Equal(ToolExecutionApprovalStatus.Expired, approval.Status);
+        Assert.Equal(SensitiveToolExecutionState.Expired, execution.State);
+    }
+
+    [Fact]
+    public async Task RejectAsync_AfterExpiration_ExpiresSensitiveExecution()
+    {
+        await using ServiceProvider provider = CreateProvider();
+
+        Guid tenantId = SetTenant(provider);
+        AgentTool tool = CreateTool(tenantId, AgentToolRiskLevel.Sensitive);
+        ToolExecutionApprovalService service = CreateService(provider);
+
+        ToolExecutionAuthorizationResult pending =
+            await service.AuthorizeAsync(Guid.NewGuid(), tool, Parse("""{"operation":"delete"}"""));
+
+        await ExpireApprovalAndExecutionAsync(provider, pending.ApprovalId!.Value);
+
+        Assert.False(await service.RejectAsync(pending.ApprovalId.Value));
+
+        (ToolExecutionApproval approval, SensitiveToolExecution execution) =
+            await GetApprovalAndExecutionAsync(provider, pending.ApprovalId.Value);
+
+        Assert.Equal(ToolExecutionApprovalStatus.Expired, approval.Status);
+        Assert.Equal(SensitiveToolExecutionState.Expired, execution.State);
+    }
+
+    [Fact]
+    public async Task AuthorizeAsync_ExpiredApprovalWithTerminalExecution_ThrowsWithoutChangingExecution()
+    {
+        await using ServiceProvider provider = CreateProvider();
+
+        Guid tenantId = SetTenant(provider);
+        AgentTool tool = CreateTool(tenantId, AgentToolRiskLevel.Sensitive);
+        ToolExecutionApprovalService service = CreateService(provider);
+        Guid agentId = Guid.NewGuid();
+        JsonElement input = Parse("""{"operation":"transfer"}""");
+
+        ToolExecutionAuthorizationResult pending =
+            await service.AuthorizeAsync(agentId, tool, input);
+
+        Assert.True(await service.ApproveAsync(pending.ApprovalId!.Value));
+
+        OrizonAgentsDbContext db = provider.GetRequiredService<OrizonAgentsDbContext>();
+        SensitiveToolExecution execution = await db.SensitiveToolExecutions.SingleAsync(x =>
+            x.ApprovalId == pending.ApprovalId.Value);
+        DateTime utcNow = DateTime.UtcNow;
+        execution.BeginExecution(utcNow);
+        execution.Complete(utcNow);
+        await db.SaveChangesAsync();
+
+        await ExpireApprovalAndExecutionAsync(provider, pending.ApprovalId.Value, expireExecution: false);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.AuthorizeAsync(agentId, tool, input));
+
+        db.ChangeTracker.Clear();
+
+        (ToolExecutionApproval approval, SensitiveToolExecution persistedExecution) =
+            await GetApprovalAndExecutionAsync(provider, pending.ApprovalId.Value);
+
+        Assert.Equal(ToolExecutionApprovalStatus.Approved, approval.Status);
+        Assert.Equal(SensitiveToolExecutionState.Executed, persistedExecution.State);
     }
 
     [Fact]
@@ -397,6 +583,36 @@ public sealed class ToolExecutionApprovalServiceTests
     }
 
     [Fact]
+    public async Task ApproveAndGetExecutionAsync_ReturnsReadyExecutionOnlyForTheFirstApproval()
+    {
+        await using ServiceProvider provider = CreateProvider();
+
+        Guid tenantId = SetTenant(provider);
+        AgentTool tool = CreateTool(tenantId, AgentToolRiskLevel.Sensitive);
+        ToolExecutionApprovalService service = CreateService(provider);
+
+        ToolExecutionAuthorizationResult pending = await service.AuthorizeAsync(
+            Guid.NewGuid(), tool, Parse("""{"operation":"transfer"}"""));
+
+        ToolExecutionApprovalResult approved = await service.ApproveAndGetExecutionAsync(
+            pending.ApprovalId!.Value);
+
+        Assert.True(approved.Approved);
+        Assert.NotNull(approved.ExecutionId);
+
+        OrizonAgentsDbContext db = provider.GetRequiredService<OrizonAgentsDbContext>();
+        SensitiveToolExecution execution = await db.SensitiveToolExecutions.SingleAsync();
+        Assert.Equal(approved.ExecutionId, execution.Id);
+        Assert.Equal(SensitiveToolExecutionState.Ready, execution.State);
+
+        ToolExecutionApprovalResult second = await service.ApproveAndGetExecutionAsync(
+            pending.ApprovalId.Value);
+
+        Assert.False(second.Approved);
+        Assert.Null(second.ExecutionId);
+    }
+
+    [Fact]
     public async Task RejectAsync_FromAnotherTenant_IsRejected()
     {
         await using ServiceProvider provider = CreateProvider();
@@ -447,14 +663,89 @@ public sealed class ToolExecutionApprovalServiceTests
         Assert.Null(approval.RejectedAtUtc);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ApproveOrRejectAsync_WithoutSensitiveExecution_DoesNotPersistPartialDecision(
+        bool approve)
+    {
+        await using ServiceProvider provider = CreateProvider();
+
+        Guid tenantId = SetTenant(provider);
+
+        var approval = new ToolExecutionApproval(
+            tenantId,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "input-hash",
+            DateTime.UtcNow.AddMinutes(5));
+
+        OrizonAgentsDbContext db =
+            provider.GetRequiredService<OrizonAgentsDbContext>();
+
+        db.ToolExecutionApprovals.Add(approval);
+        await db.SaveChangesAsync();
+
+        ToolExecutionApprovalService service = CreateService(provider);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => approve
+            ? service.ApproveAsync(approval.Id)
+            : service.RejectAsync(approval.Id));
+
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        ToolExecutionApproval persisted =
+            await db.ToolExecutionApprovals.SingleAsync(x => x.Id == approval.Id);
+
+        Assert.Equal(ToolExecutionApprovalStatus.Pending, persisted.Status);
+        Assert.Null(persisted.ApprovedAtUtc);
+        Assert.Null(persisted.RejectedAtUtc);
+    }
+
     private static ToolExecutionApprovalService CreateService(
         ServiceProvider provider) =>
         new(
-            provider.GetRequiredService<OrizonAgentsDbContext>(),
+            provider.GetRequiredService<IDbContextFactory<OrizonAgentsDbContext>>(),
             provider.GetRequiredService<ICurrentTenant>(),
             new SensitiveToolExecutionFactory(
                 new SensitiveToolExecutionPayloadProtector(
                     new EphemeralDataProtectionProvider())));
+
+    private static async Task ExpireApprovalAndExecutionAsync(
+        ServiceProvider provider,
+        Guid approvalId,
+        bool expireExecution = true)
+    {
+        OrizonAgentsDbContext db = provider.GetRequiredService<OrizonAgentsDbContext>();
+        ToolExecutionApproval approval = await db.ToolExecutionApprovals
+            .Include(x => x.SensitiveToolExecution)
+            .SingleAsync(x => x.Id == approvalId);
+
+        DateTime expiredAtUtc = DateTime.UtcNow.AddMinutes(-1);
+        db.Entry(approval).Property(x => x.ExpiresAtUtc).CurrentValue = expiredAtUtc;
+
+        if (expireExecution)
+        {
+            db.Entry(approval.SensitiveToolExecution!)
+                .Property(x => x.ExpiresAtUtc)
+                .CurrentValue = expiredAtUtc;
+        }
+
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+    }
+
+    private static async Task<(ToolExecutionApproval Approval, SensitiveToolExecution Execution)>
+        GetApprovalAndExecutionAsync(ServiceProvider provider, Guid approvalId)
+    {
+        OrizonAgentsDbContext db = provider.GetRequiredService<OrizonAgentsDbContext>();
+        ToolExecutionApproval approval = await db.ToolExecutionApprovals
+            .Include(x => x.SensitiveToolExecution)
+            .SingleAsync(x => x.Id == approvalId);
+
+        return (approval, approval.SensitiveToolExecution!);
+    }
 
     private static AgentTool CreateTool(
         Guid tenantId,
@@ -505,10 +796,15 @@ public sealed class ToolExecutionApprovalServiceTests
             provider =>
                 provider.GetRequiredService<CurrentTenant>());
 
-        services.AddDbContext<OrizonAgentsDbContext>(
+        services.AddDbContextFactory<OrizonAgentsDbContext>(
             options =>
                 options.UseInMemoryDatabase(
-                    $"ToolExecutionApprovals-{Guid.NewGuid()}"));
+                    $"ToolExecutionApprovals-{Guid.NewGuid()}"),
+            ServiceLifetime.Scoped);
+
+        services.AddScoped(provider =>
+            provider.GetRequiredService<IDbContextFactory<OrizonAgentsDbContext>>()
+                .CreateDbContext());
 
         return services.BuildServiceProvider();
     }

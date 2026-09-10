@@ -1,4 +1,4 @@
-using OrizonAgents.Infrastructure.Tools.Validation;
+﻿using OrizonAgents.Infrastructure.Tools.Validation;
 using System.Net;
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
@@ -34,14 +34,14 @@ public sealed class HttpAgentToolExecutorTests
         var agent = new AiAgent(
             tenantId,
             "Agente A",
-            "Você é um agente de teste.",
+            "VocÃª Ã© um agente de teste.",
             AiProvider.GoogleGemini,
             "gemini-test");
 
         var otherAgent = new AiAgent(
             tenantId,
             "Agente B",
-            "Você é outro agente.",
+            "VocÃª Ã© outro agente.",
             AiProvider.GoogleGemini,
             "gemini-test");
 
@@ -496,8 +496,8 @@ public sealed class HttpAgentToolExecutorTests
 
         AgentTool tool = new(
             tenantId,
-            "Tool sensível",
-            "Executa uma operação sensível.",
+            "Tool sensÃ­vel",
+            "Executa uma operaÃ§Ã£o sensÃ­vel.",
             "https://example.com/api/sensitive",
             "POST");
 
@@ -584,8 +584,8 @@ public sealed class HttpAgentToolExecutorTests
 
         AgentTool tool = new(
             tenantId,
-            "Tool sensível aprovada",
-            "Executa uma operação sensível após aprovação.",
+            "Tool sensÃ­vel aprovada",
+            "Executa uma operaÃ§Ã£o sensÃ­vel apÃ³s aprovaÃ§Ã£o.",
             "https://example.com/api/sensitive",
             "POST");
 
@@ -639,7 +639,7 @@ public sealed class HttpAgentToolExecutorTests
 
         var approvalService =
             new ToolExecutionApprovalService(
-                db,
+                provider.GetRequiredService<IDbContextFactory<OrizonAgentsDbContext>>(),
                 provider.GetRequiredService<ICurrentTenant>());
 
         bool approved =
@@ -702,10 +702,19 @@ public sealed class HttpAgentToolExecutorTests
             provider =>
                 provider.GetRequiredService<CurrentTenant>());
 
+        string databaseName = Guid.NewGuid().ToString();
+
         services.AddDbContext<OrizonAgentsDbContext>(
             options =>
-                options.UseInMemoryDatabase(
-                    Guid.NewGuid().ToString()));
+                options.UseInMemoryDatabase(databaseName));
+
+        services.AddScoped<IDbContextFactory<OrizonAgentsDbContext>>(
+            provider =>
+                new TestDbContextFactory(
+                    new DbContextOptionsBuilder<OrizonAgentsDbContext>()
+                        .UseInMemoryDatabase(databaseName)
+                        .Options,
+                    provider.GetRequiredService<CurrentTenant>()));
 
         services.AddHttpClient();
         services.AddDataProtection();
@@ -742,7 +751,7 @@ public sealed class HttpAgentToolExecutorTests
             provider.GetRequiredService<OrizonAgentsDbContext>(),
             new AgentToolInputValidator(),
             new ToolExecutionApprovalService(
-                provider.GetRequiredService<OrizonAgentsDbContext>(),
+                provider.GetRequiredService<IDbContextFactory<OrizonAgentsDbContext>>(),
                 provider.GetRequiredService<ICurrentTenant>(),
                 new SensitiveToolExecutionFactory(
                     new SensitiveToolExecutionPayloadProtector(
@@ -758,7 +767,7 @@ public sealed class HttpAgentToolExecutorTests
         return new AiAgent(
             tenantId,
             "Agente de teste",
-            "Você é um agente de teste.",
+            "VocÃª Ã© um agente de teste.",
             AiProvider.GoogleGemini,
             "gemini-test");
     }
@@ -798,14 +807,14 @@ public sealed class HttpAgentToolExecutorTests
             int maxResults = 10,
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException(
-                "Gmail não deveria ser chamado por uma Tool HTTP.");
+                "Gmail nÃ£o deveria ser chamado por uma Tool HTTP.");
 
         public Task<GmailMessage> GetMessageAsync(
             Guid connectionId,
             string messageId,
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException(
-                "Gmail não deveria ser chamado por uma Tool HTTP.");
+                "Gmail nÃ£o deveria ser chamado por uma Tool HTTP.");
         public Task<GmailDraft> CreateDraftAsync(
             Guid connectionId,
             string to,
@@ -838,7 +847,7 @@ public sealed class HttpAgentToolExecutorTests
             GoogleOAuthCapability capability,
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException(
-                "Capability Google não deveria ser consultada por uma Tool HTTP.");
+                "Capability Google nÃ£o deveria ser consultada por uma Tool HTTP.");
     }
 
     private sealed class RecordingHttpMessageHandler :
@@ -887,4 +896,22 @@ public sealed class HttpAgentToolExecutorTests
         }
     }
 
-}
+
+    private sealed class TestDbContextFactory(
+        DbContextOptions<OrizonAgentsDbContext> options,
+        CurrentTenant tenant) : IDbContextFactory<OrizonAgentsDbContext>
+    {
+        public OrizonAgentsDbContext CreateDbContext() =>
+            new(options, tenant);
+
+        public Task<OrizonAgentsDbContext> CreateDbContextAsync(
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(CreateDbContext());
+    }}
+
+
+
+
+
+
+
