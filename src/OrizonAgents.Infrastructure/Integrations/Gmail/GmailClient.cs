@@ -369,7 +369,7 @@ public sealed class GmailClient(
         GmailMessageReference message,
         CancellationToken cancellationToken)
     {
-        string url = $"https://gmail.googleapis.com/gmail/v1/users/me/messages/{Uri.EscapeDataString(message.Id)}?format=metadata&metadataHeaders=Subject&metadataHeaders=From";
+        string url = $"https://gmail.googleapis.com/gmail/v1/users/me/messages/{Uri.EscapeDataString(message.Id)}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Date";
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         using HttpResponseMessage response = await client.SendAsync(request, cancellationToken);
@@ -390,8 +390,31 @@ public sealed class GmailClient(
             payload.ValueKind == JsonValueKind.Object
             ? ReadHeader(payload, "From")
             : null;
+        string? to = root.TryGetProperty("payload", out payload) &&
+            payload.ValueKind == JsonValueKind.Object
+            ? ReadHeader(payload, "To")
+            : null;
+        string? dateHeader = root.TryGetProperty("payload", out payload) &&
+            payload.ValueKind == JsonValueKind.Object
+            ? ReadHeader(payload, "Date")
+            : null;
+        DateTimeOffset? date = DateTimeOffset.TryParse(
+            dateHeader,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AllowWhiteSpaces,
+            out DateTimeOffset parsedDate)
+            ? parsedDate
+            : null;
 
-        return new GmailMessageReference(message.Id, message.ThreadId, subject, from);
+        return new GmailMessageReference(
+            message.Id,
+            message.ThreadId,
+            subject,
+            from,
+            to,
+            date,
+            ReadString(root, "snippet"),
+            HasLabel(root, "UNREAD"));
     }
     public async Task<GmailMessage> GetMessageAsync(
         Guid connectionId,
@@ -498,6 +521,19 @@ public sealed class GmailClient(
         }
 
         return null;
+    }
+
+    private static bool? HasLabel(JsonElement message, string label)
+    {
+        if (!message.TryGetProperty("labelIds", out JsonElement labels) ||
+            labels.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        return labels.EnumerateArray().Any(item =>
+            item.ValueKind == JsonValueKind.String &&
+            string.Equals(item.GetString(), label, StringComparison.Ordinal));
     }
 
     private static (string? PlainText, string? Html) FindBodies(JsonElement part)

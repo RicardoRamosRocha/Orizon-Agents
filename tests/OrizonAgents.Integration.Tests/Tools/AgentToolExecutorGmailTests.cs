@@ -31,14 +31,22 @@ public sealed class AgentToolExecutorGmailTests
             endpoint: "http://127.0.0.1/private",
             httpMethod: "DELETE");
         fixture.Gmail.SearchResult = new GmailSearchResult(
-            [new GmailMessageReference("message-1", "thread-1")],
+            [new GmailMessageReference(
+                "message-1",
+                "thread-1",
+                "Assunto",
+                "origem@example.com",
+                "destino@example.com",
+                new DateTimeOffset(2026, 9, 10, 12, 0, 0, TimeSpan.Zero),
+                "Resumo compacto",
+                true)],
             "next-page",
             1);
         JsonElement input = Json(
             $$"""
             {
               "query": "is:unread",
-              "maxResults": 25,
+              "maxResults": 20,
               "connectionId": "{{modelConnectionId}}"
             }
             """);
@@ -53,7 +61,7 @@ public sealed class AgentToolExecutorGmailTests
         Assert.Equal(1, fixture.Capabilities.Calls);
         Assert.NotEqual(modelConnectionId, fixture.Gmail.ConnectionId);
         Assert.Equal("is:unread", fixture.Gmail.Query);
-        Assert.Equal(25, fixture.Gmail.MaxResults);
+        Assert.Equal(GmailToolPolicy.MaximumSearchResultsForAgent, fixture.Gmail.MaxResults);
         Assert.Equal(1, fixture.Gmail.SearchCalls);
         Assert.Equal(0, fixture.Http.CallCount);
         using JsonDocument content = JsonDocument.Parse(result.Content!);
@@ -63,6 +71,17 @@ public sealed class AgentToolExecutorGmailTests
                 .GetProperty("messages")[0]
                 .GetProperty("id")
                 .GetString());
+        JsonElement message = content.RootElement.GetProperty("messages")[0];
+        Assert.Equal("thread-1", message.GetProperty("threadId").GetString());
+        Assert.Equal("Assunto", message.GetProperty("subject").GetString());
+        Assert.Equal("origem@example.com", message.GetProperty("from").GetString());
+        Assert.Equal("destino@example.com", message.GetProperty("to").GetString());
+        Assert.Equal(
+            "2026-09-10T12:00:00+00:00",
+            message.GetProperty("date").GetString());
+        Assert.Equal("Resumo compacto", message.GetProperty("snippet").GetString());
+        Assert.True(message.GetProperty("isUnread").GetBoolean());
+        Assert.False(message.TryGetProperty("bodyText", out _));
         Assert.Equal(
             "next-page",
             content.RootElement.GetProperty("nextPageToken").GetString());
@@ -129,6 +148,7 @@ public sealed class AgentToolExecutorGmailTests
 
     [Theory]
     [InlineData(0)]
+    [InlineData(21)]
     [InlineData(101)]
     public async Task GmailSearch_RejectsUnsafeMaxResults(int maxResults)
     {

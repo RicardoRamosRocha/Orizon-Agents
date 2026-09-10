@@ -107,7 +107,9 @@ public sealed class AgentToolCatalogTests
             .GetProperty("maxResults");
         Assert.Equal("integer", maxResults.GetProperty("type").GetString());
         Assert.Equal(1, maxResults.GetProperty("minimum").GetInt32());
-        Assert.Equal(100, maxResults.GetProperty("maximum").GetInt32());
+        Assert.Equal(
+            GmailToolPolicy.MaximumSearchResultsForAgent,
+            maxResults.GetProperty("maximum").GetInt32());
         JsonElement properties = root.GetProperty("properties");
         Assert.True(properties.TryGetProperty("query", out JsonElement query));
         Assert.Equal("string", query.GetProperty("type").GetString());
@@ -120,7 +122,19 @@ public sealed class AgentToolCatalogTests
             "sem filtro",
             root.GetProperty("description").GetString(),
             StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "corpo completo",
+            root.GetProperty("description").GetString(),
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "GmailReadMessage",
+            definition.Description,
+            StringComparison.Ordinal);
         Assert.False(root.GetProperty("additionalProperties").GetBoolean());
+        Assert.Contains(
+            "GmailSearch",
+            definition.Description,
+            StringComparison.Ordinal);
 
         string serialized = JsonSerializer.Serialize(definition);
         Assert.DoesNotContain(connectionId.ToString(), serialized);

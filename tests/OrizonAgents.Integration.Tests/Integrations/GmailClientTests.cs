@@ -94,6 +94,52 @@ public sealed class GmailClientTests
     }
 
     [Fact]
+    public async Task SearchMessagesAsync_ReturnsCompactMetadataWithoutFetchingMessageBodies()
+    {
+        var handler = new RecordingHttpMessageHandler(
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = Json("""{"messages":[{"id":"message-1","threadId":"thread-1"}]}""")
+            },
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = Json("""
+                    {
+                      "id": "message-1",
+                      "threadId": "thread-1",
+                      "snippet": "Resumo compacto",
+                      "labelIds": ["INBOX", "UNREAD"],
+                      "payload": {
+                        "headers": [
+                          { "name": "Subject", "value": "Assunto" },
+                          { "name": "From", "value": "origem@example.com" },
+                          { "name": "To", "value": "destino@example.com" },
+                          { "name": "Date", "value": "Thu, 10 Sep 2026 09:00:00 -0300" }
+                        ]
+                      }
+                    }
+                    """)
+            });
+
+        GmailSearchResult result = await CreateClient(handler).SearchMessagesAsync(
+            Guid.NewGuid(), "is:unread", 1);
+
+        GmailMessageReference message = Assert.Single(result.Messages);
+        Assert.Equal("message-1", message.Id);
+        Assert.Equal("thread-1", message.ThreadId);
+        Assert.Equal("Assunto", message.Subject);
+        Assert.Equal("origem@example.com", message.From);
+        Assert.Equal("destino@example.com", message.To);
+        Assert.Equal("Resumo compacto", message.Snippet);
+        Assert.True(message.IsUnread);
+        Assert.Equal(new DateTimeOffset(2026, 9, 10, 12, 0, 0, TimeSpan.Zero), message.Date);
+        Assert.Equal(2, handler.RequestCount);
+        Assert.Contains("format=metadata", handler.RequestUris[1]!.Query);
+        Assert.DoesNotContain("format=full", handler.RequestUris[1]!.Query);
+        Assert.DoesNotContain("body", handler.RequestUris[1]!.Query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task SearchMessagesAsync_WhenNoMessages_ReturnsEmptyCollection()
     {
         var handler = new RecordingHttpMessageHandler(

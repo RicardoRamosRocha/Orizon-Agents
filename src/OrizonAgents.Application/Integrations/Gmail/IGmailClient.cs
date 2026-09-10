@@ -41,7 +41,11 @@ public sealed record GmailMessageReference(
     string Id,
     string ThreadId,
     string? Subject = null,
-    string? From = null);
+    string? From = null,
+    string? To = null,
+    DateTimeOffset? Date = null,
+    string? Snippet = null,
+    bool? IsUnread = null);
 
 public sealed record GmailMessage(
     string Id,

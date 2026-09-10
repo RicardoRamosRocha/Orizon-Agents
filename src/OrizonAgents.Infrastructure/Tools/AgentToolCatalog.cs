@@ -11,7 +11,7 @@ public sealed class AgentToolCatalog : IAgentToolCatalog
     private const string GmailSearchInputSchema = """
         {
           "type": "object",
-          "description": "Pesquisa mensagens no Gmail. Sem query, busca mensagens sem filtro, permitindo obter as mais recentes.",
+          "description": "Pesquise primeiro para localizar mensagens candidatas. Sem query, busca mensagens sem filtro. O resultado contém somente metadados compactos, sem corpo completo. Depois escolha uma mensagem relevante e use GmailReadMessage com o messageId; não leia mensagens desnecessárias.",
           "properties": {
             "query": {
               "type": "string",
@@ -20,8 +20,8 @@ public sealed class AgentToolCatalog : IAgentToolCatalog
             "maxResults": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 100,
-              "description": "Quantidade máxima de resultados."
+              "maximum": 20,
+              "description": "Quantidade máxima de resultados compactos para seleção."
             }
           },
           "required": [],
@@ -123,7 +123,7 @@ public sealed class AgentToolCatalog : IAgentToolCatalog
                 new AgentToolDefinition(
                     tool.Id,
                     tool.Name,
-                    tool.Description,
+                    ResolveDescription(tool.Kind, tool.Description),
                     tool.HttpMethod,
                     ResolveInputSchema(
                         tool.Kind,
@@ -157,6 +157,20 @@ public sealed class AgentToolCatalog : IAgentToolCatalog
             _ => null
         };
     }
+
+    private static string ResolveDescription(
+        AgentToolKind kind,
+        string description) => kind switch
+    {
+        AgentToolKind.GmailSearch =>
+            description + " Use GmailSearch primeiro para localizar mensagens candidatas; " +
+            "GmailSearch retorna apenas metadados compactos, sem o corpo. Depois use " +
+            "GmailReadMessage com o messageId escolhido.",
+        AgentToolKind.GmailReadMessage =>
+            description + " Use somente após GmailSearch identificar uma mensagem " +
+            "necessária, passando o messageId retornado pela busca.",
+        _ => description
+    };
 
     private sealed record CatalogToolProjection(
         Guid Id,

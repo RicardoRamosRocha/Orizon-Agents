@@ -129,12 +129,12 @@ public sealed class GmailAgentToolExecutor
             return InvalidArguments();
         }
 
-        int maxResults = 10;
+        int maxResults = Math.Min(10, GmailToolPolicy.MaximumSearchResultsForAgent);
 
         if (input.TryGetProperty("maxResults", out JsonElement maxResultsElement))
         {
             if (!maxResultsElement.TryGetInt32(out maxResults) ||
-                maxResults is < 1 or > 100)
+                maxResults is < 1 or > GmailToolPolicy.MaximumSearchResultsForAgent)
             {
                 return InvalidArguments();
             }
