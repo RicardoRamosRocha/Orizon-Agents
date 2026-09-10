@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using OrizonAgents.Application.Agents.Execution;
@@ -19,6 +20,7 @@ using OrizonAgents.Infrastructure.Agents.Execution.Context;
 using OrizonAgents.Infrastructure.Tenancy;
 using OrizonAgents.Infrastructure.Persistence;
 using OrizonAgents.Infrastructure.Tools.Execution;
+using OrizonAgents.Infrastructure.Tools.Validation;
 
 namespace OrizonAgents.Integration.Tests.Agents.Execution;
 
@@ -1262,6 +1264,101 @@ public sealed class AiAgentRunnerTests
         }
     }
 
+    [Fact]
+    public async Task RunAsync_RealSensitiveToolExecution_PersistsOnePendingApprovalAndReturnsItsId()
+    {
+        string databaseName = $"AiAgentRunnerSensitiveTool-{Guid.NewGuid()}";
+        var currentTenant = new CurrentTenant();
+        Guid tenantId = Guid.NewGuid();
+        currentTenant.SetTenantId(tenantId);
+        var options = new DbContextOptionsBuilder<OrizonAgentsDbContext>()
+            .UseInMemoryDatabase(databaseName)
+            .Options;
+        await using var db = new OrizonAgentsDbContext(options, currentTenant);
+        var dbContextFactory = new RunnerTestDbContextFactory(options, currentTenant);
+        var agent = new AiAgent(
+            tenantId,
+            "Agente de teste",
+            "Voc\u00ea \u00e9 um agente de teste.",
+            AiProvider.GoogleGemini,
+            "test-model");
+        var tool = new AgentTool(
+            tenantId,
+            "Opera\u00e7\u00e3o sens\u00edvel",
+            "Executa uma opera\u00e7\u00e3o sens\u00edvel.",
+            "https://example.com/operation",
+            "POST");
+        tool.SetRiskLevel(AgentToolRiskLevel.Sensitive);
+        var binding = new AgentToolBinding(tenantId, agent.Id, tool.Id);
+        db.AddRange(agent, tool, binding);
+        await db.SaveChangesAsync();
+
+        var toolDefinition = new AgentToolDefinition(
+            tool.Id,
+            tool.Name,
+            tool.Description,
+            tool.HttpMethod,
+            tool.InputSchema,
+            AgentToolRiskLevel.Sensitive);
+        var executor = new AgentToolExecutor(
+            db,
+            new AgentToolInputValidator(),
+            new ToolExecutionApprovalService(
+                dbContextFactory,
+                currentTenant,
+                new SensitiveToolExecutionFactory(
+                    new SensitiveToolExecutionPayloadProtector(
+                        new EphemeralDataProtectionProvider()))),
+            null!,
+            null!,
+            NullLogger<AgentToolExecutor>.Instance);
+
+        AiAgentRunner firstRunner = CreateRunner(
+            db,
+            new CountingChatProvider(
+                AiProvider.GoogleGemini.ToString(),
+                ToolCallResponse(tool.Id, "{\"amount\":100}")),
+            new StubToolCatalog(toolDefinition),
+            new EmptyKnowledgeRetriever(),
+            executor,
+            currentTenant: currentTenant);
+
+        OperationResult<AiAgentRunResult> first = await firstRunner.RunAsync(
+            agent.Id,
+            new AgentRunRequest("Execute a opera\u00e7\u00e3o sens\u00edvel."));
+
+        Assert.True(first.Succeeded);
+        Assert.Equal(AiAgentRunStatus.ApprovalRequired, first.Value!.Status);
+        Assert.NotNull(first.Value.ApprovalId);
+
+        AiAgentRunner secondRunner = CreateRunner(
+            db,
+            new CountingChatProvider(
+                AiProvider.GoogleGemini.ToString(),
+                ToolCallResponse(tool.Id, "{\"amount\":100}")),
+            new StubToolCatalog(toolDefinition),
+            new EmptyKnowledgeRetriever(),
+            executor,
+            currentTenant: currentTenant);
+
+        OperationResult<AiAgentRunResult> second = await secondRunner.RunAsync(
+            agent.Id,
+            new AgentRunRequest("Confirmo.", first.Value.ConversationId));
+
+        Assert.True(second.Succeeded);
+        Assert.Equal(first.Value.ApprovalId, second.Value!.ApprovalId);
+
+        await using OrizonAgentsDbContext verificationDb =
+            dbContextFactory.CreateDbContext();
+        ToolExecutionApproval approval = await verificationDb.ToolExecutionApprovals.SingleAsync();
+        SensitiveToolExecution execution = await verificationDb.SensitiveToolExecutions.SingleAsync();
+
+        Assert.Equal(first.Value.ApprovalId, approval.Id);
+        Assert.Equal(ToolExecutionApprovalStatus.Pending, approval.Status);
+        Assert.Equal(approval.Id, execution.ApprovalId);
+        Assert.Equal(SensitiveToolExecutionState.AwaitingApproval, execution.State);
+    }
+
     private sealed class CountingChatProvider :
         IAiChatProvider
     {
@@ -1539,6 +1636,13 @@ public sealed class AiAgentRunnerTests
 
         private static long? Add(long? current, long? value) =>
             value.HasValue ? (current ?? 0) + value.Value : current;
+    }
+
+    private sealed class RunnerTestDbContextFactory(
+        DbContextOptions<OrizonAgentsDbContext> options,
+        ICurrentTenant currentTenant) : IDbContextFactory<OrizonAgentsDbContext>
+    {
+        public OrizonAgentsDbContext CreateDbContext() => new(options, currentTenant);
     }
 
     private static async Task<(OrizonAgentsDbContext Db, AiAgent Agent)>
