@@ -185,6 +185,39 @@ public sealed class AgentToolCatalogTests
         Assert.False(root.GetProperty("additionalProperties").GetBoolean());
     }
 
+    [Theory]
+    [InlineData(AgentToolKind.CalendarSearch, AgentToolRiskLevel.Read, "CalendarReadEvent", "maxResults")]
+    [InlineData(AgentToolKind.CalendarReadEvent, AgentToolRiskLevel.Read, "CalendarSearch", "eventId")]
+    [InlineData(AgentToolKind.CalendarCreateEvent, AgentToolRiskLevel.Sensitive, "aprovação humana", "summary")]
+    [InlineData(AgentToolKind.CalendarUpdateEvent, AgentToolRiskLevel.Sensitive, "aprovação humana", "eventId")]
+    [InlineData(AgentToolKind.CalendarDeleteEvent, AgentToolRiskLevel.Sensitive, "aprovação humana", "eventId")]
+    public async Task GetAvailableToolsAsync_CalendarTools_ExposeStrictSafeContracts(
+        AgentToolKind kind,
+        AgentToolRiskLevel risk,
+        string descriptionFragment,
+        string requiredProperty)
+    {
+        await using ServiceProvider provider = CreateProvider();
+        OrizonAgentsDbContext db = provider.GetRequiredService<OrizonAgentsDbContext>();
+        Guid tenantId = Guid.NewGuid();
+        var agent = CreateAgent(tenantId);
+        var tool = CreateGmailTool(tenantId, kind, Guid.NewGuid());
+        tool.SetRiskLevel(risk);
+        db.AddRange(agent, tool, new AgentToolBinding(tenantId, agent.Id, tool.Id));
+        await db.SaveChangesAsync();
+
+        AgentToolDefinition definition = Assert.Single(await new AgentToolCatalog(db).GetAvailableToolsAsync(agent.Id));
+        using JsonDocument schema = JsonDocument.Parse(definition.InputSchema!);
+        Assert.Equal(kind, definition.Kind);
+        Assert.Equal(risk, definition.RiskLevel);
+        Assert.Contains(descriptionFragment, definition.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.True(schema.RootElement.GetProperty("properties").TryGetProperty(requiredProperty, out _));
+        Assert.False(schema.RootElement.GetProperty("additionalProperties").GetBoolean());
+        string serialized = JsonSerializer.Serialize(definition);
+        Assert.DoesNotContain("IntegrationConnectionId", serialized);
+        Assert.DoesNotContain("accessToken", serialized, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task GetAvailableToolsAsync_GmailWithExplicitSchema_PreservesConfiguredSchema()
     {

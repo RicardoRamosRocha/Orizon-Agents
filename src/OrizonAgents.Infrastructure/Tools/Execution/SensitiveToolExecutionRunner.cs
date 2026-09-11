@@ -20,6 +20,7 @@ public sealed class SensitiveToolExecutionRunner : ISensitiveToolExecutionRunner
     private readonly IAgentToolInputValidator _inputValidator;
     private readonly HttpAgentToolExecutor _httpExecutor;
     private readonly GmailAgentToolExecutor _gmailExecutor;
+    private readonly CalendarAgentToolExecutor? _calendarExecutor;
 
     public SensitiveToolExecutionRunner(
         IDbContextFactory<OrizonAgentsDbContext> dbContextFactory,
@@ -27,7 +28,8 @@ public sealed class SensitiveToolExecutionRunner : ISensitiveToolExecutionRunner
         ISensitiveToolExecutionPayloadProtector payloadProtector,
         IAgentToolInputValidator inputValidator,
         HttpAgentToolExecutor httpExecutor,
-        GmailAgentToolExecutor gmailExecutor)
+        GmailAgentToolExecutor gmailExecutor,
+        CalendarAgentToolExecutor? calendarExecutor = null)
     {
         _dbContextFactory = dbContextFactory;
         _currentTenant = currentTenant;
@@ -35,6 +37,7 @@ public sealed class SensitiveToolExecutionRunner : ISensitiveToolExecutionRunner
         _inputValidator = inputValidator;
         _httpExecutor = httpExecutor;
         _gmailExecutor = gmailExecutor;
+        _calendarExecutor = calendarExecutor;
     }
 
 
@@ -238,7 +241,7 @@ public sealed class SensitiveToolExecutionRunner : ISensitiveToolExecutionRunner
             return null;
         }
 
-        if (GmailToolPolicy.IsGmail(tool.Kind))
+        if (GmailToolPolicy.IsGmail(tool.Kind) || CalendarToolPolicy.IsCalendar(tool.Kind))
         {
             if (!tool.IntegrationConnectionId.HasValue)
             {
@@ -314,6 +317,13 @@ public sealed class SensitiveToolExecutionRunner : ISensitiveToolExecutionRunner
             tool,
             input,
             cancellationToken),
+
+        AgentToolKind.CalendarSearch or
+        AgentToolKind.CalendarReadEvent or
+        AgentToolKind.CalendarCreateEvent or
+        AgentToolKind.CalendarUpdateEvent or
+        AgentToolKind.CalendarDeleteEvent when _calendarExecutor is not null =>
+            _calendarExecutor.ExecuteAsync(tool, input, cancellationToken),
 
         _ => Task.FromResult(AgentToolExecutionResult.Failure(
             "O tipo configurado para a Tool não é suportado."))

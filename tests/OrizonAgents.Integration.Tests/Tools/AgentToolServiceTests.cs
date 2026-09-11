@@ -146,7 +146,12 @@ public sealed class AgentToolServiceTests
     [InlineData(AgentToolKind.GmailCreateDraft)]
     [InlineData(AgentToolKind.GmailSend)]
     [InlineData(AgentToolKind.GmailReply)]
-    public async Task CreateAsync_CreatesGmailKindWithConnectionAndNoTechnicalConfiguration(AgentToolKind kind)
+    [InlineData(AgentToolKind.CalendarSearch)]
+    [InlineData(AgentToolKind.CalendarReadEvent)]
+    [InlineData(AgentToolKind.CalendarCreateEvent)]
+    [InlineData(AgentToolKind.CalendarUpdateEvent)]
+    [InlineData(AgentToolKind.CalendarDeleteEvent)]
+    public async Task CreateAsync_CreatesGoogleKindWithConnectionAndNoTechnicalConfiguration(AgentToolKind kind)
     {
         await using ServiceProvider provider = CreateProvider();
         var db = provider.GetRequiredService<OrizonAgentsDbContext>();
@@ -159,16 +164,16 @@ public sealed class AgentToolServiceTests
 
         var result = await service.CreateAsync(new CreateAgentToolRequest(
             tenantId, "Gmail", "Ação Gmail.", "", "", "malicious-schema", Guid.NewGuid(),
-            GmailToolPolicy.RequiredRiskLevel(kind), kind, connection.Id));
+            GmailToolPolicy.IsGmail(kind) ? GmailToolPolicy.RequiredRiskLevel(kind) : CalendarToolPolicy.RequiredRiskLevel(kind), kind, connection.Id));
 
         Assert.True(result.Succeeded);
         AgentTool tool = await db.AgentTools.IgnoreQueryFilters().SingleAsync();
         Assert.Equal(kind, tool.Kind);
         Assert.Equal(connection.Id, tool.IntegrationConnectionId);
         Assert.Equal(
-            kind is AgentToolKind.GmailSearch or AgentToolKind.GmailReadMessage ? "GET" : "POST",
+            kind is AgentToolKind.GmailSearch or AgentToolKind.GmailReadMessage or AgentToolKind.CalendarSearch or AgentToolKind.CalendarReadEvent ? "GET" : "POST",
             tool.HttpMethod);
-        Assert.StartsWith("gmail://", tool.Endpoint);
+        Assert.StartsWith(CalendarToolPolicy.IsCalendar(kind) ? "calendar://" : "gmail://", tool.Endpoint);
         Assert.Null(tool.InputSchema);
         Assert.Null(tool.ToolCredentialId);
         Assert.Equal(connection.Id, capabilities.ConnectionId);
@@ -177,7 +182,9 @@ public sealed class AgentToolServiceTests
             AgentToolKind.GmailSearch or AgentToolKind.GmailReadMessage => GoogleOAuthCapability.GmailRead,
             AgentToolKind.GmailCreateDraft => GoogleOAuthCapability.GmailCreateDraft,
             AgentToolKind.GmailSend => GoogleOAuthCapability.GmailSend,
-            _ => GoogleOAuthCapability.GmailReply
+            AgentToolKind.GmailReply => GoogleOAuthCapability.GmailReply,
+            AgentToolKind.CalendarSearch or AgentToolKind.CalendarReadEvent => GoogleOAuthCapability.CalendarRead,
+            _ => GoogleOAuthCapability.CalendarWrite
         }, capabilities.Capability);
     }
 

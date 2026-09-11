@@ -9,13 +9,15 @@ internal static class GoogleOAuthScopeCatalog
     internal const string GmailReadOnly = "https://www.googleapis.com/auth/gmail.readonly";
     internal const string GmailCompose = "https://www.googleapis.com/auth/gmail.compose";
     internal const string GmailSend = "https://www.googleapis.com/auth/gmail.send";
+    internal const string CalendarRead = "https://www.googleapis.com/auth/calendar.events.readonly";
+    internal const string CalendarWrite = "https://www.googleapis.com/auth/calendar.events";
     internal const string BasicIdentityRequest = OpenId + " " + Email;
 
     internal static bool IsUpgradeCapability(GoogleOAuthCapability capability) =>
         capability is GoogleOAuthCapability.GmailRead or
             GoogleOAuthCapability.GmailCreateDraft or
             GoogleOAuthCapability.GmailSend or
-            GoogleOAuthCapability.GmailReply;
+            GoogleOAuthCapability.GmailReply or GoogleOAuthCapability.CalendarRead or GoogleOAuthCapability.CalendarWrite;
 
     internal static string AuthorizationScopes(GoogleOAuthCapability? capability) => capability switch
     {
@@ -24,6 +26,8 @@ internal static class GoogleOAuthScopeCatalog
         GoogleOAuthCapability.GmailCreateDraft => BasicIdentityRequest + " " + GmailCompose,
         GoogleOAuthCapability.GmailSend => BasicIdentityRequest + " " + GmailCompose,
         GoogleOAuthCapability.GmailReply => BasicIdentityRequest + " " + GmailReadOnly + " " + GmailSend,
+        GoogleOAuthCapability.CalendarRead => BasicIdentityRequest + " " + CalendarRead,
+        GoogleOAuthCapability.CalendarWrite => BasicIdentityRequest + " " + CalendarWrite,
         _ => throw new ArgumentOutOfRangeException(nameof(capability), "Capability Google OAuth inválida.")
     };
 
@@ -38,6 +42,8 @@ internal static class GoogleOAuthScopeCatalog
             GoogleOAuthCapability.GmailSend => scopes.Contains(GmailCompose),
             GoogleOAuthCapability.GmailReply =>
                 scopes.Contains(GmailReadOnly) && scopes.Contains(GmailSend),
+            GoogleOAuthCapability.CalendarRead => scopes.Contains(CalendarRead) || scopes.Contains(CalendarWrite),
+            GoogleOAuthCapability.CalendarWrite => scopes.Contains(CalendarWrite),
             _ => false
         };
     }

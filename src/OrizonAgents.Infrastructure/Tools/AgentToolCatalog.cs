@@ -8,6 +8,10 @@ namespace OrizonAgents.Infrastructure.Tools;
 
 public sealed class AgentToolCatalog : IAgentToolCatalog
 {
+    private const string CalendarSearchInputSchema = """{"type":"object","properties":{"query":{"type":"string"},"timeMin":{"type":"string","format":"date-time"},"timeMax":{"type":"string","format":"date-time"},"maxResults":{"type":"integer","minimum":1,"maximum":20}},"additionalProperties":false}""";
+    private const string CalendarReadInputSchema = """{"type":"object","properties":{"eventId":{"type":"string","minLength":1}},"required":["eventId"],"additionalProperties":false}""";
+    private const string CalendarCreateInputSchema = """{"type":"object","properties":{"summary":{"type":"string","minLength":1},"start":{"type":"string","format":"date-time"},"end":{"type":"string","format":"date-time"},"timeZone":{"type":"string"},"description":{"type":"string"},"location":{"type":"string"},"attendees":{"type":"array","items":{"type":"string","format":"email"},"maxItems":20}},"required":["summary","start","end"],"additionalProperties":false}""";
+    private const string CalendarUpdateInputSchema = """{"type":"object","properties":{"eventId":{"type":"string","minLength":1},"summary":{"type":"string","minLength":1},"start":{"type":"string","format":"date-time"},"end":{"type":"string","format":"date-time"},"timeZone":{"type":"string"},"description":{"type":"string"},"location":{"type":"string"},"attendees":{"type":"array","items":{"type":"string","format":"email"},"maxItems":20}},"required":["eventId","summary","start","end"],"additionalProperties":false}""";
     private const string GmailSearchInputSchema = """
         {
           "type": "object",
@@ -153,6 +157,10 @@ public sealed class AgentToolCatalog : IAgentToolCatalog
             AgentToolKind.GmailCreateDraft => GmailCreateDraftInputSchema,
             AgentToolKind.GmailSend => GmailSendInputSchema,
             AgentToolKind.GmailReply => GmailReplyInputSchema,
+            AgentToolKind.CalendarSearch => CalendarSearchInputSchema,
+            AgentToolKind.CalendarReadEvent or AgentToolKind.CalendarDeleteEvent => CalendarReadInputSchema,
+            AgentToolKind.CalendarCreateEvent => CalendarCreateInputSchema,
+            AgentToolKind.CalendarUpdateEvent => CalendarUpdateInputSchema,
 
             _ => null
         };
@@ -169,6 +177,9 @@ public sealed class AgentToolCatalog : IAgentToolCatalog
         AgentToolKind.GmailReadMessage =>
             description + " Use somente após GmailSearch identificar uma mensagem " +
             "necessária, passando o messageId retornado pela busca.",
+        AgentToolKind.CalendarSearch => description + " Use primeiro para localizar eventos e CalendarReadEvent para detalhes.",
+        AgentToolKind.CalendarReadEvent => description + " Use com eventId após CalendarSearch quando detalhes forem necessários.",
+        AgentToolKind.CalendarCreateEvent or AgentToolKind.CalendarUpdateEvent or AgentToolKind.CalendarDeleteEvent => description + " Esta ação exige aprovação humana antes da execução.",
         _ => description
     };
 

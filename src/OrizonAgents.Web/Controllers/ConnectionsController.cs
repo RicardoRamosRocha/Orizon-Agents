@@ -123,6 +123,8 @@ public sealed class ConnectionsController(
         bool isGmailReadAuthorized = false;
         bool isGmailComposeAuthorized = false;
         bool isGmailReplyAuthorized = false;
+        bool isCalendarReadAuthorized = false;
+        bool isCalendarWriteAuthorized = false;
         if (connection.Provider == IntegrationProvider.Gmail &&
             connection.IsActive &&
             connection.Status == IntegrationConnectionStatus.Connected)
@@ -141,6 +143,8 @@ public sealed class ConnectionsController(
                     connection.Id,
                     GoogleOAuthCapability.GmailReply,
                     cancellationToken);
+                isCalendarReadAuthorized = await capabilities.HasCapabilityAsync(connection.Id, GoogleOAuthCapability.CalendarRead, cancellationToken);
+                isCalendarWriteAuthorized = await capabilities.HasCapabilityAsync(connection.Id, GoogleOAuthCapability.CalendarWrite, cancellationToken);
             }
             catch (Exception exception) when (
                 exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
@@ -158,6 +162,8 @@ public sealed class ConnectionsController(
             IsGmailReadAuthorized = isGmailReadAuthorized,
             IsGmailComposeAuthorized = isGmailComposeAuthorized,
             IsGmailReplyAuthorized = isGmailReplyAuthorized
+            ,IsCalendarReadAuthorized = isCalendarReadAuthorized
+            ,IsCalendarWriteAuthorized = isCalendarWriteAuthorized
         };
     }
 

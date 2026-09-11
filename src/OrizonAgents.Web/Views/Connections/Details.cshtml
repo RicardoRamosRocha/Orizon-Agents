@@ -88,6 +88,20 @@
                         </form>
                     }
                 </div>
+                <div class="border rounded-3 bg-light p-3 mb-4">
+                    <h3 class="h6 mb-1">Google Calendar</h3>
+                    <p class="text-muted mb-2">Leitura permite consultar eventos. Escrita permite criar, alterar e excluir eventos, sempre mediante aprovação humana.</p>
+                    <span class="badge @(Model.IsCalendarReadAuthorized ? "text-bg-success" : "text-bg-secondary")">Calendar Read: @(Model.IsCalendarReadAuthorized ? "Autorizada" : "Não autorizada")</span>
+                    <span class="badge @(Model.IsCalendarWriteAuthorized ? "text-bg-success" : "text-bg-secondary")">Calendar Write: @(Model.IsCalendarWriteAuthorized ? "Autorizada" : "Não autorizada")</span>
+                    @if (!Model.IsCalendarReadAuthorized)
+                    {
+                        <form asp-controller="GoogleConnections" asp-action="UpgradeCalendarRead" asp-route-id="@Model.Connection.Id" method="post" class="mt-2">@Html.AntiForgeryToken()<button class="btn btn-outline-primary" type="submit">Permitir leitura do Calendar</button></form>
+                    }
+                    @if (!Model.IsCalendarWriteAuthorized)
+                    {
+                        <form asp-controller="GoogleConnections" asp-action="UpgradeCalendarWrite" asp-route-id="@Model.Connection.Id" method="post" class="mt-2">@Html.AntiForgeryToken()<button class="btn btn-outline-primary" type="submit">Permitir escrita no Calendar</button></form>
+                    }
+                </div>
                 <div class="d-flex gap-2 flex-wrap mb-4">
                     @if (Model.Connection.Status != IntegrationConnectionStatus.Connected)
                     {

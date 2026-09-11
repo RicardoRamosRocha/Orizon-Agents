@@ -42,6 +42,16 @@ public sealed class GoogleConnectionsController(IGoogleOAuthService oauth) : Con
             GoogleOAuthCapability.GmailReply,
             cancellationToken);
 
+    [HttpPost("{id:guid}/google/ampliar/calendar-leitura")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpgradeCalendarRead(Guid id, CancellationToken cancellationToken) =>
+        await BeginAuthorization(id, GoogleOAuthCapability.CalendarRead, cancellationToken);
+
+    [HttpPost("{id:guid}/google/ampliar/calendar-escrita")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpgradeCalendarWrite(Guid id, CancellationToken cancellationToken) =>
+        await BeginAuthorization(id, GoogleOAuthCapability.CalendarWrite, cancellationToken);
+
     private async Task<IActionResult> BeginAuthorization(
         Guid id,
         GoogleOAuthCapability? capability,

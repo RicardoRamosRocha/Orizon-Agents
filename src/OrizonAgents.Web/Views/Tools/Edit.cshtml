@@ -28,7 +28,7 @@
 
                 <div class="mb-4">
                     <label class="form-label fw-semibold">Tipo de ferramenta</label>
-                    <p class="mb-0"><span class="badge text-bg-light">@(Model.Category == AgentToolCategory.Http ? "API HTTP" : "Gmail")</span></p>
+                    <p class="mb-0"><span class="badge text-bg-light">@(Model.Category == AgentToolCategory.Http ? "API HTTP" : Model.Category == AgentToolCategory.Calendar ? "Google Calendar" : "Gmail")</span></p>
                 </div>
 
                 <div class="mb-4">
@@ -77,20 +77,20 @@
                         </div>
                         <div class="col-md-6">
                             <label asp-for="IntegrationConnectionId" class="form-label fw-semibold"></label>
-                            <select asp-for="IntegrationConnectionId" asp-items="Model.GmailConnectionOptions" class="form-select">
+                            <select asp-for="IntegrationConnectionId" asp-items="@(Model.Category == AgentToolCategory.Calendar ? Model.CalendarConnectionOptions : Model.GmailConnectionOptions)" class="form-select">
                                 <option value="">Selecione uma conexão Google</option>
                             </select>
                             <span asp-validation-for="IntegrationConnectionId" class="text-danger"></span>
                         </div>
                     </div>
-                    @if (Model.GmailConnectionOptions.Count == 0)
+                    @if ((Model.Category == AgentToolCategory.Calendar ? Model.CalendarConnectionOptions : Model.GmailConnectionOptions).Count == 0)
                     {
                         <div class="alert alert-warning">Nenhuma conexão autorizada está disponível. <a asp-controller="Connections" asp-action="Index" class="alert-link">Gerenciar conexões</a>.</div>
                     }
                     <p class="form-text mb-4">Esta ferramenta usará somente as permissões autorizadas na conexão selecionada.</p>
                 }
 
-                <div class="mb-4">
+                <div class="mb-4" @(Model.Category == AgentToolCategory.Http ? null : "hidden")>
                     <label asp-for="RiskLevel" class="form-label fw-semibold"></label>
                     <select asp-for="RiskLevel" class="form-select">
                         <option value="Read">Leitura</option><option value="Write">Escrita</option><option value="Sensitive">Sensível</option>

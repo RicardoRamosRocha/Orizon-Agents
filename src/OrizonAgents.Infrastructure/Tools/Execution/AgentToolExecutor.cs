@@ -15,6 +15,7 @@ public sealed class AgentToolExecutor : IAgentToolExecutor
     private readonly IToolExecutionApprovalService _approvalService;
     private readonly HttpAgentToolExecutor _httpExecutor;
     private readonly GmailAgentToolExecutor _gmailExecutor;
+    private readonly CalendarAgentToolExecutor? _calendarExecutor;
     private readonly ILogger<AgentToolExecutor> _logger;
 
     public AgentToolExecutor(
@@ -23,7 +24,8 @@ public sealed class AgentToolExecutor : IAgentToolExecutor
         IToolExecutionApprovalService approvalService,
         HttpAgentToolExecutor httpExecutor,
         GmailAgentToolExecutor gmailExecutor,
-        ILogger<AgentToolExecutor> logger)
+        ILogger<AgentToolExecutor> logger,
+        CalendarAgentToolExecutor? calendarExecutor = null)
     {
         _dbContext = dbContext;
         _inputValidator = inputValidator;
@@ -31,6 +33,7 @@ public sealed class AgentToolExecutor : IAgentToolExecutor
         _httpExecutor = httpExecutor;
         _gmailExecutor = gmailExecutor;
         _logger = logger;
+        _calendarExecutor = calendarExecutor;
     }
 
     public async Task<AgentToolExecutionResult> ExecuteAsync(
@@ -81,6 +84,8 @@ public sealed class AgentToolExecutor : IAgentToolExecutor
             return AgentToolExecutionResult.Failure(
                 "A classifica\u00e7\u00e3o de risco da Tool Gmail \u00e9 inv\u00e1lida.");
         }
+        if (CalendarToolPolicy.IsCalendar(tool.Kind) && tool.RiskLevel != CalendarToolPolicy.RequiredRiskLevel(tool.Kind))
+            return AgentToolExecutionResult.Failure("A classificação de risco da Tool Calendar é inválida.");
 
         AgentToolInputValidationResult inputValidation =
             _inputValidator.Validate(
@@ -148,6 +153,8 @@ public sealed class AgentToolExecutor : IAgentToolExecutor
                     tool,
                     request.Input,
                     cancellationToken),
+            AgentToolKind.CalendarSearch or AgentToolKind.CalendarReadEvent or AgentToolKind.CalendarCreateEvent or AgentToolKind.CalendarUpdateEvent or AgentToolKind.CalendarDeleteEvent when _calendarExecutor is not null =>
+                await _calendarExecutor.ExecuteAsync(tool, request.Input, cancellationToken),
 
             _ => AgentToolExecutionResult.Failure(
                 "O tipo configurado para a Tool não é suportado.")

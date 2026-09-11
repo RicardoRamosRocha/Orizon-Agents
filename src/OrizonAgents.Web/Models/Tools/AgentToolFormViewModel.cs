@@ -7,7 +7,8 @@ namespace OrizonAgents.Web.Models.Tools;
 public enum AgentToolCategory
 {
     Http = 1,
-    Gmail = 2
+    Gmail = 2,
+    Calendar = 3
 }
 
 public enum GmailToolAction
@@ -17,6 +18,15 @@ public enum GmailToolAction
     CreateDraft = 3,
     SendDraft = 4,
     ReplyToEmail = 5
+}
+
+public enum CalendarToolAction
+{
+    SearchEvents = 1,
+    ReadEvent = 2,
+    CreateEvent = 3,
+    UpdateEvent = 4,
+    DeleteEvent = 5
 }
 
 public sealed class AgentToolFormViewModel
@@ -30,6 +40,9 @@ public sealed class AgentToolFormViewModel
     [EnumDataType(typeof(GmailToolAction), ErrorMessage = "Selecione uma ação Gmail válida.")]
     [Display(Name = "Ação")]
     public GmailToolAction GmailAction { get; set; } = GmailToolAction.SearchEmails;
+
+    [EnumDataType(typeof(CalendarToolAction), ErrorMessage = "Selecione uma ação Calendar válida.")]
+    public CalendarToolAction CalendarAction { get; set; } = CalendarToolAction.SearchEvents;
 
     [Required(ErrorMessage = "Informe o nome da Tool.")]
     [StringLength(100)]
@@ -68,6 +81,9 @@ public sealed class AgentToolFormViewModel
         Array.Empty<SelectListItem>();
 
     public IReadOnlyList<SelectListItem> GmailConnectionOptions { get; set; } =
+        Array.Empty<SelectListItem>();
+
+    public IReadOnlyList<SelectListItem> CalendarConnectionOptions { get; set; } =
         Array.Empty<SelectListItem>();
 
     public bool IsActive { get; set; } = true;

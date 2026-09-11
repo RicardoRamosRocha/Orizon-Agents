@@ -6,7 +6,9 @@ public enum GoogleOAuthCapability
     GmailRead = 2,
     GmailCreateDraft = 3,
     GmailSend = 4,
-    GmailReply = 5
+    GmailReply = 5,
+    CalendarRead = 6,
+    CalendarWrite = 7
 }
 
 // Server-side capability query. It never returns OAuth credentials or granted scopes.

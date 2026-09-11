@@ -37,6 +37,8 @@ public sealed class ConnectionDetailsViewModel
     public bool IsGmailReadAuthorized { get; init; }
     public bool IsGmailComposeAuthorized { get; init; }
     public bool IsGmailReplyAuthorized { get; init; }
+    public bool IsCalendarReadAuthorized { get; init; }
+    public bool IsCalendarWriteAuthorized { get; init; }
 
     public static string StatusLabel(IntegrationConnectionStatus status) => status switch
     {

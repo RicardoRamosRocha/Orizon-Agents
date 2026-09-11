@@ -50,6 +50,8 @@ using OrizonAgents.Infrastructure.WhatsApp;
 using OrizonAgents.Infrastructure.Tools;
 using OrizonAgents.Infrastructure.Tools.Credentials;
 using OrizonAgents.Infrastructure.Tools.Execution;
+using OrizonAgents.Application.Integrations.Calendar;
+using OrizonAgents.Infrastructure.Integrations.Calendar;
 
 using OrizonAgents.Application.Knowledge.Documents;
 
@@ -99,6 +101,7 @@ public static class DependencyInjection
         services.AddScoped<IAiConversationService, AiConversationService>();
         services.AddScoped<HttpAgentToolExecutor>();
         services.AddScoped<GmailAgentToolExecutor>();
+        services.AddScoped<CalendarAgentToolExecutor>();
         services.AddScoped<IAgentToolExecutor, AgentToolExecutor>();
         services.AddScoped<IToolExecutionApprovalService>(provider =>
             new ToolExecutionApprovalService(
@@ -114,7 +117,8 @@ public static class DependencyInjection
                 provider.GetRequiredService<ISensitiveToolExecutionPayloadProtector>(),
                 provider.GetRequiredService<IAgentToolInputValidator>(),
                 provider.GetRequiredService<HttpAgentToolExecutor>(),
-                provider.GetRequiredService<GmailAgentToolExecutor>()));
+                provider.GetRequiredService<GmailAgentToolExecutor>(),
+                provider.GetRequiredService<CalendarAgentToolExecutor>()));
         services.AddScoped<IAgentToolInputValidator, AgentToolInputValidator>();
         services.AddScoped<IAgentModelDecisionParser, AgentModelDecisionParser>();
         services.AddScoped<IAgentToolCatalog, AgentToolCatalog>();
@@ -211,6 +215,10 @@ public static class DependencyInjection
         services.AddScoped<IGoogleOAuthCapabilityService>(provider => provider.GetRequiredService<GoogleOAuthService>());
         services.AddSingleton<IGmailMessageContentReducer, GmailMessageContentReducer>();
         services.AddScoped<IGmailClient, GmailClient>();
+        services.AddScoped<ICalendarClient, CalendarClient>();
+        services.AddHttpClient(CalendarClient.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(20))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false })
+            .RemoveAllLoggers();
         services.AddHttpClient(GmailClient.HttpClientName, client =>
         {
             client.Timeout = TimeSpan.FromSeconds(20);

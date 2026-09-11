@@ -28,6 +28,7 @@
                     <select asp-for="Category" class="form-select" id="tool-category">
                         <option value="Http">API HTTP</option>
                         <option value="Gmail">Gmail</option>
+                        <option value="Calendar">Google Calendar</option>
                     </select>
                     <span asp-validation-for="Category" class="text-danger"></span>
                 </div>
@@ -76,6 +77,12 @@
                         <textarea asp-for="InputSchema" class="form-control font-monospace" rows="8" placeholder='{"type":"object","properties":{}}' data-category-input></textarea>
                         <div class="form-text">Opcional. Informe um JSON Schema para orientar a IA sobre os parâmetros aceitos.</div>
                     </div>
+                </section>
+
+                <section data-tool-section="Calendar" hidden data-has-connections="@(Model.CalendarConnectionOptions.Count > 0 ? "true" : "false")">
+                    <div class="row g-3 mb-4"><div class="col-md-6"><label asp-for="CalendarAction" class="form-label fw-semibold"></label><select asp-for="CalendarAction" class="form-select" data-category-input><option value="SearchEvents">Pesquisar eventos</option><option value="ReadEvent">Ler evento</option><option value="CreateEvent">Criar evento (sensível)</option><option value="UpdateEvent">Atualizar evento (sensível)</option><option value="DeleteEvent">Excluir evento (sensível)</option></select></div><div class="col-md-6"><label asp-for="IntegrationConnectionId" class="form-label fw-semibold"></label><select asp-for="IntegrationConnectionId" asp-items="Model.CalendarConnectionOptions" class="form-select" data-category-input><option value="">Selecione uma conexão Google</option></select></div></div>
+                    <p class="form-text mb-4">Eventos de criação, alteração e exclusão exigem aprovação humana.</p>
+                    <p class="form-text mb-4" id="calendar-capability">Capability necessária: Calendar Read.</p>
                 </section>
 
                 <section data-tool-section="Gmail" hidden data-has-connections="@(Model.GmailConnectionOptions.Count > 0 ? "true" : "false")">
@@ -145,15 +152,23 @@
                     section.querySelectorAll('[data-category-input]').forEach(input => input.disabled = !active);
                 });
                 const gmail = document.querySelector('[data-tool-section="Gmail"]');
-                submit.disabled = category.value === 'Gmail' && gmail.dataset.hasConnections !== 'true';
+                const calendar = document.querySelector('[data-tool-section="Calendar"]');
+                const selectedIntegration = category.value === 'Calendar' ? calendar : gmail;
+                submit.disabled = (category.value === 'Gmail' || category.value === 'Calendar') && selectedIntegration.dataset.hasConnections !== 'true';
                 if (category.value === 'Gmail') {
                     riskLevel.value = gmailAction.value === 'CreateDraft' ? 'Write'
                         : (gmailAction.value === 'SendDraft' || gmailAction.value === 'ReplyToEmail') ? 'Sensitive'
                         : 'Read';
                 }
+                if (category.value === 'Calendar') {
+                    const writes = ['CreateEvent','UpdateEvent','DeleteEvent'].includes(document.getElementById('CalendarAction').value);
+                    riskLevel.value = writes ? 'Sensitive' : 'Read';
+                    document.getElementById('calendar-capability').textContent = `Capability necessária: ${writes ? 'Calendar Write' : 'Calendar Read'}.`;
+                }
             };
             category.addEventListener('change', sync);
             gmailAction.addEventListener('change', sync);
+            document.getElementById('CalendarAction').addEventListener('change', sync);
             sync();
         })();
     </script>

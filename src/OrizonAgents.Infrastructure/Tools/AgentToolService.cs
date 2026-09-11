@@ -78,21 +78,23 @@ public sealed class AgentToolService
         }
 
         bool isGmail = GmailToolPolicy.IsGmail(request.Kind);
-        if (isGmail && request.RiskLevel != GmailToolPolicy.RequiredRiskLevel(request.Kind))
+        bool isCalendar = CalendarToolPolicy.IsCalendar(request.Kind);
+        bool isGoogleTool = isGmail || isCalendar;
+        if (isGoogleTool && request.RiskLevel != RequiredRiskLevel(request.Kind))
         {
             return OperationResult<Guid>.Failure("O nÃ­vel de risco da Tool Gmail nÃ£o corresponde Ã  operaÃ§Ã£o selecionada.");
         }
-        if (isGmail && !await IsEligibleGmailConnectionAsync(
+        if (isGoogleTool && !await IsEligibleGoogleConnectionAsync(
                 request.TenantId, request.Kind, request.IntegrationConnectionId, cancellationToken))
         {
             return OperationResult<Guid>.Failure(GmailConnectionUnavailable);
         }
-        if (!isGmail && request.IntegrationConnectionId.HasValue)
+        if (!isGoogleTool && request.IntegrationConnectionId.HasValue)
         {
             return OperationResult<Guid>.Failure("Tools HTTP não utilizam conexão Google.");
         }
 
-        if (!isGmail && request.ToolCredentialId.HasValue &&
+        if (!isGoogleTool && request.ToolCredentialId.HasValue &&
             !await _dbContext.ToolCredentials.AnyAsync(
                 credential =>
                     credential.Id == request.ToolCredentialId.Value &&
@@ -105,10 +107,10 @@ public sealed class AgentToolService
 
         try
         {
-            string endpoint = isGmail ? GmailEndpoint(request.Kind) : request.Endpoint;
-            string httpMethod = isGmail ? GmailHttpMethod(request.Kind) : request.HttpMethod;
-            string? inputSchema = isGmail ? null : request.InputSchema;
-            Guid? credentialId = isGmail ? null : request.ToolCredentialId;
+            string endpoint = isGoogleTool ? GoogleEndpoint(request.Kind) : request.Endpoint;
+            string httpMethod = isGoogleTool ? GoogleHttpMethod(request.Kind) : request.HttpMethod;
+            string? inputSchema = isGoogleTool ? null : request.InputSchema;
+            Guid? credentialId = isGoogleTool ? null : request.ToolCredentialId;
             var tool = new AgentTool(
                 request.TenantId,
                 request.Name,
@@ -125,7 +127,7 @@ public sealed class AgentToolService
                 credentialId,
                 request.RiskLevel);
 
-            if (isGmail)
+            if (isGoogleTool)
             {
                 tool.ConfigureKind(request.Kind, request.IntegrationConnectionId);
             }
@@ -157,21 +159,23 @@ public sealed class AgentToolService
         }
 
         bool isGmail = GmailToolPolicy.IsGmail(tool.Kind);
-        if (isGmail && request.RiskLevel != GmailToolPolicy.RequiredRiskLevel(tool.Kind))
+        bool isCalendar = CalendarToolPolicy.IsCalendar(tool.Kind);
+        bool isGoogleTool = isGmail || isCalendar;
+        if (isGoogleTool && request.RiskLevel != RequiredRiskLevel(tool.Kind))
         {
             return OperationResult.Failure("O nÃ­vel de risco da Tool Gmail nÃ£o corresponde Ã  operaÃ§Ã£o selecionada.");
         }
-        if (isGmail && !await IsEligibleGmailConnectionAsync(
+        if (isGoogleTool && !await IsEligibleGoogleConnectionAsync(
                 tool.TenantId, tool.Kind, request.IntegrationConnectionId, cancellationToken))
         {
             return OperationResult.Failure(GmailConnectionUnavailable);
         }
-        if (!isGmail && request.IntegrationConnectionId.HasValue)
+        if (!isGoogleTool && request.IntegrationConnectionId.HasValue)
         {
             return OperationResult.Failure("Tools HTTP não utilizam conexão Google.");
         }
 
-        if (!isGmail && request.ToolCredentialId.HasValue &&
+        if (!isGoogleTool && request.ToolCredentialId.HasValue &&
             !await _dbContext.ToolCredentials.AnyAsync(
                 credential =>
                     credential.Id == request.ToolCredentialId.Value &&
@@ -184,18 +188,18 @@ public sealed class AgentToolService
 
         try
         {
-            string endpoint = isGmail ? GmailEndpoint(tool.Kind) : request.Endpoint;
-            string httpMethod = isGmail ? GmailHttpMethod(tool.Kind) : request.HttpMethod;
+            string endpoint = isGoogleTool ? GoogleEndpoint(tool.Kind) : request.Endpoint;
+            string httpMethod = isGoogleTool ? GoogleHttpMethod(tool.Kind) : request.HttpMethod;
             tool.Update(
                 request.Name,
                 request.Description,
                 endpoint,
                 httpMethod,
-                isGmail ? null : request.InputSchema,
-                isGmail ? null : request.ToolCredentialId,
+                isGoogleTool ? null : request.InputSchema,
+                isGoogleTool ? null : request.ToolCredentialId,
                 request.RiskLevel);
 
-            if (isGmail)
+            if (isGoogleTool)
             {
                 tool.ConfigureKind(tool.Kind, request.IntegrationConnectionId);
             }
@@ -231,7 +235,7 @@ public sealed class AgentToolService
         return OperationResult.Success();
     }
 
-    private async Task<bool> IsEligibleGmailConnectionAsync(
+    private async Task<bool> IsEligibleGoogleConnectionAsync(
         Guid tenantId,
         AgentToolKind kind,
         Guid? connectionId,
@@ -258,7 +262,7 @@ public sealed class AgentToolService
         {
             return await capabilities.HasCapabilityAsync(
                 connectionId.Value,
-                RequiredCapabilityForGmailTool(kind),
+                RequiredCapabilityForGoogleTool(kind),
                 cancellationToken);
         }
         catch (Exception exception) when (
@@ -268,32 +272,44 @@ public sealed class AgentToolService
         }
     }
 
-    private static string GmailEndpoint(AgentToolKind kind) => kind switch
+    private static string GoogleEndpoint(AgentToolKind kind) => kind switch
     {
         AgentToolKind.GmailSearch => "gmail://messages/search",
         AgentToolKind.GmailReadMessage => "gmail://messages/read",
         AgentToolKind.GmailCreateDraft => "gmail://drafts/create",
         AgentToolKind.GmailSend => "gmail://drafts/send",
         AgentToolKind.GmailReply => "gmail://messages/reply",
+        AgentToolKind.CalendarSearch => "calendar://events/search",
+        AgentToolKind.CalendarReadEvent => "calendar://events/read",
+        AgentToolKind.CalendarCreateEvent => "calendar://events/create",
+        AgentToolKind.CalendarUpdateEvent => "calendar://events/update",
+        AgentToolKind.CalendarDeleteEvent => "calendar://events/delete",
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
 
-    private static string GmailHttpMethod(AgentToolKind kind) => kind switch
+    private static string GoogleHttpMethod(AgentToolKind kind) => kind switch
     {
         AgentToolKind.GmailSearch or AgentToolKind.GmailReadMessage => "GET",
+        AgentToolKind.CalendarSearch or AgentToolKind.CalendarReadEvent => "GET",
         AgentToolKind.GmailCreateDraft or AgentToolKind.GmailSend or AgentToolKind.GmailReply => "POST",
+        AgentToolKind.CalendarCreateEvent or AgentToolKind.CalendarUpdateEvent or AgentToolKind.CalendarDeleteEvent => "POST",
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
 
-    private static GoogleOAuthCapability RequiredCapabilityForGmailTool(
+    private static GoogleOAuthCapability RequiredCapabilityForGoogleTool(
         AgentToolKind kind) => kind switch
     {
         AgentToolKind.GmailSearch or AgentToolKind.GmailReadMessage => GoogleOAuthCapability.GmailRead,
         AgentToolKind.GmailCreateDraft => GoogleOAuthCapability.GmailCreateDraft,
         AgentToolKind.GmailSend => GoogleOAuthCapability.GmailSend,
         AgentToolKind.GmailReply => GoogleOAuthCapability.GmailReply,
+        AgentToolKind.CalendarSearch or AgentToolKind.CalendarReadEvent => GoogleOAuthCapability.CalendarRead,
+        AgentToolKind.CalendarCreateEvent or AgentToolKind.CalendarUpdateEvent or AgentToolKind.CalendarDeleteEvent => GoogleOAuthCapability.CalendarWrite,
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
+
+    private static AgentToolRiskLevel RequiredRiskLevel(AgentToolKind kind) =>
+        GmailToolPolicy.IsGmail(kind) ? GmailToolPolicy.RequiredRiskLevel(kind) : CalendarToolPolicy.RequiredRiskLevel(kind);
 
     public async Task<OperationResult> DeactivateAsync(
         Guid toolId,

@@ -125,9 +125,18 @@ public sealed class ToolsControllerGmailTests
         Assert.Equal(eligibleId.ToString(), option.Value);
         Assert.Contains("Conta autorizada", option.Text);
         Assert.DoesNotContain(model.GmailConnectionOptions, item => item.Text.Contains("Sem Gmail"));
-        Assert.Equal(2, capabilities.Calls);
-        Assert.All(capabilities.RequestedCapabilities,
-            capability => Assert.Equal(GoogleOAuthCapability.GmailRead, capability));
+        Assert.Equal(6, capabilities.Calls);
+        Assert.Equal(
+            new[]
+            {
+                GoogleOAuthCapability.GmailRead,
+                GoogleOAuthCapability.CalendarRead,
+                GoogleOAuthCapability.CalendarWrite,
+                GoogleOAuthCapability.GmailRead,
+                GoogleOAuthCapability.CalendarRead,
+                GoogleOAuthCapability.CalendarWrite
+            },
+            capabilities.RequestedCapabilities);
     }
 
     [Fact]

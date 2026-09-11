@@ -70,9 +70,8 @@ public sealed class ToolsController : Controller
         }
 
         bool isGmail = form.Category == AgentToolCategory.Gmail;
-        AgentToolKind kind = isGmail
-            ? MapGmailAction(form.GmailAction)
-            : AgentToolKind.Http;
+        bool isCalendar = form.Category == AgentToolCategory.Calendar;
+        AgentToolKind kind = isGmail ? MapGmailAction(form.GmailAction) : isCalendar ? MapCalendarAction(form.CalendarAction) : AgentToolKind.Http;
 
         OperationResult<Guid> result = await _toolService.CreateAsync(
             new CreateAgentToolRequest(
@@ -83,9 +82,9 @@ public sealed class ToolsController : Controller
                 form.HttpMethod,
                 form.InputSchema,
                 form.ToolCredentialId,
-                isGmail ? GmailToolPolicy.RequiredRiskLevel(kind) : form.RiskLevel,
+                (isGmail || isCalendar) ? RequiredRiskLevel(kind) : form.RiskLevel,
                 kind,
-                isGmail ? form.IntegrationConnectionId : null),
+                (isGmail || isCalendar) ? form.IntegrationConnectionId : null),
             cancellationToken);
 
         if (!result.Succeeded)
@@ -157,7 +156,7 @@ public sealed class ToolsController : Controller
                 form.ToolCredentialId,
                 tool.Kind == AgentToolKind.Http
                     ? form.RiskLevel
-                    : GmailToolPolicy.RequiredRiskLevel(tool.Kind),
+                    : RequiredRiskLevel(tool.Kind),
                 tool.Kind == AgentToolKind.Http ? null : form.IntegrationConnectionId),
             cancellationToken);
 
@@ -202,7 +201,8 @@ public sealed class ToolsController : Controller
                 x.Id == form.ToolCredentialId))
             .ToArray();
 
-        var eligibleConnections = new List<SelectListItem>();
+        var gmailConnections = new List<SelectListItem>();
+        var calendarConnections = new List<SelectListItem>();
         IReadOnlyList<IntegrationConnectionDto> connections =
             await _connectionService.ListAsync(cancellationToken);
         foreach (IntegrationConnectionDto connection in connections.Where(connection =>
@@ -210,13 +210,17 @@ public sealed class ToolsController : Controller
                      connection.IsActive &&
                      connection.Status == IntegrationConnectionStatus.Connected))
         {
+            bool hasGmailRead;
+            bool hasCalendarRead;
+            bool hasCalendarWrite;
             try
             {
-                if (!await _capabilities.HasCapabilityAsync(
-                        connection.Id, GoogleOAuthCapability.GmailRead, cancellationToken))
-                {
-                    continue;
-                }
+                hasGmailRead = await _capabilities.HasCapabilityAsync(
+                    connection.Id, GoogleOAuthCapability.GmailRead, cancellationToken);
+                hasCalendarRead = await _capabilities.HasCapabilityAsync(
+                    connection.Id, GoogleOAuthCapability.CalendarRead, cancellationToken);
+                hasCalendarWrite = await _capabilities.HasCapabilityAsync(
+                    connection.Id, GoogleOAuthCapability.CalendarWrite, cancellationToken);
             }
             catch (Exception exception) when (
                 exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
@@ -230,12 +234,20 @@ public sealed class ToolsController : Controller
             string label = string.IsNullOrWhiteSpace(connection.ConnectedAccountEmail)
                 ? connection.Name
                 : $"{connection.Name} ({connection.ConnectedAccountEmail})";
-            eligibleConnections.Add(new SelectListItem(
-                label,
-                connection.Id.ToString(),
-                connection.Id == form.IntegrationConnectionId));
+            if (hasGmailRead)
+            {
+                gmailConnections.Add(new SelectListItem(label, connection.Id.ToString(),
+                    connection.Id == form.IntegrationConnectionId));
+            }
+
+            if (hasCalendarRead || hasCalendarWrite)
+            {
+                calendarConnections.Add(new SelectListItem(label, connection.Id.ToString(),
+                    connection.Id == form.IntegrationConnectionId));
+            }
         }
-        form.GmailConnectionOptions = eligibleConnections;
+        form.GmailConnectionOptions = gmailConnections;
+        form.CalendarConnectionOptions = calendarConnections;
     }
 
     private void ValidateCreateForm(AgentToolFormViewModel form)
@@ -252,10 +264,12 @@ public sealed class ToolsController : Controller
             return;
         }
 
-        if (!Enum.IsDefined(form.GmailAction))
+        if (form.Category == AgentToolCategory.Gmail && !Enum.IsDefined(form.GmailAction))
         {
             ModelState.AddModelError(nameof(form.GmailAction), "Selecione uma ação Gmail válida.");
         }
+        if (form.Category == AgentToolCategory.Calendar && !Enum.IsDefined(form.CalendarAction))
+            ModelState.AddModelError(nameof(form.CalendarAction), "Selecione uma ação Calendar válida.");
         if (!form.IntegrationConnectionId.HasValue || form.IntegrationConnectionId == Guid.Empty)
         {
             ModelState.AddModelError(nameof(form.IntegrationConnectionId), "Selecione uma conexão Google autorizada.");
@@ -296,10 +310,23 @@ public sealed class ToolsController : Controller
         _ => throw new ArgumentOutOfRangeException(nameof(action))
     };
 
+    private static AgentToolKind MapCalendarAction(CalendarToolAction action) => action switch
+    {
+        CalendarToolAction.SearchEvents => AgentToolKind.CalendarSearch,
+        CalendarToolAction.ReadEvent => AgentToolKind.CalendarReadEvent,
+        CalendarToolAction.CreateEvent => AgentToolKind.CalendarCreateEvent,
+        CalendarToolAction.UpdateEvent => AgentToolKind.CalendarUpdateEvent,
+        CalendarToolAction.DeleteEvent => AgentToolKind.CalendarDeleteEvent,
+        _ => throw new ArgumentOutOfRangeException(nameof(action))
+    };
+
+    private static AgentToolRiskLevel RequiredRiskLevel(AgentToolKind kind) =>
+        GmailToolPolicy.IsGmail(kind) ? GmailToolPolicy.RequiredRiskLevel(kind) : CalendarToolPolicy.RequiredRiskLevel(kind);
+
     private static void ApplyToolType(AgentToolFormViewModel form, AgentToolDetailsDto tool)
     {
         form.IsEdit = true;
-        form.Category = tool.Kind == AgentToolKind.Http ? AgentToolCategory.Http : AgentToolCategory.Gmail;
+        form.Category = tool.Kind == AgentToolKind.Http ? AgentToolCategory.Http : CalendarToolPolicy.IsCalendar(tool.Kind) ? AgentToolCategory.Calendar : AgentToolCategory.Gmail;
         form.GmailAction = tool.Kind switch
         {
             AgentToolKind.GmailReadMessage => GmailToolAction.ReadEmail,
@@ -309,6 +336,14 @@ public sealed class ToolsController : Controller
             _ => GmailToolAction.SearchEmails
         };
         form.IntegrationConnectionId = tool.IntegrationConnectionId;
+        form.CalendarAction = tool.Kind switch
+        {
+            AgentToolKind.CalendarReadEvent => CalendarToolAction.ReadEvent,
+            AgentToolKind.CalendarCreateEvent => CalendarToolAction.CreateEvent,
+            AgentToolKind.CalendarUpdateEvent => CalendarToolAction.UpdateEvent,
+            AgentToolKind.CalendarDeleteEvent => CalendarToolAction.DeleteEvent,
+            _ => CalendarToolAction.SearchEvents
+        };
     }
 
     private Guid GetTenantId()

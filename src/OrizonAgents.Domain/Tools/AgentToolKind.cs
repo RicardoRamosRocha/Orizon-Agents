@@ -7,5 +7,10 @@ public enum AgentToolKind
     GmailReadMessage = 3,
     GmailCreateDraft = 4,
     GmailSend = 5,
-    GmailReply = 6
+    GmailReply = 6,
+    CalendarSearch = 7,
+    CalendarReadEvent = 8,
+    CalendarCreateEvent = 9,
+    CalendarUpdateEvent = 10,
+    CalendarDeleteEvent = 11
 }

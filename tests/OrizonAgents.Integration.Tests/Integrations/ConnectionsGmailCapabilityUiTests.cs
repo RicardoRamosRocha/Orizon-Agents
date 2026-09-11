@@ -28,11 +28,13 @@ public sealed class ConnectionsGmailCapabilityUiTests
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<ConnectionDetailsViewModel>(view.Model);
         Assert.Equal(granted, model.IsGmailReadAuthorized);
-        Assert.Equal(3, capabilities.Calls);
+        Assert.Equal(5, capabilities.Calls);
         Assert.Equal(connectionId, capabilities.ConnectionId);
-        Assert.Equal(GoogleOAuthCapability.GmailReply, capabilities.Capability);
+        Assert.Equal(GoogleOAuthCapability.CalendarWrite, capabilities.Capability);
         Assert.Equal(granted, model.IsGmailComposeAuthorized);
         Assert.Equal(granted, model.IsGmailReplyAuthorized);
+        Assert.Equal(granted, model.IsCalendarReadAuthorized);
+        Assert.Equal(granted, model.IsCalendarWriteAuthorized);
     }
 
     [Fact]
@@ -135,7 +137,7 @@ public sealed class ConnectionsGmailCapabilityUiTests
             .GetProperties()
             .Select(property => property.Name)
             .ToArray();
-        Assert.Equal(new[] { "Connection", "Edit", "IsGmailReadAuthorized", "IsGmailComposeAuthorized", "IsGmailReplyAuthorized" }, viewModelProperties);
+        Assert.Equal(new[] { "Connection", "Edit", "IsGmailReadAuthorized", "IsGmailComposeAuthorized", "IsGmailReplyAuthorized", "IsCalendarReadAuthorized", "IsCalendarWriteAuthorized" }, viewModelProperties);
 
         string serialized = JsonSerializer.Serialize(new ConnectionDetailsViewModel
         {
