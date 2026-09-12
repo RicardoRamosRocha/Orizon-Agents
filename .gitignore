@@ -80,6 +80,8 @@ appsettings.Local.json
 .env.*
 !.env.example
 
+backups/
+
 ############################
 # Certificados
 ############################

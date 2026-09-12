@@ -6,14 +6,14 @@ namespace OrizonAgents.Infrastructure.Persistence;
 
 public sealed class OrizonAgentsDbContextFactory : IDesignTimeDbContextFactory<OrizonAgentsDbContext>
 {
-    private const string DevelopmentConnectionString =
-        "Host=localhost;Port=5432;Database=orizon_agents;Username=orizon;Password=orizon_dev_password";
-
     public OrizonAgentsDbContext CreateDbContext(string[] args)
     {
+        string? commandLineConnection = GetArgumentValue(args, "--connection");
         string connectionString = Environment.GetEnvironmentVariable("ORIZON_CONNECTIONSTRINGS__DEFAULTCONNECTION")
             ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-            ?? DevelopmentConnectionString;
+            ?? commandLineConnection
+            ?? throw new InvalidOperationException(
+                "Connection string 'ConnectionStrings__DefaultConnection' must be configured for EF design-time operations.");
 
         var options = new DbContextOptionsBuilder<OrizonAgentsDbContext>()
             .UseNpgsql(
@@ -22,6 +22,19 @@ public sealed class OrizonAgentsDbContextFactory : IDesignTimeDbContextFactory<O
             .Options;
 
         return new OrizonAgentsDbContext(options, NoTenantContext.Instance);
+    }
+
+    private static string? GetArgumentValue(string[] args, string name)
+    {
+        for (int index = 0; index < args.Length - 1; index++)
+        {
+            if (string.Equals(args[index], name, StringComparison.OrdinalIgnoreCase))
+            {
+                return args[index + 1];
+            }
+        }
+
+        return null;
     }
 
     private sealed class NoTenantContext : ICurrentTenant

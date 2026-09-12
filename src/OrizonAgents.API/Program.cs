@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication;
 using OrizonAgents.Infrastructure;
 using OrizonAgents.Infrastructure.Tenancy;
 using OrizonAgents.API.Security;
+using OrizonAgents.Infrastructure.Health;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,6 +36,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+await DatabaseGuardStartup.ValidateAsync(app.Services, app.Environment);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

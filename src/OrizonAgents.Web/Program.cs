@@ -4,6 +4,7 @@ using OrizonAgents.Infrastructure;
 using OrizonAgents.Infrastructure.Identity;
 using OrizonAgents.Infrastructure.Tenancy;
 using OrizonAgents.Infrastructure.Billing;
+using OrizonAgents.Infrastructure.Health;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +23,8 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
+
+await DatabaseGuardStartup.ValidateAsync(app.Services, app.Environment);
 
 // Resolve the original scheme from trusted proxies before HTTPS redirects and OAuth URL generation.
 app.UseForwardedHeaders();
@@ -50,5 +53,6 @@ await BillingSeeder.SeedAsync(app.Services);
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
+app.MapHealthChecks("/health");
 
 app.Run();

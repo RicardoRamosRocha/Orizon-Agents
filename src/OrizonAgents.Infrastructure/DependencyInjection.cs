@@ -83,6 +83,11 @@ public static class DependencyInjection
         string connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is required.");
 
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException("Connection string 'DefaultConnection' must not be empty.");
+        }
+
         string redisConnectionString = configuration.GetConnectionString("Redis")
             ?? configuration["Redis:ConnectionString"]
             ?? throw new InvalidOperationException("Redis connection string is required.");
@@ -130,6 +135,11 @@ public static class DependencyInjection
             configuration.GetSection(AgentToolHttpOptions.SectionName));
 
         services.AddSingleton<IAgentToolEndpointPolicy, AgentToolEndpointPolicy>();
+
+        services.Configure<DatabaseGuardOptions>(
+            configuration.GetSection(DatabaseGuardOptions.SectionName));
+        services.AddScoped<DatabaseIdentityValidator>();
+        services.AddHostedService<DatabaseGuardHostedService>();
 
         services.AddHttpClient("AgentTools", client =>
         {
@@ -339,6 +349,9 @@ public static class DependencyInjection
         services.AddHealthChecks()
             .AddDbContextCheck<OrizonAgentsDbContext>(
                 "postgresql",
+                HealthStatus.Unhealthy)
+            .AddCheck<DatabaseIdentityHealthCheck>(
+                "postgresql-identity",
                 HealthStatus.Unhealthy)
             .AddCheck<RedisDistributedCacheHealthCheck>(
                 "redis",
