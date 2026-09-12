@@ -55,7 +55,7 @@ public class OrizonAgentsDbContextModelTests
     private static OrizonAgentsDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<OrizonAgentsDbContext>()
-            .UseNpgsql("Host=localhost;Database=orizon_agents_tests;Username=orizon;Password=orizon_dev_password")
+            .UseNpgsql(OrizonAgents.Integration.Tests.TestDatabaseConnection.For("orizon_agents_tests"))
             .Options;
 
         return new OrizonAgentsDbContext(options, new TestTenantContext());

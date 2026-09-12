@@ -458,7 +458,7 @@ public sealed class OpenAiChatProviderTests
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:DefaultConnection"] =
-                    "Host=localhost;Database=orizon_test;Username=test;Password=test",
+                    OrizonAgents.Integration.Tests.TestDatabaseConnection.For("orizon_test"),
                 ["ConnectionStrings:Redis"] = "localhost:6379",
                 ["DataProtection:KeysPath"] = keysPath
             })

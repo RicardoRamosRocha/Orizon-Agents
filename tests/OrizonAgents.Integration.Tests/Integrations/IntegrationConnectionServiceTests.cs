@@ -209,7 +209,7 @@ public sealed class IntegrationConnectionServiceTests
         var tenant = CreateTenant();
         using var db = new OrizonAgentsDbContext(
             new DbContextOptionsBuilder<OrizonAgentsDbContext>()
-                .UseNpgsql("Host=localhost;Database=model_tests;Username=test;Password=test").Options, tenant);
+                .UseNpgsql(OrizonAgents.Integration.Tests.TestDatabaseConnection.For("model_tests")).Options, tenant);
         var entity = db.Model.FindEntityType(typeof(IntegrationConnection))!;
         Assert.NotNull(entity.GetQueryFilter());
         Assert.Equal(IntegrationConnection.NameMaxLength, entity.FindProperty("Name")!.GetMaxLength());

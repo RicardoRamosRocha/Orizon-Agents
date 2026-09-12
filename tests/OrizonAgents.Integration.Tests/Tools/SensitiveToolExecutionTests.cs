@@ -19,7 +19,7 @@ public sealed class SensitiveToolExecutionTests
 
         using var db = new OrizonAgentsDbContext(
             new DbContextOptionsBuilder<OrizonAgentsDbContext>()
-                .UseNpgsql("Host=localhost;Database=model_tests;Username=test;Password=test")
+                .UseNpgsql(OrizonAgents.Integration.Tests.TestDatabaseConnection.For("model_tests"))
                 .Options,
             tenant);
 
