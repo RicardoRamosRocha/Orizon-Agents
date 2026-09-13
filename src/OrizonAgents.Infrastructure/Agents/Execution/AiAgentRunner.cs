@@ -26,7 +26,7 @@ public sealed class AiAgentRunner : IAiAgentRunner
     private readonly OrizonAgentsDbContext _dbContext;
     private readonly IEnumerable<IAiChatProvider> _providers;
     private readonly IAgentToolCatalog _toolCatalog;
-    private readonly IKnowledgeRetriever _knowledgeRetriever;
+    private readonly IHybridKnowledgeRetriever _knowledgeRetriever;
     private readonly IAgentToolExecutor _toolExecutor;
     private readonly IAgentModelDecisionParser _decisionParser;
     private readonly IAgentContextBudget _contextBudget;
@@ -38,7 +38,7 @@ public sealed class AiAgentRunner : IAiAgentRunner
         OrizonAgentsDbContext dbContext,
         IEnumerable<IAiChatProvider> providers,
         IAgentToolCatalog toolCatalog,
-        IKnowledgeRetriever knowledgeRetriever,
+        IHybridKnowledgeRetriever knowledgeRetriever,
         IAgentToolExecutor toolExecutor,
         IAgentModelDecisionParser decisionParser,
         IAgentContextBudget contextBudget,

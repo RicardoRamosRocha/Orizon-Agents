@@ -38,6 +38,7 @@ using OrizonAgents.Infrastructure.Integrations.Google;
 using OrizonAgents.Application.Integrations.Gmail;
 using OrizonAgents.Infrastructure.Integrations.Gmail;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Pgvector.EntityFrameworkCore;
 using OrizonAgents.Infrastructure.Persistence;
 using OrizonAgents.Infrastructure.Tenancy;
 using OrizonAgents.Application.Tenants;
@@ -68,8 +69,10 @@ using OrizonAgents.Application.Knowledge;
 using OrizonAgents.Infrastructure.Knowledge;
 
 using OrizonAgents.Application.Knowledge.Retrieval;
+using OrizonAgents.Application.Knowledge.Embeddings;
 
 using OrizonAgents.Infrastructure.Knowledge.Retrieval;
+using OrizonAgents.Infrastructure.Knowledge.Embeddings;
 
 namespace OrizonAgents.Infrastructure;
 
@@ -155,6 +158,16 @@ public static class DependencyInjection
         services.AddScoped<IKnowledgeDocumentProcessor, KnowledgeDocumentProcessor>();
         services.AddScoped<IKnowledgeService, KnowledgeService>();
         services.AddScoped<IKnowledgeRetriever, KnowledgeRetriever>();
+        services.AddScoped<ISemanticKnowledgeRetriever, SemanticKnowledgeRetriever>();
+        services.AddScoped<IHybridKnowledgeRetriever, HybridKnowledgeRetriever>();
+        services.AddHttpClient<OpenAiEmbeddingGenerator>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.openai.com/");
+            client.Timeout = TimeSpan.FromSeconds(60);
+        })
+            .RemoveAllLoggers();
+        services.AddScoped<IEmbeddingGenerator>(provider =>
+            provider.GetRequiredService<OpenAiEmbeddingGenerator>());
         services.AddHttpClient<GroqChatProvider>(client =>
         {
             client.BaseAddress = new Uri("https://api.groq.com/");
@@ -289,7 +302,9 @@ public static class DependencyInjection
         {
             options.UseNpgsql(
                 connectionString,
-                npgsql => npgsql.MigrationsAssembly(typeof(OrizonAgentsDbContext).Assembly.FullName));
+                npgsql => npgsql
+                    .MigrationsAssembly(typeof(OrizonAgentsDbContext).Assembly.FullName)
+                    .UseVector());
         }, ServiceLifetime.Scoped);
 
         services.AddStackExchangeRedisCache(options =>

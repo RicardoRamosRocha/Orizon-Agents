@@ -1434,7 +1434,7 @@ public sealed class AiAgentRunnerTests
     }
 
     private sealed class EmptyKnowledgeRetriever :
-        IKnowledgeRetriever
+        IHybridKnowledgeRetriever
     {
         public Task<IReadOnlyList<KnowledgeRetrievalResult>>
             RetrieveAsync(
@@ -1451,7 +1451,7 @@ public sealed class AiAgentRunnerTests
     }
 
     private sealed class StubKnowledgeRetriever :
-        IKnowledgeRetriever
+        IHybridKnowledgeRetriever
     {
         private readonly IReadOnlyList<KnowledgeRetrievalResult> _results;
 
@@ -1545,7 +1545,7 @@ public sealed class AiAgentRunnerTests
         OrizonAgentsDbContext db,
         IAiChatProvider provider,
         IAgentToolCatalog toolCatalog,
-        IKnowledgeRetriever knowledgeRetriever,
+        IHybridKnowledgeRetriever knowledgeRetriever,
         IAgentToolExecutor toolExecutor,
         RecordingAgentExecutionTelemetry? telemetry = null,
         ICurrentTenant? currentTenant = null)

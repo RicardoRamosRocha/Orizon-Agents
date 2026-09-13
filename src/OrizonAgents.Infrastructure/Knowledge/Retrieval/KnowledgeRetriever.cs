@@ -64,6 +64,7 @@ public sealed class KnowledgeRetriever : IKnowledgeRetriever
                     KnowledgeBaseName = knowledgeBase.Name,
                     DocumentId = document.Id,
                     DocumentName = document.FileName,
+                    KnowledgeChunkId = chunk.Id,
                     ChunkPosition = chunk.Position,
                     chunk.Content
                 })
@@ -87,7 +88,9 @@ public sealed class KnowledgeRetriever : IKnowledgeRetriever
                     candidate.Candidate.DocumentId,
                     candidate.Candidate.DocumentName,
                     candidate.Candidate.ChunkPosition,
-                    candidate.Candidate.Content))
+                    candidate.Candidate.Content,
+                    LexicalScore: candidate.Score,
+                    KnowledgeChunkId: candidate.Candidate.KnowledgeChunkId))
             .ToArray();
     }
 

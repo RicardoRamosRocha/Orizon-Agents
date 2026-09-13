@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using OrizonAgents.Application.Common.Results;
 using OrizonAgents.Application.Knowledge.Documents;
 using OrizonAgents.Application.Knowledge.Documents.Models;
+using OrizonAgents.Application.Knowledge.Embeddings;
 using OrizonAgents.Domain.Knowledge;
 using OrizonAgents.Infrastructure.Persistence;
 
@@ -15,6 +16,7 @@ public sealed class KnowledgeDocumentProcessor :
     private readonly IKnowledgeFileStorage _storage;
     private readonly IEnumerable<IKnowledgeDocumentExtractor> _extractors;
     private readonly IKnowledgeTextChunker _chunker;
+    private readonly IEmbeddingGenerator _embeddingGenerator;
     private readonly ILogger<KnowledgeDocumentProcessor> _logger;
 
     public KnowledgeDocumentProcessor(
@@ -22,12 +24,14 @@ public sealed class KnowledgeDocumentProcessor :
         IKnowledgeFileStorage storage,
         IEnumerable<IKnowledgeDocumentExtractor> extractors,
         IKnowledgeTextChunker chunker,
+        IEmbeddingGenerator embeddingGenerator,
         ILogger<KnowledgeDocumentProcessor> logger)
     {
         _dbContext = dbContext;
         _storage = storage;
         _extractors = extractors;
         _chunker = chunker;
+        _embeddingGenerator = embeddingGenerator;
         _logger = logger;
     }
 
@@ -107,12 +111,25 @@ public sealed class KnowledgeDocumentProcessor :
 
             foreach (KnowledgeDocumentChunk chunk in chunks)
             {
-                _dbContext.KnowledgeChunks.Add(
-                    new KnowledgeChunk(
+                KnowledgeChunk knowledgeChunk = new(
+                    document.TenantId,
+                    document.Id,
+                    chunk.Position,
+                    chunk.Content);
+
+                _dbContext.KnowledgeChunks.Add(knowledgeChunk);
+
+                float[] embedding = await _embeddingGenerator.GenerateAsync(
+                    knowledgeChunk.Content,
+                    cancellationToken);
+
+                _dbContext.KnowledgeChunkEmbeddings.Add(
+                    new KnowledgeChunkEmbedding(
                         document.TenantId,
-                        document.Id,
-                        chunk.Position,
-                        chunk.Content));
+                        knowledgeChunk.Id,
+                        _embeddingGenerator.Provider,
+                        _embeddingGenerator.Model,
+                        embedding));
             }
 
             document.MarkReady();
@@ -121,6 +138,31 @@ public sealed class KnowledgeDocumentProcessor :
                 cancellationToken);
 
             return OperationResult.Success();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning(
+                "Processamento do documento de conhecimento cancelado {DocumentId}.",
+                document.Id);
+
+            _dbContext.ChangeTracker.Clear();
+
+            KnowledgeDocument? cancelledDocument =
+                await _dbContext.KnowledgeDocuments
+                    .SingleOrDefaultAsync(
+                        candidate => candidate.Id == documentId,
+                        CancellationToken.None);
+
+            if (cancelledDocument is not null)
+            {
+                cancelledDocument.MarkFailed(
+                    "Processamento do documento cancelado.");
+
+                await _dbContext.SaveChangesAsync(
+                    CancellationToken.None);
+            }
+
+            throw;
         }
         catch (Exception exception)
         {

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using OrizonAgents.Application.Common.Tenancy;
+using Pgvector.EntityFrameworkCore;
 
 namespace OrizonAgents.Infrastructure.Persistence;
 
@@ -18,7 +19,9 @@ public sealed class OrizonAgentsDbContextFactory : IDesignTimeDbContextFactory<O
         var options = new DbContextOptionsBuilder<OrizonAgentsDbContext>()
             .UseNpgsql(
                 connectionString,
-                npgsql => npgsql.MigrationsAssembly(typeof(OrizonAgentsDbContext).Assembly.FullName))
+                npgsql => npgsql
+                    .MigrationsAssembly(typeof(OrizonAgentsDbContext).Assembly.FullName)
+                    .UseVector())
             .Options;
 
         return new OrizonAgentsDbContext(options, NoTenantContext.Instance);

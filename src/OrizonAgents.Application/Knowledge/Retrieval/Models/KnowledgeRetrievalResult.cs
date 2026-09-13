@@ -6,4 +6,8 @@ public sealed record KnowledgeRetrievalResult(
     Guid DocumentId,
     string DocumentName,
     int ChunkPosition,
-    string Content);
+    string Content,
+    double? SemanticScore = null,
+    double? LexicalScore = null,
+    double? HybridScore = null,
+    Guid? KnowledgeChunkId = null);

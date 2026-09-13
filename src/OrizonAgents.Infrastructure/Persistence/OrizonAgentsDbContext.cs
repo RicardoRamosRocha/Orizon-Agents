@@ -17,11 +17,13 @@ namespace OrizonAgents.Infrastructure.Persistence;
 
 public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>
 {
+    private readonly DbContextOptions<OrizonAgentsDbContext> _options;
     private readonly ICurrentTenant _currentTenant;
 
     public OrizonAgentsDbContext(DbContextOptions<OrizonAgentsDbContext> options, ICurrentTenant currentTenant)
         : base(options)
     {
+        _options = options;
         _currentTenant = currentTenant;
     }
 
@@ -35,6 +37,7 @@ public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, A
     public DbSet<KnowledgeBase> KnowledgeBases => Set<KnowledgeBase>();
     public DbSet<KnowledgeDocument> KnowledgeDocuments => Set<KnowledgeDocument>();
     public DbSet<KnowledgeChunk> KnowledgeChunks => Set<KnowledgeChunk>();
+    public DbSet<KnowledgeChunkEmbedding> KnowledgeChunkEmbeddings => Set<KnowledgeChunkEmbedding>();
     public DbSet<AgentKnowledgeBinding> AgentKnowledgeBindings => Set<AgentKnowledgeBinding>();
     public DbSet<AiConversation> AiConversations => Set<AiConversation>();
     public DbSet<AiConversationMessage> AiConversationMessages => Set<AiConversationMessage>();
@@ -70,7 +73,17 @@ public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, A
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.HasPostgresExtension("vector");
+
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(OrizonAgentsDbContext).Assembly);
+
+        if (_options.Extensions.Any(extension =>
+                extension.GetType().FullName ==
+                "Microsoft.EntityFrameworkCore.InMemory.Infrastructure.Internal.InMemoryOptionsExtension"))
+        {
+            modelBuilder.Ignore<KnowledgeChunkEmbedding>();
+        }
+
         ApplyTenantQueryFilters(modelBuilder);
     }
 

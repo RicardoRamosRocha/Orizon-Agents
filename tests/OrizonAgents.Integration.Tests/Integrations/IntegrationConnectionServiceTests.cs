@@ -9,6 +9,7 @@ using OrizonAgents.Domain.Tenants;
 using OrizonAgents.Infrastructure.Integrations;
 using OrizonAgents.Infrastructure.Persistence;
 using OrizonAgents.Infrastructure.Tenancy;
+using Pgvector.EntityFrameworkCore;
 
 namespace OrizonAgents.Integration.Tests.Integrations;
 
@@ -209,7 +210,9 @@ public sealed class IntegrationConnectionServiceTests
         var tenant = CreateTenant();
         using var db = new OrizonAgentsDbContext(
             new DbContextOptionsBuilder<OrizonAgentsDbContext>()
-                .UseNpgsql(OrizonAgents.Integration.Tests.TestDatabaseConnection.For("model_tests")).Options, tenant);
+                .UseNpgsql(
+                    OrizonAgents.Integration.Tests.TestDatabaseConnection.For("model_tests"),
+                    npgsql => npgsql.UseVector()).Options, tenant);
         var entity = db.Model.FindEntityType(typeof(IntegrationConnection))!;
         Assert.NotNull(entity.GetQueryFilter());
         Assert.Equal(IntegrationConnection.NameMaxLength, entity.FindProperty("Name")!.GetMaxLength());

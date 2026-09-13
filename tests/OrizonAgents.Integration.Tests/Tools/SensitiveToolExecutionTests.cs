@@ -6,6 +6,7 @@ using OrizonAgents.Domain.Tools;
 using OrizonAgents.Infrastructure.Persistence;
 using OrizonAgents.Infrastructure.Tenancy;
 using OrizonAgents.Infrastructure.Tools.Execution;
+using Pgvector.EntityFrameworkCore;
 
 namespace OrizonAgents.Integration.Tests.Tools;
 
@@ -19,7 +20,9 @@ public sealed class SensitiveToolExecutionTests
 
         using var db = new OrizonAgentsDbContext(
             new DbContextOptionsBuilder<OrizonAgentsDbContext>()
-                .UseNpgsql(OrizonAgents.Integration.Tests.TestDatabaseConnection.For("model_tests"))
+                .UseNpgsql(
+                    OrizonAgents.Integration.Tests.TestDatabaseConnection.For("model_tests"),
+                    npgsql => npgsql.UseVector())
                 .Options,
             tenant);
 
