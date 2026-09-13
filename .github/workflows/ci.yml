@@ -11,6 +11,32 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ConnectionStrings__DefaultConnection: Host=127.0.0.1;Port=55432;Database=orizon_agents;Username=orizon;Password=ci_only_password
+      ORIZON_TEST_CONNECTION_STRING: Host=127.0.0.1;Port=55432;Database=orizon_agents;Username=orizon;Password=ci_only_password
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: orizon_agents
+          POSTGRES_USER: orizon
+          POSTGRES_PASSWORD: ci_only_password
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U orizon -d orizon_agents"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout

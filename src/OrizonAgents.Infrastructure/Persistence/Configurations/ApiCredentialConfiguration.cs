@@ -1,0 +1,60 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using OrizonAgents.Domain.Integrations;
+
+namespace OrizonAgents.Infrastructure.Persistence.Configurations;
+
+public sealed class ApiCredentialConfiguration
+    : IEntityTypeConfiguration<ApiCredential>
+{
+    public void Configure(EntityTypeBuilder<ApiCredential> builder)
+    {
+        builder.ToTable("ApiCredentials");
+
+        builder.HasKey(credential => credential.Id);
+
+        builder.Property(credential => credential.TenantId)
+            .IsRequired();
+
+        builder.Property(credential => credential.AgentId);
+
+        builder.Property(credential => credential.Name)
+            .HasMaxLength(ApiCredential.NameMaxLength)
+            .IsRequired();
+
+        builder.Property(credential => credential.KeyHash)
+            .HasMaxLength(ApiCredential.KeyHashMaxLength)
+            .IsRequired();
+
+        builder.Property(credential => credential.KeyIdentifier)
+            .HasMaxLength(ApiCredential.KeyIdentifierMaxLength);
+
+        builder.Property(credential => credential.IsActive)
+            .IsRequired();
+
+        builder.Property(credential => credential.CreatedAtUtc)
+            .IsRequired();
+
+        builder.Property(credential => credential.UpdatedAtUtc);
+
+        builder.Property(credential => credential.RevokedAtUtc);
+
+        builder.HasIndex(credential => credential.KeyHash)
+            .IsUnique();
+
+        builder.HasIndex(credential => credential.KeyIdentifier)
+            .IsUnique()
+            .HasFilter("\"KeyIdentifier\" IS NOT NULL");
+
+        builder.HasIndex(credential => new
+        {
+            credential.TenantId,
+            credential.AgentId
+        });
+
+        builder.HasOne(credential => credential.Agent)
+            .WithMany()
+            .HasForeignKey(credential => credential.AgentId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}

@@ -8,5 +8,7 @@ public sealed record TenantDashboardDto(
     string Culture,
     string TimeZone,
     IReadOnlyCollection<DashboardMetricDto> Metrics,
+    IReadOnlyCollection<DashboardAgentDto> Agents,
+    IReadOnlyCollection<DashboardConfigurationStateDto> ConfigurationStates,
     IReadOnlyCollection<RecentUserDto> RecentUsers,
     IReadOnlyCollection<SetupChecklistItemDto> SetupChecklist);

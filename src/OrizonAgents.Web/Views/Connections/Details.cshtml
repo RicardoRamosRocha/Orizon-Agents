@@ -1,0 +1,169 @@
+@model OrizonAgents.Web.Models.Integrations.ConnectionDetailsViewModel
+@using OrizonAgents.Web.Models.Integrations
+@using OrizonAgents.Domain.Integrations
+
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = Model.Connection.Name;
+    ViewData["Section"] = "Integrações";
+}
+
+<section class="cockpit-page">
+    <header class="cockpit-page-header">
+        <div>
+            <a asp-action="Index" class="cockpit-back-link">← Voltar para conexões</a>
+            <p class="cockpit-eyebrow">Conexão da organização</p>
+            <h1>@Model.Connection.Name</h1>
+            <p>@Model.Connection.Provider · @ConnectionDetailsViewModel.StatusLabel(Model.Connection.Status) · @(Model.Connection.IsActive ? "Ativa" : "Inativa")</p>
+        </div>
+    </header>
+
+    @if (TempData["StatusMessage"] is string statusMessage)
+    {
+        <div class="alert alert-info" role="status">@statusMessage</div>
+    }
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-4">
+            <h2 class="h5">Configuração</h2>
+            @if (Model.Connection.Provider == IntegrationProvider.Gmail)
+            {
+                <p class="cockpit-eyebrow mb-2">Google</p>
+                @if (!string.IsNullOrWhiteSpace(Model.Connection.ConnectedAccountEmail))
+                {
+                    <p class="mb-1">Conta conectada: <strong>@Model.Connection.ConnectedAccountEmail</strong></p>
+                }
+                <p>Status: <strong>@(Model.Connection.Status == IntegrationConnectionStatus.Connected ? "Conectado" : ConnectionDetailsViewModel.StatusLabel(Model.Connection.Status))</strong></p>
+                @if (Model.Connection.Status == IntegrationConnectionStatus.Error)
+                {
+                    <div class="alert alert-warning">A autorização precisa de atenção. Conecte a conta novamente.</div>
+                }
+                @if (Model.Connection.IsActive && Model.Connection.Status == IntegrationConnectionStatus.Connected)
+                {
+                    <div class="border rounded-3 bg-light p-3 mb-4">
+                        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                            <div>
+                                <h3 class="h6 mb-1">Leitura do Gmail</h3>
+                                <p class="text-muted mb-0">Permite que agentes autorizados pesquisem e leiam mensagens desta conta.</p>
+                            </div>
+                            <span class="badge @(Model.IsGmailReadAuthorized ? "text-bg-success" : "text-bg-secondary")">
+                                @(Model.IsGmailReadAuthorized ? "Autorizada" : "Não autorizada")
+                            </span>
+                        </div>
+                        @if (!Model.IsGmailReadAuthorized)
+                        {
+                            <form asp-controller="GoogleConnections" asp-action="UpgradeGmailRead" asp-route-id="@Model.Connection.Id" method="post" class="mt-3">
+                                @Html.AntiForgeryToken()
+                                <button class="btn btn-primary" type="submit">Permitir leitura do Gmail</button>
+                            </form>
+                        }
+                    </div>
+                }
+                <p class="text-muted">A autorização identifica e conecta sua conta Google aos recursos permitidos.</p>
+                <div class="border rounded-3 bg-light p-3 mb-4">
+                    <h3 class="h6 mb-1">Cria&#xE7;&#xE3;o de rascunhos</h3>
+                    <p class="text-muted mb-2">Exige autoriza&#xE7;&#xE3;o adicional do Gmail. Criar um rascunho n&#xE3;o envia e-mail.</p>
+                    <span class="badge @(Model.IsGmailComposeAuthorized ? "text-bg-success" : "text-bg-secondary")">
+                        @(Model.IsGmailComposeAuthorized ? "Autorizada" : "N\u00e3o autorizada")
+                    </span>
+                    @if (!Model.IsGmailComposeAuthorized)
+                    {
+                        <form asp-controller="GoogleConnections" asp-action="UpgradeGmailCreateDraft" asp-route-id="@Model.Connection.Id" method="post" class="mt-2">
+                            @Html.AntiForgeryToken()
+                            <button class="btn btn-outline-primary" type="submit">Permitir cria&#xE7;&#xE3;o de rascunhos</button>
+                        </form>
+                    }
+                </div>
+                <div class="border rounded-3 bg-light p-3 mb-4">
+                    <h3 class="h6 mb-1">Respostas a e-mails</h3>
+                    <p class="text-muted mb-2">Exige leitura e envio. Cada resposta requer aprova&#xE7;&#xE3;o humana.</p>
+                    <span class="badge @(Model.IsGmailReplyAuthorized ? "text-bg-success" : "text-bg-secondary")">
+                        @(Model.IsGmailReplyAuthorized ? "Autorizada" : "N\u00e3o autorizada")
+                    </span>
+                    @if (!Model.IsGmailReplyAuthorized)
+                    {
+                        <form asp-controller="GoogleConnections" asp-action="UpgradeGmailReply" asp-route-id="@Model.Connection.Id" method="post" class="mt-2">
+                            @Html.AntiForgeryToken()
+                            <button class="btn btn-outline-primary" type="submit">Permitir respostas a e-mails</button>
+                        </form>
+                    }
+                </div>
+                <div class="border rounded-3 bg-light p-3 mb-4">
+                    <h3 class="h6 mb-1">Google Calendar</h3>
+                    <p class="text-muted mb-2">Leitura permite consultar eventos. Escrita permite criar, alterar e excluir eventos, sempre mediante aprovação humana.</p>
+                    <span class="badge @(Model.IsCalendarReadAuthorized ? "text-bg-success" : "text-bg-secondary")">Calendar Read: @(Model.IsCalendarReadAuthorized ? "Autorizada" : "Não autorizada")</span>
+                    <span class="badge @(Model.IsCalendarWriteAuthorized ? "text-bg-success" : "text-bg-secondary")">Calendar Write: @(Model.IsCalendarWriteAuthorized ? "Autorizada" : "Não autorizada")</span>
+                    @if (!Model.IsCalendarReadAuthorized)
+                    {
+                        <form asp-controller="GoogleConnections" asp-action="UpgradeCalendarRead" asp-route-id="@Model.Connection.Id" method="post" class="mt-2">@Html.AntiForgeryToken()<button class="btn btn-outline-primary" type="submit">Permitir leitura do Calendar</button></form>
+                    }
+                    @if (!Model.IsCalendarWriteAuthorized)
+                    {
+                        <form asp-controller="GoogleConnections" asp-action="UpgradeCalendarWrite" asp-route-id="@Model.Connection.Id" method="post" class="mt-2">@Html.AntiForgeryToken()<button class="btn btn-outline-primary" type="submit">Permitir escrita no Calendar</button></form>
+                    }
+                </div>
+                <div class="d-flex gap-2 flex-wrap mb-4">
+                    @if (Model.Connection.Status != IntegrationConnectionStatus.Connected)
+                    {
+                        @if (Model.Connection.IsActive)
+                        {
+                            <form asp-controller="GoogleConnections" asp-action="Connect" asp-route-id="@Model.Connection.Id" method="post">
+                                @Html.AntiForgeryToken()
+                                <button class="btn btn-primary" type="submit">Conectar com Google</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <p class="text-muted">Ative a conexão para autorizar sua conta Google.</p>
+                        }
+                    }
+                    @if (Model.Connection.Status != IntegrationConnectionStatus.Disconnected)
+                    {
+                        <form asp-controller="GoogleConnections" asp-action="Disconnect" asp-route-id="@Model.Connection.Id" method="post">
+                            @Html.AntiForgeryToken()
+                            <button class="btn btn-outline-secondary" type="submit">Desconectar Google</button>
+                        </form>
+                    }
+                </div>
+                <p class="form-text">Desconectar revoga o acesso do aplicativo à conta Google e pode afetar outras conexões que usam a mesma conta.</p>
+            }
+            <form asp-action="Edit" asp-route-id="@Model.Connection.Id" method="post" class="row g-3">
+                @Html.AntiForgeryToken()
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <div class="col-md-8">
+                    <label asp-for="Edit.Name" class="form-label"></label>
+                    <input asp-for="Edit.Name" class="form-control" />
+                    <span asp-validation-for="Edit.Name" class="text-danger"></span>
+                </div>
+                <div><button class="btn btn-primary" type="submit">Salvar alterações</button></div>
+            </form>
+            <dl class="row mt-4 mb-0">
+                <dt class="col-sm-4">Criada em (UTC)</dt>
+                <dd class="col-sm-8">@Model.Connection.CreatedAtUtc.ToString("dd/MM/yyyy HH:mm")</dd>
+                <dt class="col-sm-4">Atualizada em (UTC)</dt>
+                <dd class="col-sm-8">@(Model.Connection.UpdatedAtUtc?.ToString("dd/MM/yyyy HH:mm") ?? "—")</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+            <h2 class="h5">Administração</h2>
+            <form asp-action="ChangeStatus" asp-route-id="@Model.Connection.Id" method="post" class="mb-3">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="activate" value="@(!Model.Connection.IsActive)" />
+                <button class="btn btn-outline-secondary" type="submit">@(Model.Connection.IsActive ? "Desativar conexão" : "Ativar conexão")</button>
+            </form>
+            <details>
+                <summary class="text-danger">Remover conexão</summary>
+                <p class="text-muted mt-2">A remoção exclui este cadastro da organização.</p>
+                <form asp-action="Delete" asp-route-id="@Model.Connection.Id" method="post">
+                    @Html.AntiForgeryToken()
+                    <button class="btn btn-outline-danger" type="submit">Confirmar remoção</button>
+                </form>
+            </details>
+        </div>
+    </div>
+</section>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

@@ -111,6 +111,8 @@ docker/
 
 Toda a documentação está organizada na pasta **docs**.
 
+Configuração de Conexões Gmail: [Google OAuth Development Setup](docs/02-Backend/Google%20OAuth%20Development%20Setup.md).
+
 📁 Gestão do Projeto
 
 🏗️ Arquitetura

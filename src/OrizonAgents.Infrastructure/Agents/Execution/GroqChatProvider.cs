@@ -1,0 +1,168 @@
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
+using OrizonAgents.Application.Agents.Execution;
+using OrizonAgents.Application.Agents.Credentials;
+using OrizonAgents.Domain.Agents;
+using OrizonAgents.Application.Agents.Execution.Models;
+
+namespace OrizonAgents.Infrastructure.Agents.Execution;
+
+public sealed class GroqChatProvider : IAiChatProvider
+{
+    private readonly HttpClient _httpClient;
+    private readonly IAiProviderApiKeyResolver _apiKeyResolver;
+
+    public GroqChatProvider(
+        HttpClient httpClient,
+        IAiProviderApiKeyResolver apiKeyResolver)
+    {
+        _httpClient = httpClient;
+        _apiKeyResolver = apiKeyResolver;
+    }
+
+    public string ProviderName => "Groq";
+
+    public async Task<AiChatCompletionResult> CompleteAsync(
+        string model,
+        string systemPrompt,
+        string userMessage,
+        IReadOnlyList<AiChatMessage> history,
+        double temperature,
+        string? operationalContext = null,
+        CancellationToken cancellationToken = default)
+    {
+        string? apiKey =
+            await _apiKeyResolver.ResolveAsync(
+                AiProvider.Groq,
+                cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new InvalidOperationException(
+                "Nenhuma credencial da Groq está configurada para este tenant.");
+        }
+
+        var messages = new List<object>
+        {
+            new
+            {
+                role = "system",
+                content = systemPrompt
+            }
+        };
+
+        if (!string.IsNullOrWhiteSpace(operationalContext))
+        {
+            messages.Add(new
+            {
+                role = "system",
+                content =
+                    "Contexto operacional fornecido pela aplicação consumidora para esta execução:\n" +
+                    operationalContext
+            });
+        }
+
+        foreach (AiChatMessage message in history)
+        {
+            if (message.Role is not ("user" or "assistant"))
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(message.Content))
+            {
+                continue;
+            }
+
+            messages.Add(new
+            {
+                role = message.Role,
+                content = message.Content
+            });
+        }
+
+        messages.Add(new
+        {
+            role = "user",
+            content = userMessage
+        });
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            "openai/v1/chat/completions");
+
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", apiKey);
+
+        request.Content = JsonContent.Create(new
+        {
+            model,
+            messages,
+            temperature
+        });
+
+        using HttpResponseMessage response =
+            await _httpClient.SendAsync(
+                request,
+                cancellationToken);
+
+        string responseBody =
+            await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException(
+                $"Groq retornou {(int)response.StatusCode}.");
+        }
+
+        using JsonDocument document =
+            JsonDocument.Parse(responseBody);
+
+        JsonElement choices =
+            document.RootElement.GetProperty("choices");
+
+        if (choices.GetArrayLength() == 0)
+        {
+            throw new InvalidOperationException(
+                "A Groq não retornou nenhuma resposta.");
+        }
+
+        string? content = choices[0]
+            .GetProperty("message")
+            .GetProperty("content")
+            .GetString();
+
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            throw new InvalidOperationException(
+                "A Groq retornou uma resposta vazia.");
+        }
+
+        AiChatUsage? usage = ReadUsage(document.RootElement);
+        return new AiChatCompletionResult(content.Trim(), usage);
+    }
+
+    private static AiChatUsage? ReadUsage(JsonElement root)
+    {
+        if (!root.TryGetProperty("usage", out JsonElement usage) ||
+            usage.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        long? input = ReadInt64(usage, "prompt_tokens");
+        long? output = ReadInt64(usage, "completion_tokens");
+        long? total = ReadInt64(usage, "total_tokens");
+
+        return input.HasValue || output.HasValue || total.HasValue
+            ? new AiChatUsage(input, output, total)
+            : null;
+    }
+
+    private static long? ReadInt64(JsonElement element, string name) =>
+        element.TryGetProperty(name, out JsonElement value) &&
+        value.TryGetInt64(out long result)
+            ? result
+            : null;
+}

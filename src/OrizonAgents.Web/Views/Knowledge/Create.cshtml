@@ -1,0 +1,64 @@
+@model OrizonAgents.Web.Models.Knowledge.CreateKnowledgeBaseViewModel
+
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Nova Base de Conhecimento";
+    ViewData["Section"] = "Inteligência Artificial";
+}
+
+<section class="cockpit-page">
+    <header class="cockpit-page-header">
+        <div>
+            <p class="cockpit-eyebrow">Conhecimento</p>
+            <h1>Nova base de conhecimento</h1>
+            <p>
+                Crie um espaço para organizar documentos e informações
+                especializadas.
+            </p>
+        </div>
+
+        <a class="btn btn-outline-secondary"
+           asp-action="Index">
+            Voltar
+        </a>
+    </header>
+
+    <article class="cockpit-form-panel cockpit-form-panel--narrow">
+        <form method="post" asp-action="Create" class="cockpit-form">
+            @Html.AntiForgeryToken()
+
+            <div asp-validation-summary="ModelOnly"
+                 class="text-danger mb-3"></div>
+
+            <div class="mb-3">
+                <label asp-for="Name"
+                       class="form-label"></label>
+
+                <input asp-for="Name"
+                       class="form-control"
+                       placeholder="Ex.: Produtos e Vendas" />
+
+                <span asp-validation-for="Name"
+                      class="text-danger"></span>
+            </div>
+
+            <div class="mb-4">
+                <label asp-for="Description"
+                       class="form-label"></label>
+
+                <textarea asp-for="Description"
+                          class="form-control"
+                          rows="4"
+                          placeholder="Descreva quais informações esta base armazenará."></textarea>
+
+                <span asp-validation-for="Description"
+                      class="text-danger"></span>
+            </div>
+
+            <div class="cockpit-form-actions">
+                <button type="submit" class="btn btn-primary">Criar base</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </article>
+</section>

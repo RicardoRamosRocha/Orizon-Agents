@@ -80,6 +80,8 @@ appsettings.Local.json
 .env.*
 !.env.example
 
+backups/
+
 ############################
 # Certificados
 ############################
@@ -166,3 +168,6 @@ secrets.json
 
 *.tmp
 *.cache
+
+# Knowledge local storage
+src/OrizonAgents.Web/App_Data/

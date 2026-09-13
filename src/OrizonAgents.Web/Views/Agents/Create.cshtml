@@ -1,0 +1,414 @@
+﻿@model OrizonAgents.Web.Models.Agents.AiAgentFormViewModel
+
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Novo Agente";
+    ViewData["Section"] = "Inteligência Artificial";
+}
+
+<div class="cockpit-page-header cockpit-page-header--form">
+    <a asp-action="Index" class="cockpit-back-link">
+        ← Meus Agentes
+    </a>
+
+    <p class="cockpit-eyebrow">Agentes</p>
+    <h1>Criar novo agente</h1>
+
+    <p>
+        Escolha o tipo de agente. O Orizon prepara a configuração para você.
+    </p>
+</div>
+
+<div class="row cockpit-form-layout">
+    <div class="col-xl-9 cockpit-form-column">
+
+        <div class="card border-0 shadow-sm mb-4 cockpit-form-panel cockpit-template-panel">
+            <div class="card-body p-4 cockpit-form-panel__body">
+
+                <h2 class="h5 mb-1">O que seu agente vai fazer?</h2>
+
+                <p class="text-muted small mb-4">
+                    Escolha uma opção para começar.
+                </p>
+
+                <div class="row g-3">
+
+                    <div class="col-md-6 col-xl-4">
+                        <button type="button"
+                                class="btn btn-light border w-100 text-start p-3 h-100 agent-template cockpit-template-card"
+                                data-template="commercial">
+                            <div class="fs-4 mb-2">💼</div>
+                            <strong>Comercial</strong>
+                            <div class="small text-muted mt-1">
+                                Atende interessados e identifica oportunidades.
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="col-md-6 col-xl-4">
+                        <button type="button"
+                                class="btn btn-light border w-100 text-start p-3 h-100 agent-template cockpit-template-card"
+                                data-template="service">
+                            <div class="fs-4 mb-2">💬</div>
+                            <strong>Atendimento</strong>
+                            <div class="small text-muted mt-1">
+                                Faz o primeiro atendimento aos clientes.
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="col-md-6 col-xl-4">
+                        <button type="button"
+                                class="btn btn-light border w-100 text-start p-3 h-100 agent-template cockpit-template-card"
+                                data-template="support">
+                            <div class="fs-4 mb-2">🛠️</div>
+                            <strong>Suporte</strong>
+                            <div class="small text-muted mt-1">
+                                Ajuda clientes com dúvidas e problemas.
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="col-md-6 col-xl-4">
+                        <button type="button"
+                                class="btn btn-light border w-100 text-start p-3 h-100 agent-template cockpit-template-card"
+                                data-template="scheduling">
+                            <div class="fs-4 mb-2">📅</div>
+                            <strong>Agendamento</strong>
+                            <div class="small text-muted mt-1">
+                                Conduz conversas para marcar atendimentos.
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="col-md-6 col-xl-4">
+                        <button type="button"
+                                class="btn btn-light border w-100 text-start p-3 h-100 agent-template cockpit-template-card"
+                                data-template="custom">
+                            <div class="fs-4 mb-2">✨</div>
+                            <strong>Personalizado</strong>
+                            <div class="small text-muted mt-1">
+                                Comece do zero e defina seu próprio agente.
+                            </div>
+                        </button>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm cockpit-form-panel">
+            <div class="card-body p-4 p-lg-5 cockpit-form-panel__body">
+
+                <form method="post">
+
+                    <div asp-validation-summary="ModelOnly"
+                         class="text-danger mb-3"></div>
+
+                    <div class="mb-4">
+                        <label asp-for="Name"
+                               class="form-label fw-semibold">
+                            Nome do agente
+                        </label>
+
+                        <input asp-for="Name"
+                               class="form-control form-control-lg"
+                               placeholder="Ex.: Assistente Comercial" />
+
+                        <span asp-validation-for="Name"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="Description"
+                               class="form-label fw-semibold">
+                            O que ele fará?
+                        </label>
+
+                        <input asp-for="Description"
+                               class="form-control"
+                               placeholder="Descreva resumidamente a função deste agente." />
+
+                        <span asp-validation-for="Description"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="SystemPrompt"
+                               class="form-label fw-semibold">
+                            Como ele deve se comportar?
+                        </label>
+
+                        <textarea asp-for="SystemPrompt"
+                                  class="form-control"
+                                  rows="10"
+                                  placeholder="Escolha um modelo acima ou escreva as instruções do agente."></textarea>
+
+                        <div class="form-text">
+                            O Orizon preparou estas instruções. Você pode personalizá-las livremente.
+                        </div>
+
+                        <span asp-validation-for="SystemPrompt"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label asp-for="Provider"
+                                   class="form-label fw-semibold"></label>
+
+                            <select asp-for="Provider"
+                                    class="form-select">
+                                @foreach (var provider in Model.AvailableProviders)
+                                {
+                                    <option value="@provider.Provider">@provider.DisplayName</option>
+                                }
+                            </select>
+
+                            <span asp-validation-for="Provider"
+                                  class="text-danger"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="Model"
+                                   class="form-label fw-semibold"></label>
+
+                            <select asp-for="Model"
+                                    class="form-select"
+                                    data-current-model="@Model.Model">
+                                <option value="">Carregando modelos...</option>
+                            </select>
+
+                            <div id="modelHelp"
+                                 class="form-text">
+                                Os modelos disponíveis dependem do provedor.
+                            </div>
+
+                            <span asp-validation-for="Model"
+                                  class="text-danger"></span>
+                        </div>
+                    </div>
+
+                    <input type="hidden" asp-for="Temperature" />
+
+                    <div class="d-flex gap-2 cockpit-form-actions">
+                        <button type="submit"
+                                class="btn btn-primary btn-lg">
+                            Criar e testar
+                        </button>
+
+                        <a asp-action="Index"
+                           class="btn btn-light btn-lg">
+                            Cancelar
+                        </a>
+                    </div>
+
+                </form>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const templates = {
+        commercial: {
+            name: "Assistente Comercial",
+            description: "Realiza o primeiro atendimento de potenciais clientes e identifica oportunidades.",
+            prompt: `Você é um assistente comercial virtual.
+
+Seu objetivo é realizar o primeiro atendimento de potenciais clientes de forma cordial, profissional e objetiva.
+
+Durante a conversa:
+- Cumprimente o cliente de maneira natural.
+- Procure entender o que ele está buscando antes de oferecer uma solução.
+- Faça perguntas curtas e relevantes.
+- Identifique necessidades e oportunidades.
+- Explique as informações de maneira simples.
+- Não pressione o cliente para comprar.
+- Nunca invente preços, condições, produtos, prazos ou informações.
+- Quando não souber alguma informação, diga claramente que não possui essa informação.
+- Quando o cliente demonstrar interesse em avançar, ofereça encaminhamento para atendimento humano.
+
+Mantenha sempre um tom educado, prestativo e profissional.`
+        },
+
+        service: {
+            name: "Assistente de Atendimento",
+            description: "Realiza o primeiro atendimento e orienta clientes de forma rápida e cordial.",
+            prompt: `Você é um assistente virtual de atendimento ao cliente.
+
+Seu objetivo é receber o cliente, compreender sua necessidade e oferecer a melhor orientação possível.
+
+Durante a conversa:
+- Cumprimente de maneira cordial.
+- Pergunte como pode ajudar.
+- Entenda a necessidade antes de responder.
+- Utilize linguagem simples e objetiva.
+- Faça uma pergunta de cada vez quando precisar de mais informações.
+- Nunca invente informações.
+- Quando não puder resolver a solicitação, informe isso claramente.
+- Quando necessário, encaminhe o cliente para atendimento humano.
+
+Mantenha um atendimento educado, paciente e acolhedor.`
+        },
+
+        support: {
+            name: "Assistente de Suporte",
+            description: "Ajuda clientes a identificar e resolver dúvidas ou problemas.",
+            prompt: `Você é um assistente virtual de suporte.
+
+Seu objetivo é ajudar o cliente a compreender e resolver dúvidas ou problemas.
+
+Durante a conversa:
+- Primeiro identifique claramente o problema.
+- Faça perguntas objetivas para obter as informações necessárias.
+- Oriente o cliente passo a passo.
+- Apresente uma instrução de cada vez quando o procedimento for complexo.
+- Confirme se a orientação resolveu o problema.
+- Nunca invente procedimentos ou informações.
+- Quando não souber resolver, informe claramente e recomende atendimento humano.
+
+Mantenha um tom paciente, claro e profissional.`
+        },
+
+        scheduling: {
+            name: "Assistente de Agendamento",
+            description: "Atende clientes e conduz a conversa para realização de agendamentos.",
+            prompt: `Você é um assistente virtual responsável por ajudar clientes com agendamentos.
+
+Seu objetivo é compreender qual atendimento o cliente deseja e reunir as informações necessárias para o agendamento.
+
+Durante a conversa:
+- Cumprimente cordialmente.
+- Identifique qual serviço ou atendimento o cliente deseja.
+- Solicite somente as informações necessárias.
+- Faça perguntas curtas, preferencialmente uma de cada vez.
+- Confirme as informações antes de concluir.
+- Nunca invente datas, horários ou disponibilidade.
+- Se não possuir acesso à agenda, explique isso claramente.
+- Quando necessário, encaminhe para atendimento humano.
+
+Mantenha um tom cordial, simples e eficiente.`
+        },
+
+        custom: {
+            name: "",
+            description: "",
+            prompt: ""
+        }
+    };
+
+    const providerSelect = document.getElementById("Provider");
+    const modelSelect = document.getElementById("Model");
+    const modelHelp = document.getElementById("modelHelp");
+    const initialModel = modelSelect?.dataset.currentModel || "";
+
+    async function loadModels(preserveCurrent) {
+        if (!providerSelect || !modelSelect) {
+            return;
+        }
+
+        modelSelect.disabled = true;
+        modelHelp.textContent = "Carregando modelos disponíveis...";
+
+        try {
+            const response = await fetch(
+                `/agentes/modelos?provider=${encodeURIComponent(providerSelect.value)}`,
+                { headers: { "Accept": "application/json" } });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error || "Não foi possível carregar os modelos.");
+            }
+
+            modelSelect.innerHTML = "";
+
+            if (!Array.isArray(data) || data.length === 0) {
+                const option = document.createElement("option");
+                option.value = "";
+                option.textContent = "Nenhum modelo disponível";
+                modelSelect.appendChild(option);
+                modelHelp.textContent =
+                    "Não há modelos disponíveis para este provedor.";
+                return;
+            }
+
+            for (const item of data) {
+                const option = document.createElement("option");
+                option.value = item.id;
+                option.textContent = item.displayName || item.id;
+                modelSelect.appendChild(option);
+            }
+
+            if (preserveCurrent &&
+                initialModel &&
+                data.some(item => item.id === initialModel)) {
+                modelSelect.value = initialModel;
+            }
+
+            modelHelp.textContent =
+                `${data.length} modelo(s) disponível(is).`;
+        }
+        catch (error) {
+            modelSelect.innerHTML = "";
+
+            const option = document.createElement("option");
+            option.value = "";
+            option.textContent = "Modelos indisponíveis";
+            modelSelect.appendChild(option);
+
+            modelHelp.textContent = error.message;
+        }
+        finally {
+            modelSelect.disabled = false;
+        }
+    }
+
+    providerSelect?.addEventListener("change", function () {
+        loadModels(false);
+    });
+
+    loadModels(true);
+
+    const nameInput = document.getElementById("Name");
+    const descriptionInput = document.getElementById("Description");
+    const promptInput = document.getElementById("SystemPrompt");
+
+    document.querySelectorAll(".agent-template").forEach(button => {
+
+        button.addEventListener("click", function () {
+
+            const selected = templates[this.dataset.template];
+
+            if (!selected) {
+                return;
+            }
+
+            nameInput.value = selected.name;
+            descriptionInput.value = selected.description;
+            promptInput.value = selected.prompt;
+
+            document.querySelectorAll(".agent-template")
+                .forEach(item => {
+                    item.classList.remove("is-selected");
+                });
+
+            this.classList.add("is-selected");
+
+            nameInput.focus();
+        });
+
+    });
+
+});
+</script>
+}
+

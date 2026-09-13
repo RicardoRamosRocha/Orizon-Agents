@@ -1,0 +1,97 @@
+@model OrizonAgents.Web.Models.AiCredentials.AiCredentialsIndexViewModel
+
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Credenciais";
+    ViewData["Section"] = "Provedores de IA";
+}
+
+<section class="cockpit-page">
+    <header class="cockpit-page-header">
+        <div>
+            <p class="cockpit-eyebrow">Provedores de IA</p>
+            <h1>Credenciais</h1>
+            <p>Configure com segurança os providers utilizados pelos agentes.</p>
+        </div>
+        <span class="cockpit-security-note">
+            <span aria-hidden="true">●</span>
+            Armazenamento protegido
+        </span>
+    </header>
+
+    @if (TempData["StatusMessage"] is string statusMessage)
+    {
+        <div class="alert alert-success">@statusMessage</div>
+    }
+
+    @if (TempData["ErrorMessage"] is string errorMessage)
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    <div class="cockpit-provider-grid">
+        @foreach (var provider in Model.Providers)
+        {
+            <article class="cockpit-provider-card">
+                <header class="cockpit-provider-card__header">
+                    <span class="cockpit-provider-card__mark" aria-hidden="true">
+                        @provider.ProviderName[..1].ToUpperInvariant()
+                    </span>
+                    <div>
+                        <p class="cockpit-eyebrow">Provider</p>
+                        <h2>@provider.ProviderName</h2>
+                    </div>
+                    <span class="cockpit-status cockpit-status--@(provider.IsConfigured ? "success" : "neutral")">
+                        @(provider.IsConfigured ? "Configurado" : "Não configurado")
+                    </span>
+                </header>
+
+                <p class="cockpit-provider-card__description">
+                    @if (provider.IsConfigured)
+                    {
+                        <text>Existe uma credencial ativa. A chave armazenada nunca é exibida novamente.</text>
+                    }
+                    else
+                    {
+                        <text>Informe uma chave de API para habilitar este provider no workspace.</text>
+                    }
+                </p>
+
+                <form asp-controller="AiCredentials"
+                      asp-action="Save"
+                      method="post"
+                      class="cockpit-form cockpit-provider-form">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="provider" value="@provider.Provider" />
+
+                    <div>
+                        <label class="form-label" for="apiKey-@provider.Provider">Chave de API</label>
+                        <input type="password"
+                               id="apiKey-@provider.Provider"
+                               name="apiKey"
+                               class="form-control"
+                               autocomplete="new-password"
+                               placeholder="Cole a nova chave do provider"
+                               required />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        @(provider.IsConfigured ? "Substituir credencial" : "Salvar credencial")
+                    </button>
+                </form>
+
+                @if (provider.IsConfigured)
+                {
+                    <form asp-controller="AiCredentials"
+                          asp-action="Remove"
+                          method="post"
+                          class="cockpit-provider-remove">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="provider" value="@provider.Provider" />
+                        <button type="submit" class="btn btn-outline-danger">Remover credencial</button>
+                    </form>
+                }
+            </article>
+        }
+    </div>
+</section>

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using OrizonAgents.Infrastructure.Persistence;
+using Pgvector;
 
 #nullable disable
 
@@ -20,6 +21,7 @@ namespace OrizonAgents.Infrastructure.Persistence.Migrations
                 .HasAnnotation("ProductVersion", "8.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -123,6 +125,248 @@ namespace OrizonAgents.Infrastructure.Persistence.Migrations
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", (string)null);
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Agents.AgentExecutionUsage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AgentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ContextReductionCharacters")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("ConversationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("DurationMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("InputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<int>("ModelCallCount")
+                        .HasColumnType("integer");
+
+                    b.Property<long?>("OutputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("RagResultCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Succeeded")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ToolApprovalRequiredCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ToolContextCharacters")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ToolExecutionCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ToolFailureCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ToolSuccessCount")
+                        .HasColumnType("integer");
+
+                    b.Property<long?>("TotalTokens")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("ConversationId");
+
+                    b.HasIndex("TenantId", "StartedAtUtc");
+
+                    b.HasIndex("TenantId", "AgentId", "StartedAtUtc");
+
+                    b.ToTable("AgentExecutionUsages", (string)null);
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Agents.AiAgent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("SystemPrompt")
+                        .IsRequired()
+                        .HasMaxLength(12000)
+                        .HasColumnType("character varying(12000)");
+
+                    b.Property<double>("Temperature")
+                        .HasColumnType("double precision");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "IsActive");
+
+                    b.HasIndex("TenantId", "Name");
+
+                    b.ToTable("AiAgents", (string)null);
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Agents.AiConversation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AgentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("TenantId", "AgentId", "CreatedAtUtc");
+
+                    b.ToTable("AiConversations", (string)null);
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Agents.AiConversationMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConversationId");
+
+                    b.HasIndex("TenantId", "ConversationId", "CreatedAtUtc");
+
+                    b.ToTable("AiConversationMessages", (string)null);
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Agents.Credentials.AiProviderCredential", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EncryptedApiKey")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "IsActive");
+
+                    b.HasIndex("TenantId", "Provider")
+                        .IsUnique();
+
+                    b.ToTable("AiProviderCredentials", (string)null);
                 });
 
             modelBuilder.Entity("OrizonAgents.Domain.Billing.PlanEntitlement", b =>
@@ -339,6 +583,321 @@ namespace OrizonAgents.Infrastructure.Persistence.Migrations
                     b.ToTable("TenantSubscriptions", (string)null);
                 });
 
+            modelBuilder.Entity("OrizonAgents.Domain.Integrations.ApiCredential", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AgentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("KeyHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("KeyIdentifier")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("KeyHash")
+                        .IsUnique();
+
+                    b.HasIndex("KeyIdentifier")
+                        .IsUnique()
+                        .HasFilter("\"KeyIdentifier\" IS NOT NULL");
+
+                    b.HasIndex("TenantId", "AgentId");
+
+                    b.ToTable("ApiCredentials", (string)null);
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Integrations.IntegrationConnection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("ConnectedAccountEmail")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EncryptedCredentials")
+                        .HasMaxLength(16000)
+                        .HasColumnType("character varying(16000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("PendingOAuthStateHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Name");
+
+                    b.HasIndex("TenantId", "Provider");
+
+                    b.ToTable("IntegrationConnections", (string)null);
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Knowledge.AgentKnowledgeBinding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AgentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("KnowledgeBaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("KnowledgeBaseId");
+
+                    b.HasIndex("TenantId", "AgentId", "KnowledgeBaseId")
+                        .IsUnique();
+
+                    b.ToTable("AgentKnowledgeBindings", (string)null);
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Knowledge.KnowledgeBase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Name");
+
+                    b.ToTable("KnowledgeBases", (string)null);
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Knowledge.KnowledgeChunk", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("TenantId", "DocumentId", "Position")
+                        .IsUnique();
+
+                    b.ToTable("KnowledgeChunks", (string)null);
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Knowledge.KnowledgeChunkEmbedding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Dimensions")
+                        .HasColumnType("integer");
+
+                    b.Property<Vector>("Embedding")
+                        .IsRequired()
+                        .HasColumnType("vector(1536)");
+
+                    b.Property<Guid>("KnowledgeChunkId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KnowledgeChunkId");
+
+                    b.HasIndex("TenantId", "KnowledgeChunkId", "Provider", "Model")
+                        .IsUnique();
+
+                    b.ToTable("KnowledgeChunkEmbeddings", (string)null);
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Knowledge.KnowledgeDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)");
+
+                    b.Property<Guid>("KnowledgeBaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProcessingError")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KnowledgeBaseId");
+
+                    b.HasIndex("TenantId", "KnowledgeBaseId");
+
+                    b.ToTable("KnowledgeDocuments", (string)null);
+                });
+
             modelBuilder.Entity("OrizonAgents.Domain.Tenants.Tenant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -430,6 +989,303 @@ namespace OrizonAgents.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("TenantSettings", (string)null);
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Tools.AgentTool", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Endpoint")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("HttpMethod")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("InputSchema")
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid?>("IntegrationConnectionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("RiskLevel")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ToolCredentialId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IntegrationConnectionId");
+
+                    b.HasIndex("ToolCredentialId");
+
+                    b.HasIndex("TenantId", "IntegrationConnectionId");
+
+                    b.HasIndex("TenantId", "IsActive");
+
+                    b.HasIndex("TenantId", "Name");
+
+                    b.ToTable("AgentTools", (string)null);
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Tools.AgentToolBinding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AgentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ToolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("ToolId");
+
+                    b.HasIndex("TenantId", "AgentId", "IsActive");
+
+                    b.HasIndex("TenantId", "AgentId", "ToolId")
+                        .IsUnique();
+
+                    b.ToTable("AgentToolBindings", (string)null);
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Tools.SensitiveToolExecution", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AgentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AgentToolBindingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ApprovalId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ExecutionStartedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("InputFingerprint")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid?>("IntegrationConnectionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProtectedArguments")
+                        .IsRequired()
+                        .HasMaxLength(32768)
+                        .HasColumnType("character varying(32768)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ToolConfigurationFingerprint")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("ToolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ToolKind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAtUtc");
+
+                    b.HasIndex("TenantId", "ApprovalId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "State");
+
+                    b.ToTable("SensitiveToolExecutions", (string)null);
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Tools.ToolCredential", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AuthenticationType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EncryptedSecret")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("HeaderName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "IsActive");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("ToolCredentials", (string)null);
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Tools.ToolExecutionApproval", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AgentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ApprovedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ConsumedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("InputHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime?>("RejectedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ToolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAtUtc");
+
+                    b.HasIndex("TenantId", "AgentId", "ToolId", "InputHash")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ToolExecutionApprovals_OpenEquivalentRequest")
+                        .HasFilter("\"Status\" IN ('Pending', 'Approved')");
+
+                    b.HasIndex("TenantId", "AgentId", "ToolId", "InputHash", "Status");
+
+                    b.ToTable("ToolExecutionApprovals", (string)null);
                 });
 
             modelBuilder.Entity("OrizonAgents.Domain.WhatsApp.WhatsAppConnection", b =>
@@ -1012,6 +1868,38 @@ namespace OrizonAgents.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("OrizonAgents.Domain.Agents.AgentExecutionUsage", b =>
+                {
+                    b.HasOne("OrizonAgents.Domain.Agents.AiAgent", null)
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrizonAgents.Domain.Agents.AiConversation", null)
+                        .WithMany()
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Agents.AiConversation", b =>
+                {
+                    b.HasOne("OrizonAgents.Domain.Agents.AiAgent", null)
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Agents.AiConversationMessage", b =>
+                {
+                    b.HasOne("OrizonAgents.Domain.Agents.AiConversation", null)
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("OrizonAgents.Domain.Billing.PlanEntitlement", b =>
                 {
                     b.HasOne("OrizonAgents.Domain.Billing.SubscriptionPlan", "Plan")
@@ -1061,6 +1949,77 @@ namespace OrizonAgents.Infrastructure.Persistence.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("OrizonAgents.Domain.Integrations.ApiCredential", b =>
+                {
+                    b.HasOne("OrizonAgents.Domain.Agents.AiAgent", "Agent")
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Agent");
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Integrations.IntegrationConnection", b =>
+                {
+                    b.HasOne("OrizonAgents.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Knowledge.AgentKnowledgeBinding", b =>
+                {
+                    b.HasOne("OrizonAgents.Domain.Agents.AiAgent", "Agent")
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrizonAgents.Domain.Knowledge.KnowledgeBase", "KnowledgeBase")
+                        .WithMany("AgentBindings")
+                        .HasForeignKey("KnowledgeBaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
+
+                    b.Navigation("KnowledgeBase");
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Knowledge.KnowledgeChunk", b =>
+                {
+                    b.HasOne("OrizonAgents.Domain.Knowledge.KnowledgeDocument", "Document")
+                        .WithMany("Chunks")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Document");
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Knowledge.KnowledgeChunkEmbedding", b =>
+                {
+                    b.HasOne("OrizonAgents.Domain.Knowledge.KnowledgeChunk", "KnowledgeChunk")
+                        .WithMany()
+                        .HasForeignKey("KnowledgeChunkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("KnowledgeChunk");
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Knowledge.KnowledgeDocument", b =>
+                {
+                    b.HasOne("OrizonAgents.Domain.Knowledge.KnowledgeBase", "KnowledgeBase")
+                        .WithMany("Documents")
+                        .HasForeignKey("KnowledgeBaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("KnowledgeBase");
+                });
+
             modelBuilder.Entity("OrizonAgents.Domain.Tenants.TenantSettings", b =>
                 {
                     b.HasOne("OrizonAgents.Domain.Tenants.Tenant", "Tenant")
@@ -1070,6 +2029,54 @@ namespace OrizonAgents.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Tools.AgentTool", b =>
+                {
+                    b.HasOne("OrizonAgents.Domain.Integrations.IntegrationConnection", null)
+                        .WithMany()
+                        .HasForeignKey("IntegrationConnectionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("OrizonAgents.Domain.Tools.ToolCredential", "ToolCredential")
+                        .WithMany("Tools")
+                        .HasForeignKey("ToolCredentialId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ToolCredential");
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Tools.AgentToolBinding", b =>
+                {
+                    b.HasOne("OrizonAgents.Domain.Agents.AiAgent", null)
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrizonAgents.Domain.Tools.AgentTool", null)
+                        .WithMany()
+                        .HasForeignKey("ToolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Tools.SensitiveToolExecution", b =>
+                {
+                    b.HasOne("OrizonAgents.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OrizonAgents.Domain.Tools.ToolExecutionApproval", "Approval")
+                        .WithOne("SensitiveToolExecution")
+                        .HasForeignKey("OrizonAgents.Domain.Tools.SensitiveToolExecution", "TenantId", "ApprovalId")
+                        .HasPrincipalKey("OrizonAgents.Domain.Tools.ToolExecutionApproval", "TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Approval");
                 });
 
             modelBuilder.Entity("OrizonAgents.Domain.WhatsApp.WhatsAppConnection", b =>
@@ -1124,15 +2131,42 @@ namespace OrizonAgents.Infrastructure.Persistence.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("OrizonAgents.Domain.Agents.AiConversation", b =>
+                {
+                    b.Navigation("Messages");
+                });
+
             modelBuilder.Entity("OrizonAgents.Domain.Billing.SubscriptionPlan", b =>
                 {
                     b.Navigation("Entitlements");
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Knowledge.KnowledgeBase", b =>
+                {
+                    b.Navigation("AgentBindings");
+
+                    b.Navigation("Documents");
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Knowledge.KnowledgeDocument", b =>
+                {
+                    b.Navigation("Chunks");
                 });
 
             modelBuilder.Entity("OrizonAgents.Domain.Tenants.Tenant", b =>
                 {
                     b.Navigation("Settings")
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Tools.ToolCredential", b =>
+                {
+                    b.Navigation("Tools");
+                });
+
+            modelBuilder.Entity("OrizonAgents.Domain.Tools.ToolExecutionApproval", b =>
+                {
+                    b.Navigation("SensitiveToolExecution");
                 });
 #pragma warning restore 612, 618
         }

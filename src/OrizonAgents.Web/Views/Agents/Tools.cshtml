@@ -1,0 +1,79 @@
+@model IReadOnlyList<OrizonAgents.Application.Tools.Models.AgentToolBindingDto>
+
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Ferramentas do agente";
+    ViewData["Section"] = "Agentes de IA";
+    Guid agentId = (Guid)ViewBag.AgentId;
+    string agentName = (string)ViewBag.AgentName;
+}
+
+<section class="cockpit-page">
+    <header class="cockpit-page-header cockpit-page-header--form">
+        <a asp-controller="Agents" asp-action="Index" class="cockpit-back-link">← Voltar para agentes</a>
+        <p class="cockpit-eyebrow">Capacidades do agente</p>
+        <h1>Ferramentas</h1>
+        <p>Selecione quais ferramentas <strong>@agentName</strong> poderá utilizar nas execuções.</p>
+    </header>
+
+    @if (TempData["StatusMessage"] is string statusMessage)
+    {
+        <div class="alert alert-info">@statusMessage</div>
+    }
+
+    @if (Model.Count == 0)
+    {
+        <section class="cockpit-empty-state">
+            <h2>Nenhuma ferramenta disponível</h2>
+            <p>Cadastre uma ferramenta antes de adicionar capacidades ao agente.</p>
+            <a asp-controller="Tools" asp-action="Create" class="btn btn-primary">Criar ferramenta</a>
+        </section>
+    }
+    else
+    {
+        <div class="cockpit-bind-grid">
+            @foreach (var tool in Model)
+            {
+                <article class="cockpit-bind-card">
+                    <div class="cockpit-bind-card__content">
+                        <div class="cockpit-bind-card__title">
+                            <h2>@tool.Name</h2>
+                            <span class="cockpit-method">@tool.HttpMethod</span>
+                            @if (tool.IsBound)
+                            {
+                                <span class="cockpit-status cockpit-status--success">Vinculada</span>
+                            }
+                            @if (!tool.IsActive)
+                            {
+                                <span class="cockpit-status cockpit-status--danger">Inativa</span>
+                            }
+                        </div>
+                        <p>@tool.Description</p>
+                    </div>
+
+                    <div class="cockpit-bind-card__action">
+                        @if (!tool.IsActive)
+                        {
+                            <button class="btn btn-outline-secondary" disabled>Ferramenta desativada</button>
+                        }
+                        else
+                        {
+                            <form asp-controller="Agents"
+                                  asp-action="ChangeToolBinding"
+                                  asp-route-id="@agentId"
+                                  asp-route-toolId="@tool.ToolId"
+                                  method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="bind" value="@(tool.IsBound ? "false" : "true")" />
+                                <button type="submit"
+                                        class="btn @(tool.IsBound ? "btn-outline-danger" : "btn-primary")">
+                                    @(tool.IsBound ? "Remover do agente" : "Adicionar ao agente")
+                                </button>
+                            </form>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</section>

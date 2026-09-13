@@ -1,0 +1,79 @@
+@model OrizonAgents.Web.Models.Tools.ToolCredentialsPageViewModel
+@using OrizonAgents.Domain.Tools
+
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Credenciais de ferramentas";
+    ViewData["Section"] = "Ferramentas";
+}
+
+<section class="cockpit-page">
+    <header class="cockpit-page-header">
+        <div>
+            <a asp-controller="Tools" asp-action="Index" class="cockpit-back-link">← Voltar para ferramentas</a>
+            <p class="cockpit-eyebrow">Autenticação externa</p>
+            <h1>Credenciais de ferramentas</h1>
+            <p>Secrets são protegidos e nunca voltam a ser exibidos.</p>
+        </div>
+    </header>
+
+    @if (TempData["StatusMessage"] is string statusMessage)
+    {
+        <div class="alert alert-info">@statusMessage</div>
+    }
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-4">
+            <h2 class="h5">Nova credencial</h2>
+            <form asp-action="Create" method="post" class="row g-3">
+                @Html.AntiForgeryToken()
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <div class="col-md-3">
+                    <label asp-for="Create.Name" class="form-label"></label>
+                    <input asp-for="Create.Name" class="form-control" />
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="Create.AuthenticationType" class="form-label"></label>
+                    <select asp-for="Create.AuthenticationType" class="form-select"
+                            asp-items="Html.GetEnumSelectList<ToolAuthenticationType>()"></select>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="Create.HeaderName" class="form-label"></label>
+                    <input asp-for="Create.HeaderName" class="form-control" placeholder="X-Api-Key" />
+                    <div class="form-text">Bearer usa sempre Authorization.</div>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="Create.Secret" class="form-label"></label>
+                    <input asp-for="Create.Secret" class="form-control" autocomplete="new-password" />
+                </div>
+                <div><button class="btn btn-primary" type="submit">Salvar credencial</button></div>
+            </form>
+        </div>
+    </div>
+
+    @foreach (var credential in Model.Credentials)
+    {
+        <article class="card border-0 shadow-sm mb-3">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between gap-3 flex-wrap">
+                    <div>
+                        <h2 class="h5 mb-1">@credential.Name</h2>
+                        <span>@credential.AuthenticationType · @credential.HeaderName · @(credential.IsActive ? "Ativa" : "Inativa")</span>
+                    </div>
+                    <form asp-action="ChangeStatus" asp-route-id="@credential.Id" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="activate" value="@(!credential.IsActive)" />
+                        <button class="btn btn-outline-secondary" type="submit">@(credential.IsActive ? "Desativar" : "Ativar")</button>
+                    </form>
+                </div>
+                <form asp-action="Rotate" asp-route-id="@credential.Id" method="post" class="row g-2 mt-2">
+                    @Html.AntiForgeryToken()
+                    <div class="col-md-6"><input type="password" name="secret" required class="form-control" autocomplete="new-password" placeholder="Novo secret" /></div>
+                    <div class="col-auto"><button class="btn btn-outline-primary" type="submit">Substituir secret</button></div>
+                </form>
+            </div>
+        </article>
+    }
+</section>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

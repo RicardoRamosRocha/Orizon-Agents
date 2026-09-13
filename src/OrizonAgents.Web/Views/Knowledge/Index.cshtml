@@ -1,0 +1,79 @@
+@using OrizonAgents.Application.Knowledge.Models
+@model IReadOnlyList<KnowledgeBaseListItemDto>
+
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Conhecimento";
+    ViewData["Section"] = "Inteligência Artificial";
+}
+
+<section class="cockpit-page">
+    <header class="cockpit-page-header">
+        <div>
+            <p class="cockpit-eyebrow">Conhecimento</p>
+            <h1>Bases de conhecimento</h1>
+            <p>Documentos e informações disponíveis para seus agentes.</p>
+        </div>
+
+        <a class="btn btn-primary cockpit-primary-action" asp-action="Create">
+            <span aria-hidden="true">+</span>
+            Nova base
+        </a>
+    </header>
+
+    @if (TempData["StatusMessage"] is string message)
+    {
+        <div class="alert alert-info">@message</div>
+    }
+
+    @if (Model.Count == 0)
+    {
+        <section class="cockpit-empty-state">
+            <span class="cockpit-empty-state__icon" aria-hidden="true">◆</span>
+            <h2>Crie sua primeira base</h2>
+            <p>Adicione documentos para construir o conhecimento dos agentes.</p>
+            <a class="btn btn-primary" asp-action="Create">Criar base</a>
+        </section>
+    }
+    else
+    {
+        <div class="cockpit-resource-grid">
+            @foreach (KnowledgeBaseListItemDto item in Model)
+            {
+                <article class="cockpit-resource-card">
+                    <header class="cockpit-resource-card__header">
+                        <span class="cockpit-resource-card__icon cockpit-resource-card__icon--knowledge" aria-hidden="true">◆</span>
+                        <div class="cockpit-resource-card__identity">
+                            <div>
+                                <h2>@item.Name</h2>
+                                <span class="cockpit-status cockpit-status--@(item.IsActive ? "success" : "danger")">
+                                    @(item.IsActive ? "Ativa" : "Inativa")
+                                </span>
+                            </div>
+                            <p>
+                                @(string.IsNullOrWhiteSpace(item.Description)
+                                    ? "Base de conhecimento"
+                                    : item.Description)
+                            </p>
+                        </div>
+                    </header>
+
+                    <dl class="cockpit-resource-card__meta cockpit-resource-card__meta--single">
+                        <div>
+                            <dt>Documentos</dt>
+                            <dd>@item.DocumentCount</dd>
+                        </div>
+                    </dl>
+
+                    <footer class="cockpit-actions">
+                        <a class="btn btn-primary"
+                           asp-action="Details"
+                           asp-route-id="@item.Id">
+                            Abrir base
+                        </a>
+                    </footer>
+                </article>
+            }
+        </div>
+    }
+</section>

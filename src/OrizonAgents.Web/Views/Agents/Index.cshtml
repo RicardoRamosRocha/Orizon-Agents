@@ -1,0 +1,120 @@
+@using OrizonAgents.Application.Agents.Models
+@model IReadOnlyList<AiAgentListItemDto>
+
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Agentes de IA";
+    ViewData["Section"] = "Inteligência Artificial";
+}
+
+<section class="cockpit-page">
+    <header class="cockpit-page-header">
+        <div>
+            <p class="cockpit-eyebrow">Agentes</p>
+            <h1>Agentes de IA</h1>
+            <p>Crie, configure e acompanhe os agentes do seu workspace.</p>
+        </div>
+
+        <a class="btn btn-primary cockpit-primary-action" asp-action="Create">
+            <span aria-hidden="true">+</span>
+            Novo agente
+        </a>
+    </header>
+
+    @if (TempData["StatusMessage"] is string message)
+    {
+        <div class="alert alert-info">@message</div>
+    }
+
+    @if (Model.Count == 0)
+    {
+        <section class="cockpit-empty-state">
+            <span class="cockpit-empty-state__icon" aria-hidden="true">
+                @await Html.PartialAsync("_IconAgent")
+            </span>
+            <h2>Crie seu primeiro agente</h2>
+            <p>Configure instruções, provider e modelo para iniciar a operação.</p>
+            <a class="btn btn-primary" asp-action="Create">Criar agente</a>
+        </section>
+    }
+    else
+    {
+        <div class="cockpit-resource-grid">
+            @foreach (AiAgentListItemDto agent in Model)
+            {
+                <article class="cockpit-resource-card">
+                    <header class="cockpit-resource-card__header">
+                        <span class="cockpit-resource-card__icon" aria-hidden="true">
+                            @await Html.PartialAsync("_IconAgent")
+                        </span>
+
+                        <div class="cockpit-resource-card__identity">
+                            <div>
+                                <h2>@agent.Name</h2>
+                                <span class="cockpit-status cockpit-status--@(agent.IsActive ? "success" : "danger")">
+                                    @(agent.IsActive ? "Ativo" : "Inativo")
+                                </span>
+                            </div>
+                            <p>
+                                @(string.IsNullOrWhiteSpace(agent.Description)
+                                    ? "Assistente de Inteligência Artificial"
+                                    : agent.Description)
+                            </p>
+                        </div>
+                    </header>
+
+                    <dl class="cockpit-resource-card__meta">
+                        <div>
+                            <dt>Provider</dt>
+                            <dd>@agent.Provider</dd>
+                        </div>
+                        <div>
+                            <dt>Modelo</dt>
+                            <dd>@agent.Model</dd>
+                        </div>
+                    </dl>
+
+                    <footer class="cockpit-actions">
+                        <a class="btn btn-primary"
+                           asp-action="Test"
+                           asp-route-id="@agent.Id">
+                            Conversar
+                        </a>
+
+                        <a class="btn btn-outline-secondary"
+                           asp-action="Edit"
+                           asp-route-id="@agent.Id">
+                            Editar
+                        </a>
+
+                        <a class="btn btn-outline-secondary"
+                           asp-action="Tools"
+                           asp-route-id="@agent.Id">
+                            Ferramentas
+                        </a>
+
+                        <a class="btn btn-outline-secondary"
+                           asp-action="Knowledge"
+                           asp-route-id="@agent.Id">
+                            Conhecimento
+                        </a>
+
+                        <form method="post"
+                              asp-action="ChangeStatus"
+                              asp-route-id="@agent.Id">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden"
+                                   name="activate"
+                                   value="@(!agent.IsActive ? "true" : "false")" />
+
+                            <button type="submit"
+                                    class="btn @(agent.IsActive ? "btn-outline-danger" : "btn-outline-secondary")">
+                                @(agent.IsActive ? "Desativar" : "Ativar")
+                            </button>
+                        </form>
+                    </footer>
+                </article>
+            }
+        </div>
+    }
+</section>

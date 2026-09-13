@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OrizonAgents.API\OrizonAgents.API.csproj" />
+    <ProjectReference Include="..\..\src\OrizonAgents.Infrastructure\OrizonAgents.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\OrizonAgents.Application\OrizonAgents.Application.csproj" />
+    <ProjectReference Include="..\..\src\OrizonAgents.Domain\OrizonAgents.Domain.csproj" />
+    <ProjectReference Include="..\..\src\OrizonAgents.Web\OrizonAgents.Web.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Tools\HttpAgentToolExecutorTests.cs" />
+    <Compile Remove="Tools\AgentToolExecutorGmailTests.cs" />
+    <Compile Remove="Integrations\GoogleOAuthTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

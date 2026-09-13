@@ -1,0 +1,121 @@
+@model IReadOnlyList<OrizonAgents.Application.Tools.Models.AgentToolListItemDto>
+@using OrizonAgents.Domain.Tools
+
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Ferramentas";
+    ViewData["Section"] = "Inteligência Artificial";
+}
+
+<section class="cockpit-page">
+    <header class="cockpit-page-header">
+        <div>
+            <p class="cockpit-eyebrow">Ferramentas</p>
+            <h1>Ferramentas</h1>
+            <p>Conecte seus agentes a APIs e serviços externos.</p>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+            <a asp-controller="ToolCredentials" asp-action="Index" class="btn btn-outline-secondary">
+                Gerenciar credenciais
+            </a>
+            <a asp-controller="Tools" asp-action="Create" class="btn btn-primary cockpit-primary-action">
+                <span aria-hidden="true">+</span>
+                Nova ferramenta
+            </a>
+        </div>
+    </header>
+
+    @if (TempData["StatusMessage"] is string statusMessage)
+    {
+        <div class="alert alert-success">@statusMessage</div>
+    }
+
+    @if (Model.Count == 0)
+    {
+        <section class="cockpit-empty-state">
+            <h2>Nenhuma ferramenta cadastrada</h2>
+            <p>Crie a primeira capacidade externa para seus agentes.</p>
+            <a asp-controller="Tools" asp-action="Create" class="btn btn-primary">Criar ferramenta</a>
+        </section>
+    }
+    else
+    {
+        <div class="cockpit-resource-grid">
+            @foreach (var tool in Model)
+            {
+                <article class="cockpit-resource-card">
+                    <header class="cockpit-resource-card__header">
+                        <span class="cockpit-resource-card__icon" aria-hidden="true">⌁</span>
+                        <div class="cockpit-resource-card__identity">
+                            <div>
+                                <h2>@tool.Name</h2>
+                                <span class="cockpit-method">@(tool.Kind switch
+                                {
+                                    AgentToolKind.GmailSearch => "Gmail · Pesquisar e-mails",
+                                    AgentToolKind.GmailReadMessage => "Gmail · Ler e-mail",
+                                    _ => tool.HttpMethod
+                                })</span>
+                                @{
+                                    var riskLabel = tool.RiskLevel switch
+                                    {
+                                        OrizonAgents.Domain.Tools.AgentToolRiskLevel.Read => "Leitura",
+                                        OrizonAgents.Domain.Tools.AgentToolRiskLevel.Write => "Escrita",
+                                        OrizonAgents.Domain.Tools.AgentToolRiskLevel.Sensitive => "Sensível",
+                                        _ => "Desconhecido"
+                                    };
+
+                                    var riskStatus = tool.RiskLevel switch
+                                    {
+                                        OrizonAgents.Domain.Tools.AgentToolRiskLevel.Read => "success",
+                                        OrizonAgents.Domain.Tools.AgentToolRiskLevel.Write => "warning",
+                                        OrizonAgents.Domain.Tools.AgentToolRiskLevel.Sensitive => "danger",
+                                        _ => "danger"
+                                    };
+                                }
+                                <span class="cockpit-status cockpit-status--@riskStatus">
+                                    @riskLabel
+                                </span>
+                                <span class="cockpit-status cockpit-status--@(tool.IsActive ? "success" : "danger")">
+                                    @(tool.IsActive ? "Ativa" : "Inativa")
+                                </span>
+                            </div>
+                            <p>@tool.Description</p>
+                        </div>
+                    </header>
+
+                    @if (tool.Kind == AgentToolKind.Http)
+                    {
+                        <div class="cockpit-endpoint">
+                            <span>Endpoint</span>
+                            <code>@tool.Endpoint</code>
+                        </div>
+                    }
+
+                    <footer class="cockpit-actions">
+                        <a asp-controller="Tools"
+                           asp-action="Edit"
+                           asp-route-id="@tool.Id"
+                           class="btn btn-outline-secondary">
+                            Editar
+                        </a>
+
+                        <form asp-controller="Tools"
+                              asp-action="ChangeStatus"
+                              asp-route-id="@tool.Id"
+                              method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden"
+                                   name="activate"
+                                   value="@(!tool.IsActive ? "true" : "false")" />
+                            <button type="submit"
+                                    class="btn @(tool.IsActive ? "btn-outline-danger" : "btn-outline-secondary")">
+                                @(tool.IsActive ? "Desativar" : "Ativar")
+                            </button>
+                        </form>
+                    </footer>
+                </article>
+            }
+        </div>
+    }
+</section>

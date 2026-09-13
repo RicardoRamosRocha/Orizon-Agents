@@ -1,0 +1,145 @@
+@using OrizonAgents.Application.Knowledge.Models
+@using OrizonAgents.Domain.Knowledge
+@model KnowledgeBaseDetailsDto
+
+@functions {
+    private static string StatusLabel(KnowledgeDocumentStatus status) => status switch
+    {
+        KnowledgeDocumentStatus.Pending => "Pendente",
+        KnowledgeDocumentStatus.Processing => "Processando",
+        KnowledgeDocumentStatus.Ready => "Pronto",
+        KnowledgeDocumentStatus.Failed => "Erro",
+        _ => status.ToString()
+    };
+
+    private static string StatusTone(KnowledgeDocumentStatus status) => status switch
+    {
+        KnowledgeDocumentStatus.Ready => "success",
+        KnowledgeDocumentStatus.Processing => "warning",
+        KnowledgeDocumentStatus.Failed => "danger",
+        _ => "neutral"
+    };
+}
+
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = Model.Name;
+    ViewData["Section"] = "Conhecimento";
+}
+
+<section class="cockpit-page">
+    <header class="cockpit-page-header">
+        <div>
+            <a asp-action="Index" class="cockpit-back-link">← Voltar para conhecimento</a>
+            <p class="cockpit-eyebrow">Base de conhecimento</p>
+            <div class="cockpit-form-title-row">
+                <h1>@Model.Name</h1>
+                <span class="cockpit-status cockpit-status--@(Model.IsActive ? "success" : "danger")">
+                    @(Model.IsActive ? "Ativa" : "Inativa")
+                </span>
+            </div>
+            <p>
+                @(string.IsNullOrWhiteSpace(Model.Description)
+                    ? "Documentos e informações desta base."
+                    : Model.Description)
+            </p>
+        </div>
+    </header>
+
+    @if (TempData["StatusMessage"] is string message)
+    {
+        <div class="alert alert-info">@message</div>
+    }
+
+    <article class="cockpit-upload-panel">
+        <div>
+            <p class="cockpit-eyebrow">Ingestão</p>
+            <h2>Adicionar documento</h2>
+            <p>Arquivos TXT, Markdown, PDF, CSV, Excel (XLSX) e Word (DOCX) com até 10 MB.</p>
+        </div>
+
+        <form method="post"
+              enctype="multipart/form-data"
+              asp-action="Upload"
+              asp-route-id="@Model.Id"
+              class="cockpit-upload-form">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="KnowledgeBaseId" value="@Model.Id" />
+            <input type="file"
+                   name="File"
+                   class="form-control"
+                   accept=".txt,.md,.markdown,.pdf,.csv,.xlsx,.docx,text/plain,text/markdown,application/pdf,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                   required />
+            <button type="submit" class="btn btn-primary">Enviar documento</button>
+        </form>
+    </article>
+
+    <div class="cockpit-section-heading">
+        <div>
+            <p class="cockpit-eyebrow">Conteúdo</p>
+            <h2>Documentos</h2>
+        </div>
+        <span>@Model.Documents.Count arquivo(s)</span>
+    </div>
+
+    @if (Model.Documents.Count == 0)
+    {
+        <section class="cockpit-empty-state cockpit-empty-state--compact">
+            <h2>Nenhum documento</h2>
+            <p>Envie o primeiro arquivo para começar a construir esta base.</p>
+        </section>
+    }
+    else
+    {
+        <div class="cockpit-document-list">
+            @foreach (KnowledgeDocumentDto document in Model.Documents)
+            {
+                <article class="cockpit-document-card">
+                    <div class="cockpit-document-card__main">
+                        <span class="cockpit-signal cockpit-signal--@StatusTone(document.Status)" aria-hidden="true"></span>
+                        <div>
+                            <div class="cockpit-document-card__title">
+                                <h3>@document.FileName</h3>
+                                <span class="cockpit-status cockpit-status--@StatusTone(document.Status)">
+                                    @StatusLabel(document.Status)
+                                </span>
+                            </div>
+                            <p>@document.ContentType</p>
+                        </div>
+                    </div>
+
+                    <dl class="cockpit-document-card__meta">
+                        <div><dt>Tamanho</dt><dd>@Math.Ceiling(document.SizeBytes / 1024d) KB</dd></div>
+                        <div><dt>Chunks</dt><dd>@document.ChunkCount</dd></div>
+                    </dl>
+
+                    @if (!string.IsNullOrWhiteSpace(document.ProcessingError))
+                    {
+                        <div class="alert alert-danger">@document.ProcessingError</div>
+                    }
+
+                    <div class="cockpit-actions">
+                        @if (document.Status != KnowledgeDocumentStatus.Ready)
+                        {
+                            <form method="post"
+                                  asp-action="Process"
+                                  asp-route-id="@Model.Id"
+                                  asp-route-documentId="@document.Id">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-primary">Processar</button>
+                            </form>
+                        }
+
+                        <form method="post"
+                              asp-action="DeleteDocument"
+                              asp-route-id="@Model.Id"
+                              asp-route-documentId="@document.Id">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-outline-danger">Excluir</button>
+                        </form>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</section>

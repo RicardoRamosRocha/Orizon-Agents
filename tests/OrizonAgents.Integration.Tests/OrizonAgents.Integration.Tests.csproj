@@ -16,6 +16,7 @@
     </PackageReference>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
+    <PackageReference Include="Pgvector.EntityFrameworkCore" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
@@ -24,6 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\OrizonAgents.API\OrizonAgents.API.csproj" />
     <ProjectReference Include="..\..\src\OrizonAgents.Infrastructure\OrizonAgents.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\OrizonAgents.Application\OrizonAgents.Application.csproj" />
     <ProjectReference Include="..\..\src\OrizonAgents.Domain\OrizonAgents.Domain.csproj" />
