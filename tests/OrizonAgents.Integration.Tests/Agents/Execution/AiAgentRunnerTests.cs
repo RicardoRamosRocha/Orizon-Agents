@@ -137,6 +137,8 @@ public sealed class AiAgentRunnerTests
             Assert.Equal(1, telemetry.ModelCallCount);
             Assert.False(telemetry.Succeeded);
             Assert.Null(telemetry.ConversationId);
+            Assert.Empty(await db.AiConversations.ToListAsync());
+            Assert.Empty(await db.AiConversationMessages.ToListAsync());
             Assert.DoesNotContain(
                 "CONTEÚDO SENSÍVEL",
                 telemetry.StartData!.Provider);
@@ -179,6 +181,103 @@ public sealed class AiAgentRunnerTests
             Assert.True(telemetry.Succeeded);
             Assert.Equal(agent.TenantId, telemetry.StartData!.TenantId);
             Assert.Equal(result.Value.ConversationId, telemetry.ConversationId);
+            Assert.Equal(1, await db.AiConversations.CountAsync());
+            Assert.Equal(2, await db.AiConversationMessages.CountAsync());
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_SecondMessageReceivesPersistedConversationHistory()
+    {
+        (OrizonAgentsDbContext db, AiAgent agent) =
+            await CreateDbWithAgentAsync();
+        await using (db)
+        {
+            var firstProvider = new CountingChatProvider(
+                AiProvider.GoogleGemini.ToString(),
+                "A primeira resposta.");
+            OperationResult<AiAgentRunResult> first = await CreateRunner(
+                db,
+                firstProvider,
+                new StubToolCatalog(),
+                new EmptyKnowledgeRetriever(),
+                new RecordingToolExecutor())
+                .RunAsync(
+                    agent.Id,
+                    new AgentRunRequest("Qual é a política de férias?"));
+
+            Assert.True(first.Succeeded);
+
+            var secondProvider = new CountingChatProvider(
+                AiProvider.GoogleGemini.ToString(),
+                "A segunda resposta.");
+            OperationResult<AiAgentRunResult> second = await CreateRunner(
+                db,
+                secondProvider,
+                new StubToolCatalog(),
+                new EmptyKnowledgeRetriever(),
+                new RecordingToolExecutor())
+                .RunAsync(
+                    agent.Id,
+                    new AgentRunRequest(
+                        "E qual é o prazo para solicitar?",
+                        first.Value!.ConversationId));
+
+            Assert.True(second.Succeeded);
+            IReadOnlyList<AiChatMessage> history =
+                Assert.Single(secondProvider.Histories);
+            Assert.Collection(
+                history,
+                message =>
+                {
+                    Assert.Equal("user", message.Role);
+                    Assert.Equal("Qual é a política de férias?", message.Content);
+                },
+                message =>
+                {
+                    Assert.Equal("assistant", message.Role);
+                    Assert.Equal("A primeira resposta.", message.Content);
+                });
+            Assert.Equal(4, await db.AiConversationMessages.CountAsync());
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_WithKnowledge_PassesRetrievedContentToProvider()
+    {
+        (OrizonAgentsDbContext db, AiAgent agent) =
+            await CreateDbWithAgentAsync();
+        await using (db)
+        {
+            var provider = new CountingChatProvider(
+                AiProvider.GoogleGemini.ToString(),
+                "A resposta baseada no documento.");
+            var retriever = new StubKnowledgeRetriever(
+                new KnowledgeRetrievalResult(
+                    Guid.NewGuid(),
+                    "Base de RH",
+                    Guid.NewGuid(),
+                    "politica.txt",
+                    0,
+                    "O prazo para solicitar férias é de 30 dias."));
+
+            OperationResult<AiAgentRunResult> result = await CreateRunner(
+                db,
+                provider,
+                new StubToolCatalog(),
+                retriever,
+                new RecordingToolExecutor())
+                .RunAsync(
+                    agent.Id,
+                    new AgentRunRequest("Qual é o prazo para solicitar férias?"));
+
+            Assert.True(result.Succeeded);
+            string context = Assert.IsType<string>(
+                Assert.Single(provider.OperationalContexts));
+            Assert.Contains(
+                "O prazo para solicitar férias é de 30 dias.",
+                context);
+            Assert.Contains("politica.txt", context);
         }
     }
 
@@ -1384,6 +1483,8 @@ public sealed class AiAgentRunnerTests
 
         public List<string?> OperationalContexts { get; } = [];
 
+        public List<IReadOnlyList<AiChatMessage>> Histories { get; } = [];
+
         public List<CancellationToken> CancellationTokens { get; } = [];
 
         public Queue<AiChatUsage?> Usages { get; } = [];
@@ -1401,6 +1502,7 @@ public sealed class AiAgentRunnerTests
             LastSystemPrompt = systemPrompt;
             SystemPrompts.Add(systemPrompt);
             OperationalContexts.Add(operationalContext);
+            Histories.Add(history);
             CancellationTokens.Add(cancellationToken);
 
             AiChatUsage? usage = Usages.Count > 0
