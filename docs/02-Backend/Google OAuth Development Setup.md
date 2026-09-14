@@ -39,7 +39,7 @@ Entre como TenantAdmin, abra Conexões, crie/selecione uma conexão Gmail ativa 
 - Cadastre `https://<HOST_PUBLICO>/<PATHBASE_SE_HOUVER>/integracoes/conexoes/google/callback`, sem duplicar barras. Restrinja `AllowedHosts` aos hosts usados.
 - HTTPS é obrigatório neste fluxo, inclusive no desenvolvimento, pois Identity e o cookie de correlação são Secure.
 - O middleware aceita X-Forwarded-For/Proto de loopback e dos IPs explicitamente configurados em `ReverseProxy:KnownProxies` (variável `ReverseProxy__KnownProxies__0`, etc.), com um salto. Não há confiança irrestrita nem uso de X-Forwarded-Host. O proxy deve preservar Host e sobrescrever os headers encaminhados. Outras topologias exigem configuração específica.
-- Preserve o key ring existente de Data Protection em `DataProtection:KeysPath`; proteja a pasta e seus backups e compartilhe-a entre réplicas com o mesmo ApplicationName. Perder as chaves exige reautorização.
+- As chaves de Data Protection são persistidas no PostgreSQL pelo `OrizonAgentsDbContext`; aplique as migrations antes de iniciar a aplicação. Todas as réplicas devem usar o mesmo banco e `ApplicationName`.
 - Não habilite logging de corpos/headers OAuth, parâmetros EF sensíveis ou query strings do callback. O HttpClient Google não possui loggers automáticos; logs próprios contêm somente etapa, tenant e conexão. Os appsettings existentes mantêm ASP.NET Core em Warning. Aplique a mesma restrição no proxy/APM.
 
 ## Comportamento e segurança

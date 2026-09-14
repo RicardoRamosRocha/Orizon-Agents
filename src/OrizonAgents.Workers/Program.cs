@@ -5,13 +5,6 @@ using OrizonAgents.Infrastructure.Health;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-if (!builder.Environment.IsDevelopment() &&
-    string.IsNullOrWhiteSpace(builder.Configuration["DataProtection:KeysPath"]))
-{
-    throw new InvalidOperationException(
-        "DataProtection:KeysPath must be configured to a persistent production location.");
-}
-
 builder.Services.AddInfrastructure(builder.Configuration, addWebSecurity: false);
 builder.Services.AddHostedService<Worker>();
 

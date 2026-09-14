@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using OrizonAgents.Application.Common.Tenancy;
@@ -15,7 +16,8 @@ using OrizonAgents.Infrastructure.Identity;
 
 namespace OrizonAgents.Infrastructure.Persistence;
 
-public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>
+public sealed class OrizonAgentsDbContext
+    : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>, IDataProtectionKeyContext
 {
     private readonly DbContextOptions<OrizonAgentsDbContext> _options;
     private readonly ICurrentTenant _currentTenant;
@@ -57,6 +59,7 @@ public sealed class OrizonAgentsDbContext : IdentityDbContext<ApplicationUser, A
     public DbSet<WhatsAppInboxEvent> WhatsAppInboxEvents => Set<WhatsAppInboxEvent>();
     public DbSet<WhatsAppOutboxMessage> WhatsAppOutboxMessages => Set<WhatsAppOutboxMessage>();
     public DbSet<WhatsAppMonthlyUsage> WhatsAppMonthlyUsage => Set<WhatsAppMonthlyUsage>();
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     public override int SaveChanges()
     {

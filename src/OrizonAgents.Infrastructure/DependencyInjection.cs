@@ -282,21 +282,10 @@ public static class DependencyInjection
         services.AddScoped<IWhatsAppProcessor, WhatsAppProcessor>();
         services.Configure<WhatsAppOptions>(configuration.GetSection(WhatsAppOptions.SectionName));
         services.AddHttpClient<IWhatsAppCloudApiClient, WhatsAppCloudApiClient>();
-        string dataProtectionKeysPath =
-            configuration["DataProtection:KeysPath"]
-            ?? Path.Combine(
-                Environment.GetFolderPath(
-                    Environment.SpecialFolder.LocalApplicationData),
-                "OrizonAgents",
-                "DataProtection-Keys");
-
-        Directory.CreateDirectory(dataProtectionKeysPath);
-
         services
             .AddDataProtection()
             .SetApplicationName("OrizonAgents")
-            .PersistKeysToFileSystem(
-                new DirectoryInfo(dataProtectionKeysPath));
+            .PersistKeysToDbContext<OrizonAgentsDbContext>();
 
         services.AddDbContextFactory<OrizonAgentsDbContext>(options =>
         {

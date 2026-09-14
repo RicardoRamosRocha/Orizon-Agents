@@ -8,13 +8,6 @@ using OrizonAgents.Infrastructure.Health;
 
 var builder = WebApplication.CreateBuilder(args);
 
-if (!builder.Environment.IsDevelopment() &&
-    string.IsNullOrWhiteSpace(builder.Configuration["DataProtection:KeysPath"]))
-{
-    throw new InvalidOperationException(
-        "DataProtection:KeysPath must be configured to a persistent production location.");
-}
-
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
