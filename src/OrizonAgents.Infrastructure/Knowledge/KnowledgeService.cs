@@ -174,6 +174,8 @@ public sealed class KnowledgeService : IKnowledgeService
 
         string? storageKey = null;
 
+        KnowledgeDocument? document = null;
+
         try
         {
             storageKey = await _storage.SaveAsync(
@@ -182,7 +184,7 @@ public sealed class KnowledgeService : IKnowledgeService
                 request.Content,
                 cancellationToken);
 
-            var document = new KnowledgeDocument(
+            document = new KnowledgeDocument(
                 _currentTenant.TenantId.Value,
                 knowledgeBase.Id,
                 request.FileName,
@@ -197,8 +199,6 @@ public sealed class KnowledgeService : IKnowledgeService
             await _dbContext.SaveChangesAsync(
                 cancellationToken);
 
-            return OperationResult<Guid>.Success(
-                document.Id);
         }
         catch (Exception)
         {
@@ -211,6 +211,20 @@ public sealed class KnowledgeService : IKnowledgeService
 
             throw;
         }
+
+        OperationResult processingResult =
+            await _processor.ProcessAsync(
+                document.Id,
+                cancellationToken);
+
+        if (!processingResult.Succeeded)
+        {
+            return OperationResult<Guid>.Failure(
+                processingResult.Errors);
+        }
+
+        return OperationResult<Guid>.Success(
+            document.Id);
     }
 
     public Task<OperationResult> ProcessDocumentAsync(
