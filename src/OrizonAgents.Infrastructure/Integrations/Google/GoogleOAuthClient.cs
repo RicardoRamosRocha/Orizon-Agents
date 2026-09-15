@@ -40,16 +40,19 @@ public sealed class GoogleOAuthClient(IHttpClientFactory clients, IOptions<Googl
     }
 
     internal Task<GoogleTokenResponse> ExchangeAsync(string code, string redirectUri, string verifier, CancellationToken cancellationToken) =>
-        RequestTokenAsync(new()
+        RequestTokenAsync("token_exchange", new()
         {
             ["grant_type"] = "authorization_code", ["code"] = code,
             ["redirect_uri"] = redirectUri, ["code_verifier"] = verifier
         }, cancellationToken);
 
     internal Task<GoogleTokenResponse> RefreshAsync(string refreshToken, CancellationToken cancellationToken) =>
-        RequestTokenAsync(new() { ["grant_type"] = "refresh_token", ["refresh_token"] = refreshToken }, cancellationToken);
+        RequestTokenAsync("token_refresh", new() { ["grant_type"] = "refresh_token", ["refresh_token"] = refreshToken }, cancellationToken);
 
-    private async Task<GoogleTokenResponse> RequestTokenAsync(Dictionary<string, string> fields, CancellationToken cancellationToken)
+    private async Task<GoogleTokenResponse> RequestTokenAsync(
+        string stage,
+        Dictionary<string, string> fields,
+        CancellationToken cancellationToken)
     {
         fields["client_id"] = _options.ClientId;
         fields["client_secret"] = _options.ClientSecret;
@@ -58,56 +61,81 @@ public sealed class GoogleOAuthClient(IHttpClientFactory clients, IOptions<Googl
             Content = new FormUrlEncodedContent(fields)
         };
         using var client = clients.CreateClient(HttpClientName);
-        using var response = await client.SendAsync(request, cancellationToken);
-        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
-        var root = json.RootElement;
-        if (!response.IsSuccessStatusCode)
+        try
         {
-            throw new GoogleOAuthProtocolException(ReadString(root, "error") == "invalid_grant");
-        }
+            using var response = await client.SendAsync(request, cancellationToken);
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var json = TryParse(body, stage, response.StatusCode);
+            var root = json.RootElement;
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new GoogleOAuthProtocolException(
+                    ReadString(root, "error") == "invalid_grant",
+                    stage,
+                    response.StatusCode,
+                    ReadKnownOAuthError(root));
+            }
 
-        string? accessToken = ReadString(root, "access_token");
-        string? tokenType = ReadString(root, "token_type");
-        if (string.IsNullOrWhiteSpace(accessToken) || accessToken.Length > 8000 ||
-            !string.Equals(tokenType, "Bearer", StringComparison.OrdinalIgnoreCase) ||
-            !root.TryGetProperty("expires_in", out var expires) || !expires.TryGetInt32(out int seconds) ||
-            seconds <= 0 || seconds > 31536000)
-        {
-            throw new GoogleOAuthProtocolException();
-        }
+            string? accessToken = ReadString(root, "access_token");
+            string? tokenType = ReadString(root, "token_type");
+            if (string.IsNullOrWhiteSpace(accessToken) || accessToken.Length > 8000 ||
+                !string.Equals(tokenType, "Bearer", StringComparison.OrdinalIgnoreCase) ||
+                !root.TryGetProperty("expires_in", out var expires) || !expires.TryGetInt32(out int seconds) ||
+                seconds <= 0 || seconds > 31536000)
+            {
+                throw new GoogleOAuthProtocolException(false, stage, response.StatusCode);
+            }
 
-        return new GoogleTokenResponse
+            return new GoogleTokenResponse
+            {
+                AccessToken = accessToken,
+                RefreshToken = ReadString(root, "refresh_token"),
+                ExpiresInSeconds = seconds,
+                Scope = ReadString(root, "scope")
+            };
+        }
+        catch (HttpRequestException) when (!cancellationToken.IsCancellationRequested)
         {
-            AccessToken = accessToken,
-            RefreshToken = ReadString(root, "refresh_token"),
-            ExpiresInSeconds = seconds,
-            Scope = ReadString(root, "scope")
-        };
+            throw new GoogleOAuthProtocolException(false, stage);
+        }
     }
 
     public async Task<GoogleAccountIdentity> GetIdentityAsync(string accessToken, CancellationToken cancellationToken)
     {
+        const string stage = "userinfo";
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://openidconnect.googleapis.com/v1/userinfo");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         using var client = clients.CreateClient(HttpClientName);
-        using var response = await client.SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        try
         {
-            throw new GoogleOAuthProtocolException();
-        }
+            using var response = await client.SendAsync(request, cancellationToken);
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var json = TryParse(body, stage, response.StatusCode);
+            var root = json.RootElement;
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new GoogleOAuthProtocolException(
+                    false,
+                    stage,
+                    response.StatusCode,
+                    ReadKnownOAuthError(root));
+            }
 
-        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
-        var root = json.RootElement;
-        string? subject = ReadString(root, "sub");
-        string? email = ReadString(root, "email");
-        if (string.IsNullOrWhiteSpace(subject) || subject.Length > 255 ||
-            string.IsNullOrWhiteSpace(email) || email.Length > 320 ||
-            !root.TryGetProperty("email_verified", out var verified) || verified.ValueKind != JsonValueKind.True)
+            string? subject = ReadString(root, "sub");
+            string? email = ReadString(root, "email");
+            if (string.IsNullOrWhiteSpace(subject) || subject.Length > 255 ||
+                string.IsNullOrWhiteSpace(email) || email.Length > 320 ||
+                !root.TryGetProperty("email_verified", out var verified) || verified.ValueKind != JsonValueKind.True)
+            {
+                throw new GoogleOAuthProtocolException(false, stage, response.StatusCode);
+            }
+
+            return new GoogleAccountIdentity(subject, email);
+        }
+        catch (HttpRequestException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new GoogleOAuthProtocolException();
+            throw new GoogleOAuthProtocolException(false, stage);
         }
-
-        return new GoogleAccountIdentity(subject, email);
     }
 
     public async Task<bool> RevokeAsync(string token, CancellationToken cancellationToken)
@@ -132,8 +160,37 @@ public sealed class GoogleOAuthClient(IHttpClientFactory clients, IOptions<Googl
         return false;
     }
 
+    private static JsonDocument TryParse(string body, string stage, HttpStatusCode statusCode)
+    {
+        try
+        {
+            return JsonDocument.Parse(body);
+        }
+        catch (JsonException)
+        {
+            throw new GoogleOAuthProtocolException(false, stage, statusCode);
+        }
+    }
+
     private static string? ReadString(JsonElement root, string name) =>
         root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+    private static string? ReadKnownOAuthError(JsonElement root) =>
+        ReadString(root, "error") switch
+        {
+            "access_denied" or
+            "insufficient_scope" or
+            "invalid_client" or
+            "invalid_grant" or
+            "invalid_request" or
+            "invalid_scope" or
+            "invalid_token" or
+            "server_error" or
+            "temporarily_unavailable" or
+            "unauthorized_client" or
+            "unsupported_grant_type" => ReadString(root, "error"),
+            _ => null
+        };
 }
 
 internal sealed class GoogleTokenResponse
@@ -148,7 +205,14 @@ internal sealed class GoogleTokenResponse
 public sealed record GoogleAccountIdentity(string Subject, string Email);
 
 // Never retain provider response bodies or error_description in exceptions.
-public sealed class GoogleOAuthProtocolException(bool requiresReauthentication = false) : Exception("Falha no protocolo OAuth Google.")
+public sealed class GoogleOAuthProtocolException(
+    bool requiresReauthentication = false,
+    string? stage = null,
+    HttpStatusCode? statusCode = null,
+    string? oauthError = null) : Exception("Falha no protocolo OAuth Google.")
 {
     public bool RequiresReauthentication { get; } = requiresReauthentication;
+    public string? Stage { get; } = stage;
+    public HttpStatusCode? StatusCode { get; } = statusCode;
+    public string? OAuthError { get; } = oauthError;
 }

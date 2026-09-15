@@ -10,7 +10,9 @@ namespace OrizonAgents.Web.Controllers;
 [Authorize(Policy = "TenantAdminOnly")]
 [Route("integracoes/conexoes")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-public sealed class GoogleConnectionsController(IGoogleOAuthService oauth) : Controller
+public sealed class GoogleConnectionsController(
+    IGoogleOAuthService oauth,
+    ILogger<GoogleConnectionsController> logger) : Controller
 {
     [HttpPost("{id:guid}/google/conectar")]
     [ValidateAntiForgeryToken]
@@ -58,6 +60,10 @@ public sealed class GoogleConnectionsController(IGoogleOAuthService oauth) : Con
         CancellationToken cancellationToken)
     {
         Response.Headers["Referrer-Policy"] = "no-referrer";
+        logger.LogInformation(
+            "Google OAuth request context. Stage=authorization_begin, Scheme={Scheme}, Host={Host}",
+            Request.Scheme,
+            Request.Host.Value);
         string? redirectUri = Url.Action(nameof(Callback), "GoogleConnections", values: null, protocol: Request.Scheme);
         if (redirectUri is null)
         {
@@ -94,6 +100,10 @@ public sealed class GoogleConnectionsController(IGoogleOAuthService oauth) : Con
         string? state, string? code, string? error, CancellationToken cancellationToken)
     {
         Response.Headers["Referrer-Policy"] = "no-referrer";
+        logger.LogInformation(
+            "Google OAuth request context. Stage=callback, Scheme={Scheme}, Host={Host}",
+            Request.Scheme,
+            Request.Host.Value);
         string? correlation = null;
         if (!string.IsNullOrWhiteSpace(state) && state.Length <= 8192)
         {

@@ -215,7 +215,13 @@ public sealed class GoogleOAuthService(
         }
         catch (Exception exception) when (IsOAuthFailure(exception, cancellationToken))
         {
-            LogFailure(connection, data.Capability.HasValue ? "upgrade_callback" : "callback");
+            LogFailure(
+                connection,
+                exception is GoogleOAuthProtocolException protocol && protocol.Stage is not null
+                    ? protocol.Stage
+                    : data.Capability.HasValue ? "upgrade_callback" : "callback",
+                exception is GoogleOAuthProtocolException protocolException ? protocolException.StatusCode : null,
+                exception is GoogleOAuthProtocolException protocolError ? protocolError.OAuthError : null);
             if (data.Capability.HasValue)
             {
                 return OperationResult<Guid>.Failure(UpgradeFailed);
@@ -414,7 +420,16 @@ public sealed class GoogleOAuthService(
             CryptographicException or ArgumentException or InvalidOperationException ||
         exception is OperationCanceledException && !cancellationToken.IsCancellationRequested;
 
-    private void LogFailure(IntegrationConnection connection, string stage) =>
-        logger.LogWarning("Google OAuth failure at {Stage}. TenantId={TenantId}, ConnectionId={ConnectionId}",
-            stage, connection.TenantId, connection.Id);
+    private void LogFailure(
+        IntegrationConnection connection,
+        string stage,
+        System.Net.HttpStatusCode? statusCode = null,
+        string? oauthError = null) =>
+        logger.LogWarning(
+            "Google OAuth failure. Stage={Stage}, StatusCode={StatusCode}, OAuthError={OAuthError}, TenantId={TenantId}, ConnectionId={ConnectionId}",
+            stage,
+            statusCode is null ? null : (int)statusCode.Value,
+            oauthError,
+            connection.TenantId,
+            connection.Id);
 }
