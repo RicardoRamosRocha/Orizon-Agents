@@ -156,6 +156,7 @@
             </form>
             <details>
                 <summary class="text-danger">Remover conexão</summary>
+                <p class="text-muted mt-2">Desconectar remove ou revoga as credenciais Google e mantém o cadastro. Excluir remove o cadastro da conexão. Uma conexão com credenciais precisa ser desconectada antes de ser excluída.</p>
                 <p class="text-muted mt-2">A remoção exclui este cadastro da organização.</p>
                 <form asp-action="Delete" asp-route-id="@Model.Connection.Id" method="post">
                     @Html.AntiForgeryToken()

@@ -97,6 +97,14 @@ public sealed class IntegrationConnectionService(
             return OperationResult.Failure("Desconecte o Google antes de remover a conexão.");
         }
 
+        if (await dbContext.AgentTools.AnyAsync(
+                x => x.IntegrationConnectionId == connection.Id,
+                cancellationToken))
+        {
+            return OperationResult.Failure(
+                "A conex\u00e7\u00e3o est\u00e1 sendo usada por uma ferramenta. Remova essa vincula\u00e7\u00e3o antes de excluir a conex\u00e3o.");
+        }
+
         dbContext.IntegrationConnections.Remove(connection);
         return await SaveMutationAsync(cancellationToken);
     }

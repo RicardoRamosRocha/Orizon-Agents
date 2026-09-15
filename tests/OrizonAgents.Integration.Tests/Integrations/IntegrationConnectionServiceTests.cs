@@ -6,6 +6,7 @@ using OrizonAgents.Application.Integrations.Models;
 using OrizonAgents.Application.Integrations.Requests;
 using OrizonAgents.Domain.Integrations;
 using OrizonAgents.Domain.Tenants;
+using OrizonAgents.Domain.Tools;
 using OrizonAgents.Infrastructure.Integrations;
 using OrizonAgents.Infrastructure.Persistence;
 using OrizonAgents.Infrastructure.Tenancy;
@@ -228,6 +229,28 @@ public sealed class IntegrationConnectionServiceTests
         var indexes = entity.GetIndexes().ToArray();
         Assert.Contains(indexes, x => x.Properties.Select(p => p.Name).SequenceEqual(new[] { "TenantId", "Provider" }) && !x.IsUnique);
         Assert.Contains(indexes, x => x.Properties.Select(p => p.Name).SequenceEqual(new[] { "TenantId", "Name" }) && !x.IsUnique);
+    }
+
+    [Fact]
+    public async Task Delete_RejectsConnectionLinkedToAgentTool()
+    {
+        var tenant = CreateTenant();
+        await using var db = CreateDb(tenant);
+        var connection = new IntegrationConnection(tenant.TenantId!.Value, "Conta", IntegrationProvider.Gmail);
+        var tool = new AgentTool(
+            tenant.TenantId.Value,
+            "Gmail test tool",
+            "Tool vinculada à conexão.",
+            "https://example.com/api/test");
+        tool.ConfigureKind(AgentToolKind.GmailSearch, connection.Id);
+        db.AddRange(connection, tool);
+        await db.SaveChangesAsync();
+
+        var result = await new IntegrationConnectionService(db, tenant).DeleteAsync(connection.Id);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("sendo usada por uma ferramenta", result.FirstError);
+        Assert.NotNull(await db.IntegrationConnections.FindAsync(connection.Id));
     }
 
     private static CurrentTenant CreateTenant()

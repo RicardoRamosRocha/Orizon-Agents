@@ -75,6 +75,17 @@
                         <input type="hidden" name="activate" value="@(!connection.IsActive)" />
                         <button class="btn btn-outline-secondary" type="submit">@(connection.IsActive ? "Desativar" : "Ativar")</button>
                     </form>
+                    @if (connection.Status == IntegrationConnectionStatus.Connected)
+                    {
+                        <span class="text-muted align-self-center small">Desconecte antes de excluir</span>
+                    }
+                    else
+                    {
+                        <form asp-action="Delete" asp-route-id="@connection.Id" method="post">
+                            @Html.AntiForgeryToken()
+                            <button class="btn btn-outline-danger" type="submit">Excluir</button>
+                        </form>
+                    }
                 </div>
             </div>
         </article>
