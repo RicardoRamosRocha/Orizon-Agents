@@ -138,6 +138,7 @@ public sealed class AgentsController : ControllerBase
             return Ok(new RunAgentResponse(
                 Success: true,
                 result.Value.Response,
+                result.Value.ConversationId,
                 Status: result.Value.RequiresApproval
                     ? "approvalRequired"
                     : null,

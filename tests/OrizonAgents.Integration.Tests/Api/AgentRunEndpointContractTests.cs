@@ -38,7 +38,8 @@ public class AgentRunEndpointContractTests
     [Fact]
     public async Task ValidRequest_ReachesRunnerWithOnlyMessageMapped()
     {
-        var runner = StubAgentRunner.Success("Resposta");
+        Guid conversationId = Guid.NewGuid();
+        var runner = StubAgentRunner.Success("Resposta", conversationId);
         AgentsController controller = CreateController(
             runner,
             new StubAiAgentService(CreateAgent(TenantId, isActive: true)));
@@ -48,7 +49,9 @@ public class AgentRunEndpointContractTests
             new RunAgentRequest("Olá"),
             CancellationToken.None);
 
-        Assert.IsType<OkObjectResult>(result);
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<RunAgentResponse>(ok.Value);
+        Assert.Equal(conversationId, response.ConversationId);
         Assert.True(runner.WasCalled);
         Assert.Equal(AgentId, runner.AgentId);
         Assert.Equal("Olá", runner.Request!.Message);
@@ -60,7 +63,7 @@ public class AgentRunEndpointContractTests
     public async Task RequestWithConversationId_ReachesRunnerWithConversationIdMapped()
     {
         Guid conversationId = Guid.NewGuid();
-        var runner = StubAgentRunner.Success("Resposta");
+        var runner = StubAgentRunner.Success("Resposta", conversationId);
         AgentsController controller = CreateController(
             runner,
             new StubAiAgentService(CreateAgent(TenantId, isActive: true)));
@@ -70,7 +73,9 @@ public class AgentRunEndpointContractTests
             new RunAgentRequest("Ol\u00e1", conversationId),
             CancellationToken.None);
 
-        Assert.IsType<OkObjectResult>(result);
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<RunAgentResponse>(ok.Value);
+        Assert.Equal(conversationId, response.ConversationId);
         Assert.True(runner.WasCalled);
         Assert.Equal(conversationId, runner.Request!.ConversationId);
     }
@@ -186,7 +191,8 @@ public class AgentRunEndpointContractTests
     [Fact]
     public async Task Success_ReturnsStablePublicContract()
     {
-        var runner = StubAgentRunner.Success("Resposta publica");
+        Guid conversationId = Guid.NewGuid();
+        var runner = StubAgentRunner.Success("Resposta publica", conversationId);
         AgentsController controller = CreateController(
             runner,
             new StubAiAgentService(CreateAgent(TenantId, isActive: true)));
@@ -200,8 +206,9 @@ public class AgentRunEndpointContractTests
         var response = Assert.IsType<RunAgentResponse>(ok.Value);
         Assert.True(response.Success);
         Assert.Equal("Resposta publica", response.Response);
+        Assert.Equal(conversationId, response.ConversationId);
         Assert.Equal(
-            "{\"success\":true,\"response\":\"Resposta publica\"}",
+            $"{{\"success\":true,\"response\":\"Resposta publica\",\"conversationId\":\"{conversationId}\"}}",
             Serialize(response));
     }
 
@@ -278,6 +285,29 @@ public class AgentRunEndpointContractTests
     }
 
     [Fact]
+    public async Task MissingConversation_ReturnsExecutionFailed500()
+    {
+        var runner = StubAgentRunner.Failure("Conversa não encontrada.");
+        AgentsController controller = CreateController(
+            runner,
+            new StubAiAgentService(CreateAgent(TenantId, isActive: true)));
+
+        IActionResult result = await controller.Run(
+            AgentId,
+            new RunAgentRequest("Olá", Guid.NewGuid()),
+            CancellationToken.None);
+
+        AgentApiErrorResponse response = AssertError(
+            result,
+            StatusCodes.Status500InternalServerError,
+            "execution_failed");
+        Assert.DoesNotContain(
+            "Conversa não encontrada",
+            Serialize(response),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task UnexpectedRunnerException_ReturnsSanitized500()
     {
         var runner = StubAgentRunner.Throws(new InvalidOperationException(
@@ -302,7 +332,7 @@ public class AgentRunEndpointContractTests
     }
 
     [Fact]
-    public async Task Response_DoesNotExposeInternalExecutionOrAgentData()
+    public async Task Response_ExposesConversationIdButNotInternalExecutionOrAgentData()
     {
         var runner = StubAgentRunner.Success("Resposta");
         AgentsController controller = CreateController(
@@ -316,7 +346,7 @@ public class AgentRunEndpointContractTests
 
         var ok = Assert.IsType<OkObjectResult>(result);
         string json = Serialize(ok.Value!);
-        Assert.DoesNotContain("conversationId", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("conversationId", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("systemPrompt", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("provider", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("model", json, StringComparison.OrdinalIgnoreCase);
@@ -449,11 +479,11 @@ public class AgentRunEndpointContractTests
             return _execute();
         }
 
-        public static StubAgentRunner Success(string response)
+        public static StubAgentRunner Success(string response, Guid? conversationId = null)
         {
             return new StubAgentRunner(() => Task.FromResult(
                 OperationResult<AiAgentRunResult>.Success(
-                    new AiAgentRunResult(Guid.NewGuid(), response))));
+                    new AiAgentRunResult(conversationId ?? Guid.NewGuid(), response))));
         }
 
         public static StubAgentRunner ApprovalRequired(
