@@ -115,7 +115,9 @@ public sealed class AgentsController : ControllerBase
                 "O agente está inativo.");
         }
 
-        var internalRequest = new AgentRunRequest(request.Message);
+        var internalRequest = new AgentRunRequest(
+            request.Message,
+            request.ConversationId);
 
         try
         {

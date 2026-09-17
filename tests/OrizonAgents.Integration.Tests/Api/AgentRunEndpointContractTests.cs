@@ -23,14 +23,15 @@ public class AgentRunEndpointContractTests
     private static readonly Guid AgentId = Guid.NewGuid();
 
     [Fact]
-    public void PublicRequest_ExposesOnlyMessage()
+    public void PublicRequest_ExposesMessageAndConversationId()
     {
         var properties = typeof(RunAgentRequest).GetProperties();
 
-        Assert.Single(properties);
+        Assert.Equal(2, properties.Length);
         Assert.Equal(nameof(RunAgentRequest.Message), properties[0].Name);
+        Assert.Equal(nameof(RunAgentRequest.ConversationId), properties[1].Name);
         Assert.Equal(
-            "{\"message\":\"Hello\"}",
+            "{\"message\":\"Hello\",\"conversationId\":null}",
             Serialize(new RunAgentRequest("Hello")));
     }
 
@@ -53,6 +54,25 @@ public class AgentRunEndpointContractTests
         Assert.Equal("Olá", runner.Request!.Message);
         Assert.Null(runner.Request.ConversationId);
         Assert.Null(runner.Request.Context);
+    }
+
+    [Fact]
+    public async Task RequestWithConversationId_ReachesRunnerWithConversationIdMapped()
+    {
+        Guid conversationId = Guid.NewGuid();
+        var runner = StubAgentRunner.Success("Resposta");
+        AgentsController controller = CreateController(
+            runner,
+            new StubAiAgentService(CreateAgent(TenantId, isActive: true)));
+
+        IActionResult result = await controller.Run(
+            AgentId,
+            new RunAgentRequest("Ol\u00e1", conversationId),
+            CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        Assert.True(runner.WasCalled);
+        Assert.Equal(conversationId, runner.Request!.ConversationId);
     }
 
     [Theory]
