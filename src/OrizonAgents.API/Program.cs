@@ -54,6 +54,11 @@ app.UseCurrentTenant();
 app.UseAuthorization();
 app.UseRateLimiter();
 
+app.MapGet("/", () => Results.Ok(new
+{
+    service = "Orizon Agents API",
+    status = "ok"
+}));
 app.MapControllers();
 app.MapHealthChecks("/health");
 
