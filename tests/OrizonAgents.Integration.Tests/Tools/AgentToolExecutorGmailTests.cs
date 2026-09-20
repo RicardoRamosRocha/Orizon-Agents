@@ -9,7 +9,9 @@ using OrizonAgents.Application.Integrations.Gmail;
 using OrizonAgents.Application.Integrations.Google;
 using OrizonAgents.Application.Tools.Execution.Models;
 using OrizonAgents.Domain.Agents;
+using OrizonAgents.Domain.Integrations;
 using OrizonAgents.Domain.Tools;
+using OrizonAgents.Infrastructure.Integrations;
 using OrizonAgents.Infrastructure.Integrations.Gmail;
 using OrizonAgents.Infrastructure.Persistence;
 using OrizonAgents.Infrastructure.Tenancy;
@@ -644,6 +646,61 @@ public sealed class AgentToolExecutorGmailTests
         Assert.Contains("draft-id", result.Content!);
     }
 
+    [Fact]
+    public async Task GmailCreateDraft_MyEmail_UsesConnectedAccountEmail()
+    {
+        await using var fixture = new Fixture();
+        Guid connectionId = await fixture.SeedConnectionAsync(fixture.TenantId, "connected@example.com");
+        var (agent, tool, _) = await fixture.SeedAsync(AgentToolKind.GmailCreateDraft, connectionId);
+
+        AgentToolExecutionResult result = await fixture.Executor.ExecuteAsync(
+            new AgentToolExecutionRequest(
+                agent.Id,
+                tool.Id,
+                Json("""{"to":"meu e-mail","subject":"Assunto","body":"Corpo"}""")));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("connected@example.com", fixture.Gmail.DraftTo);
+        Assert.Equal(connectionId, fixture.Gmail.ConnectionId);
+    }
+
+    [Fact]
+    public async Task GmailCreateDraft_WithoutConnectedAccountEmail_FailsClosed()
+    {
+        await using var fixture = new Fixture();
+        Guid connectionId = await fixture.SeedConnectionAsync(fixture.TenantId, null);
+        var (agent, tool, _) = await fixture.SeedAsync(AgentToolKind.GmailCreateDraft, connectionId);
+
+        AgentToolExecutionResult result = await fixture.Executor.ExecuteAsync(
+            new AgentToolExecutionRequest(
+                agent.Id,
+                tool.Id,
+                Json("""{"to":"para minha conta","subject":"Assunto","body":"Corpo"}""")));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("não possui e-mail", result.Error ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fixture.Gmail.DraftCalls);
+    }
+
+    [Fact]
+    public async Task GmailCreateDraft_MyEmail_DoesNotCrossTenantBoundary()
+    {
+        await using var fixture = new Fixture();
+        Guid otherTenantId = Guid.NewGuid();
+        Guid connectionId = await fixture.SeedConnectionAsync(otherTenantId, "other@example.com");
+        var (agent, tool, _) = await fixture.SeedAsync(AgentToolKind.GmailCreateDraft, connectionId);
+
+        AgentToolExecutionResult result = await fixture.Executor.ExecuteAsync(
+            new AgentToolExecutionRequest(
+                agent.Id,
+                tool.Id,
+                Json("""{"to":"meu email","subject":"Assunto","body":"Corpo"}""")));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("não possui e-mail", result.Error ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fixture.Gmail.DraftCalls);
+    }
+
     private static JsonElement Json(string json)
     {
         using JsonDocument document = JsonDocument.Parse(json);
@@ -677,6 +734,8 @@ public sealed class AgentToolExecutorGmailTests
             var gmailExecutor = new GmailAgentToolExecutor(
                 Gmail,
                 Capabilities,
+                new GmailRecipientResolver(
+                    new IntegrationConnectionService(Db, Tenant)),
                 GmailLogger);
 
             Executor = new AgentToolExecutor(
@@ -772,6 +831,22 @@ public sealed class AgentToolExecutorGmailTests
 
             await Db.SaveChangesAsync();
             return (agent, tool, binding);
+        }
+
+        public async Task<Guid> SeedConnectionAsync(Guid tenantId, string? email)
+        {
+            var connection = new IntegrationConnection(
+                tenantId,
+                "Gmail de teste",
+                IntegrationProvider.Gmail);
+            if (email is not null)
+            {
+                connection.Connect(email, "protected-test-credentials");
+            }
+
+            Db.IntegrationConnections.Add(connection);
+            await Db.SaveChangesAsync();
+            return connection.Id;
         }
 
         public static AiAgent CreateAgent(Guid tenantId) =>
@@ -882,6 +957,7 @@ public sealed class AgentToolExecutorGmailTests
             CancellationToken cancellationToken = default)
         {
             DraftCalls++;
+            ConnectionId = connectionId;
             DraftTo = to;
             DraftSubject = subject;
             DraftBody = body;

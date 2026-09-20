@@ -108,6 +108,7 @@ public static class DependencyInjection
         services.AddScoped<IAgentExecutionTelemetry, AgentExecutionTelemetry>();
         services.AddScoped<IAiConversationService, AiConversationService>();
         services.AddScoped<HttpAgentToolExecutor>();
+        services.AddScoped<GmailRecipientResolver>();
         services.AddScoped<GmailAgentToolExecutor>();
         services.AddScoped<CalendarAgentToolExecutor>();
         services.AddScoped<IAgentToolExecutor, AgentToolExecutor>();

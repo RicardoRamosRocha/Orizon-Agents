@@ -15,15 +15,18 @@ public sealed class GmailAgentToolExecutor
 
     private readonly IGmailClient _gmailClient;
     private readonly IGoogleOAuthCapabilityService _capabilities;
+    private readonly GmailRecipientResolver _recipientResolver;
     private readonly ILogger<GmailAgentToolExecutor> _logger;
 
     public GmailAgentToolExecutor(
         IGmailClient gmailClient,
         IGoogleOAuthCapabilityService capabilities,
+        GmailRecipientResolver recipientResolver,
         ILogger<GmailAgentToolExecutor> logger)
     {
         _gmailClient = gmailClient;
         _capabilities = capabilities;
+        _recipientResolver = recipientResolver;
         _logger = logger;
     }
 
@@ -210,11 +213,20 @@ public sealed class GmailAgentToolExecutor
         JsonElement input,
         CancellationToken cancellationToken)
     {
-        if (!TryReadRequiredString(input, "to", out string to) ||
+        if (!TryReadRequiredString(input, "to", out string requestedRecipient) ||
             !TryReadRequiredString(input, "subject", out string subject) ||
             !TryReadRequiredString(input, "body", out string body))
         {
             return InvalidArguments();
+        }
+
+        GmailRecipientResolution recipient = await _recipientResolver.ResolveAsync(
+            connectionId,
+            requestedRecipient,
+            cancellationToken);
+        if (!recipient.Succeeded)
+        {
+            return AgentToolExecutionResult.Failure(recipient.Error!);
         }
 
         if (!await HasRequiredCapabilityAsync(
@@ -224,7 +236,7 @@ public sealed class GmailAgentToolExecutor
         }
 
         GmailDraft draft = await _gmailClient.CreateDraftAsync(
-            connectionId, to, subject, body, cancellationToken);
+            connectionId, recipient.Recipient!, subject, body, cancellationToken);
         return AgentToolExecutionResult.Success(
             null,
             JsonSerializer.Serialize(draft, JsonOptions));

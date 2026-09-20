@@ -14,6 +14,7 @@ using OrizonAgents.Application.Tools.Execution.Models;
 using OrizonAgents.Domain.Agents;
 using OrizonAgents.Domain.Tools;
 using OrizonAgents.Infrastructure.Persistence;
+using OrizonAgents.Infrastructure.Integrations;
 
 using OrizonAgents.Infrastructure.Tools.Execution;
 
@@ -744,6 +745,10 @@ public sealed class HttpAgentToolExecutorTests
         var gmailExecutor = new GmailAgentToolExecutor(
             new UnexpectedGmailClient(),
             new UnexpectedGoogleOAuthCapabilityService(),
+            new GmailRecipientResolver(
+                new OrizonAgents.Infrastructure.Integrations.IntegrationConnectionService(
+                    provider.GetRequiredService<OrizonAgentsDbContext>(),
+                    provider.GetRequiredService<ICurrentTenant>())),
             provider.GetRequiredService<
                 ILogger<GmailAgentToolExecutor>>());
 

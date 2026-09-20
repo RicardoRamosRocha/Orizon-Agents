@@ -20,6 +20,7 @@ using OrizonAgents.Domain.Tools;
 using OrizonAgents.Infrastructure.Agents.Execution;
 using OrizonAgents.Infrastructure.Agents.Execution.Context;
 using OrizonAgents.Infrastructure.Persistence;
+using OrizonAgents.Infrastructure.Integrations;
 using OrizonAgents.Infrastructure.Tenancy;
 using OrizonAgents.Infrastructure.Tools;
 using OrizonAgents.Infrastructure.Tools.Execution;
@@ -76,6 +77,8 @@ public sealed class AiAgentRunnerRealToolTests
             new GmailAgentToolExecutor(
                 gmail,
                 new GrantedGoogleOAuthCapabilityService(),
+                new GmailRecipientResolver(
+                    new IntegrationConnectionService(db, currentTenant)),
                 NullLogger<GmailAgentToolExecutor>.Instance),
             NullLogger<AgentToolExecutor>.Instance);
         var runner = new AiAgentRunner(

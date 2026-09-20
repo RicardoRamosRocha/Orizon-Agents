@@ -51,7 +51,10 @@ public sealed class AgentToolCatalog : IAgentToolCatalog
         {
           "type": "object",
           "properties": {
-            "to": { "type": "string", "format": "email" },
+            "to": {
+              "type": "string",
+              "description": "Endereço de e-mail explícito ou 'meu e-mail'/'para minha conta' para usar a conta Gmail conectada."
+            },
             "subject": { "type": "string", "minLength": 1 },
             "body": { "type": "string", "minLength": 1 }
           },
