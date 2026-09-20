@@ -22,6 +22,9 @@ public sealed class AiConversationConfiguration
         builder.Property(x => x.Title)
             .HasMaxLength(150);
 
+        builder.Property(x => x.LastSuccessfulScaleContext)
+            .HasColumnType("text");
+
         builder.Property(x => x.CreatedAtUtc)
             .IsRequired();
 

@@ -242,6 +242,116 @@ public sealed class AiAgentRunnerTests
         }
     }
 
+    [Theory]
+    [InlineData("agora envie essa escala para meu email")]
+    [InlineData("envie a escala que acabamos de criar para meu email")]
+    public async Task RunAsync_ReusesLastSuccessfullyCreatedScaleForReference(
+        string followUp)
+    {
+        (OrizonAgentsDbContext db, AiAgent agent) =
+            await CreateDbWithAgentAsync();
+        await using (db)
+        {
+            Guid scaleToolId = Guid.NewGuid();
+            var scaleTool = new AgentToolDefinition(
+                scaleToolId,
+                "EscalaVendaNova",
+                "Cria uma escala de venda.",
+                "POST",
+                null,
+                AgentToolRiskLevel.Read);
+            const string scalePayload =
+                """{"titulo":"Escala Centro","data":"2026-09-21","horario":"09:00","local":"Loja Centro","integrantes":["Ana","Bruno"],"foco":"Reposição"}""";
+
+            var firstProvider = new CountingChatProvider(
+                AiProvider.GoogleGemini.ToString(),
+                ToolCallResponse(scaleToolId),
+                "Escala criada com sucesso.");
+            var first = await CreateRunner(
+                db,
+                firstProvider,
+                new StubToolCatalog(scaleTool),
+                new EmptyKnowledgeRetriever(),
+                new RecordingToolExecutor(
+                    AgentToolExecutionResult.Success(200, scalePayload)))
+                .RunAsync(agent.Id, new AgentRunRequest("Crie uma escala."));
+
+            Assert.True(first.Succeeded);
+
+            var secondProvider = new CountingChatProvider(
+                AiProvider.GoogleGemini.ToString(),
+                "Vou preparar o envio.");
+            var second = await CreateRunner(
+                db,
+                secondProvider,
+                new StubToolCatalog(scaleTool),
+                new EmptyKnowledgeRetriever(),
+                new RecordingToolExecutor())
+                .RunAsync(
+                    agent.Id,
+                    new AgentRunRequest(followUp, first.Value!.ConversationId));
+
+            Assert.True(second.Succeeded);
+            Assert.Contains("Escala Centro", secondProvider.OperationalContexts[0]);
+            Assert.Contains("2026-09-21", secondProvider.OperationalContexts[0]);
+            Assert.Contains("Ana, Bruno", secondProvider.OperationalContexts[0]);
+            Assert.Contains("Reposição", secondProvider.OperationalContexts[0]);
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_DoesNotCreateScaleContextFromIncompleteToolResult()
+    {
+        (OrizonAgentsDbContext db, AiAgent agent) =
+            await CreateDbWithAgentAsync();
+        await using (db)
+        {
+            Guid scaleToolId = Guid.NewGuid();
+            var scaleTool = new AgentToolDefinition(
+                scaleToolId,
+                "EscalaVendaNova",
+                "Cria uma escala de venda.",
+                "POST",
+                null,
+                AgentToolRiskLevel.Read);
+
+            var firstProvider = new CountingChatProvider(
+                AiProvider.GoogleGemini.ToString(),
+                ToolCallResponse(scaleToolId),
+                "Não foi possível criar.");
+            var first = await CreateRunner(
+                db,
+                firstProvider,
+                new StubToolCatalog(scaleTool),
+                new EmptyKnowledgeRetriever(),
+                new RecordingToolExecutor(
+                    AgentToolExecutionResult.Success(
+                        200,
+                        """{"titulo":"Sem local","data":"2026-09-21"}""")))
+                .RunAsync(agent.Id, new AgentRunRequest("Crie uma escala."));
+
+            Assert.True(first.Succeeded);
+
+            var secondProvider = new CountingChatProvider(
+                AiProvider.GoogleGemini.ToString(),
+                "Preciso dos dados.");
+            var second = await CreateRunner(
+                db,
+                secondProvider,
+                new StubToolCatalog(scaleTool),
+                new EmptyKnowledgeRetriever(),
+                new RecordingToolExecutor())
+                .RunAsync(
+                    agent.Id,
+                    new AgentRunRequest(
+                        "Envie essa escala para meu email.",
+                        first.Value!.ConversationId));
+
+            Assert.True(second.Succeeded);
+            Assert.DoesNotContain("CONTEXTO DA ÚLTIMA ESCALA", secondProvider.OperationalContexts[0] ?? string.Empty);
+        }
+    }
+
     [Fact]
     public async Task RunAsync_WithKnowledge_PassesRetrievedContentToProvider()
     {

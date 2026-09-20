@@ -40,12 +40,24 @@ public sealed class AiConversation : AuditableEntity, ITenantOwnedEntity
 
     public string? Title { get; private set; }
 
+    // Ephemeral, conversation-scoped context. It contains only the sanitized
+    // fields of the last successfully created scale, never tool credentials or
+    // internal identifiers.
+    public string? LastSuccessfulScaleContext { get; private set; }
+
     public IReadOnlyCollection<AiConversationMessage> Messages =>
         _messages.AsReadOnly();
 
     public void Rename(string? title)
     {
         Title = NormalizeTitle(title);
+    }
+
+    public void SetLastSuccessfulScaleContext(string? context)
+    {
+        LastSuccessfulScaleContext = string.IsNullOrWhiteSpace(context)
+            ? null
+            : context.Trim();
     }
 
     public AiConversationMessage AddUserMessage(string content)

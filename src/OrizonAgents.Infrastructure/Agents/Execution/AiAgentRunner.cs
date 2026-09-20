@@ -181,6 +181,10 @@ public sealed class AiAgentRunner : IAiAgentRunner
                 CombineContexts(
                     request.Context?.GetRawText(),
                     knowledgeContext);
+            operationalContext = CombineContexts(
+                operationalContext,
+                BuildLastSuccessfulScaleContext(
+                    conversation.LastSuccessfulScaleContext));
             IAgentExecutionContextBudget executionContextBudget =
                 _contextBudget.Begin(operationalContext);
             operationalContext = executionContextBudget.OperationalContext;
@@ -281,6 +285,19 @@ public sealed class AiAgentRunner : IAiAgentRunner
                     telemetry.RecordToolExecution(
                         toolResult.Succeeded,
                         toolResult.RequiresApproval);
+
+                    if (toolResult.Succeeded &&
+                        TryBuildScaleContext(
+                            availableTools.FirstOrDefault(tool =>
+                                tool.Id == toolCall.ToolId),
+                            toolResult.Content,
+                            out string? scaleContext))
+                    {
+                        conversation.SetLastSuccessfulScaleContext(scaleContext);
+                        operationalContext = CombineContexts(
+                            operationalContext,
+                            BuildLastSuccessfulScaleContext(scaleContext));
+                    }
 
                     if (toolResult.RequiresApproval)
                     {
@@ -538,6 +555,209 @@ public sealed class AiAgentRunner : IAiAgentRunner
                 $"[Fonte: {result.KnowledgeBaseName} / " +
                 $"{result.DocumentName} / trecho {result.ChunkPosition}]");
             builder.AppendLine(result.Content);
+        }
+
+        return builder.ToString();
+    }
+
+    private static string? BuildLastSuccessfulScaleContext(string? snapshot)
+    {
+        if (string.IsNullOrWhiteSpace(snapshot))
+        {
+            return null;
+        }
+
+        return "CONTEXTO DA ÚLTIMA ESCALA CRIADA COM SUCESSO NESTA CONVERSA:\n" +
+            "Use estes dados somente quando o usuário fizer referência à escala " +
+            "recém-criada (por exemplo, 'essa escala' ou 'dela'). Não invente " +
+            "campos ausentes e não solicite novamente os campos presentes.\n" +
+            snapshot;
+    }
+
+    private static bool TryBuildScaleContext(
+        AgentToolDefinition? tool,
+        string? content,
+        out string? context)
+    {
+        context = null;
+
+        if (tool is null ||
+            !string.Equals(
+                tool.Name.Trim(),
+                "EscalaVendaNova",
+                StringComparison.OrdinalIgnoreCase) ||
+            string.IsNullOrWhiteSpace(content))
+        {
+            return false;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(content);
+            JsonElement? scale = FindScaleObject(document.RootElement);
+            if (!scale.HasValue)
+            {
+                return false;
+            }
+
+            JsonElement value = scale.Value;
+            string? title = ReadString(value, "titulo", "title", "nome");
+            string? date = ReadString(value, "data", "date");
+            string? time = ReadString(value, "horario", "hora", "time");
+            string? location = ReadString(value, "local", "location");
+            string? members = ReadMembers(value, "integrantes", "participantes", "members");
+
+            if (string.IsNullOrWhiteSpace(title) ||
+                string.IsNullOrWhiteSpace(date) ||
+                string.IsNullOrWhiteSpace(time) ||
+                string.IsNullOrWhiteSpace(location) ||
+                string.IsNullOrWhiteSpace(members))
+            {
+                return false;
+            }
+
+            var sanitized = new Dictionary<string, string>
+            {
+                ["título"] = title,
+                ["data"] = date,
+                ["horário"] = time,
+                ["local"] = location,
+                ["integrantes"] = members
+            };
+
+            string? description = ReadString(
+                value,
+                "foco",
+                "descricao",
+                "descrição",
+                "description");
+            if (!string.IsNullOrWhiteSpace(description))
+            {
+                sanitized["foco/descrição"] = description;
+            }
+
+            context = JsonSerializer.Serialize(
+                sanitized,
+                new JsonSerializerOptions
+                {
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                });
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static JsonElement? FindScaleObject(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            bool hasTitle = ReadString(element, "titulo", "title", "nome") is not null;
+            bool hasDate = ReadString(element, "data", "date") is not null;
+            bool hasTime = ReadString(element, "horario", "hora", "time") is not null;
+            bool hasLocation = ReadString(element, "local", "location") is not null;
+            bool hasMembers = ReadMembers(element, "integrantes", "participantes", "members") is not null;
+            if (hasTitle && hasDate && hasTime && hasLocation && hasMembers)
+            {
+                return element;
+            }
+
+            foreach (JsonProperty property in element.EnumerateObject())
+            {
+                JsonElement? nested = FindScaleObject(property.Value);
+                if (nested.HasValue)
+                {
+                    return nested;
+                }
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement item in element.EnumerateArray())
+            {
+                JsonElement? nested = FindScaleObject(item);
+                if (nested.HasValue)
+                {
+                    return nested;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ReadString(JsonElement element, params string[] names)
+    {
+        foreach (JsonProperty property in element.EnumerateObject())
+        {
+            string normalized = NormalizeKey(property.Name);
+            if (!names.Any(name => normalized == NormalizeKey(name)))
+            {
+                continue;
+            }
+
+            if (property.Value.ValueKind == JsonValueKind.String)
+            {
+                string? value = property.Value.GetString()?.Trim();
+                return string.IsNullOrWhiteSpace(value) ? null : value;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ReadMembers(JsonElement element, params string[] names)
+    {
+        foreach (JsonProperty property in element.EnumerateObject())
+        {
+            if (!names.Any(name => NormalizeKey(property.Name) == NormalizeKey(name)))
+            {
+                continue;
+            }
+
+            if (property.Value.ValueKind == JsonValueKind.String)
+            {
+                return property.Value.GetString()?.Trim();
+            }
+
+            if (property.Value.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            var values = new List<string>();
+            foreach (JsonElement member in property.Value.EnumerateArray())
+            {
+                string? value = member.ValueKind == JsonValueKind.String
+                    ? member.GetString()
+                    : member.ValueKind == JsonValueKind.Object
+                        ? ReadString(member, "nome", "name", "integrante", "email")
+                        : null;
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    values.Add(value.Trim());
+                }
+            }
+
+            return values.Count == 0 ? null : string.Join(", ", values);
+        }
+
+        return null;
+    }
+
+    private static string NormalizeKey(string value)
+    {
+        string decomposed = value.Normalize(System.Text.NormalizationForm.FormD);
+        var builder = new System.Text.StringBuilder(decomposed.Length);
+        foreach (char character in decomposed)
+        {
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(character) !=
+                System.Globalization.UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(char.ToLowerInvariant(character));
+            }
         }
 
         return builder.ToString();
