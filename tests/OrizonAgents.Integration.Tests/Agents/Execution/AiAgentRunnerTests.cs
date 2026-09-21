@@ -295,10 +295,19 @@ public sealed class AiAgentRunnerTests
                     new AgentRunRequest(followUp, first.Value!.ConversationId));
 
             Assert.True(second.Succeeded);
-            Assert.Contains("Escala Centro", secondProvider.OperationalContexts[0]);
-            Assert.Contains("2026-09-21", secondProvider.OperationalContexts[0]);
-            Assert.Contains("Ana, Bruno", secondProvider.OperationalContexts[0]);
-            Assert.Contains("Reposição", secondProvider.OperationalContexts[0]);
+            string context = Assert.IsType<string>(
+                secondProvider.OperationalContexts[0]);
+            Assert.Contains("a última escala", context);
+            Assert.Contains("a escala que acabamos de criar", context);
+            Assert.Contains("essa escala", context);
+            Assert.Contains("Não solicite novamente título, data, horário, local ou integrantes", context);
+            Assert.Contains("GmailCreateDraft", context);
+            Assert.Contains("GmailSend", context);
+            Assert.Contains("Não use GmailReply", context);
+            Assert.Contains("Escala Centro", context);
+            Assert.Contains("2026-09-21", context);
+            Assert.Contains("Ana, Bruno", context);
+            Assert.Contains("Reposição", context);
         }
     }
 

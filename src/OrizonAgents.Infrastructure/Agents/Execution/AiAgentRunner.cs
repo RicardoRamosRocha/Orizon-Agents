@@ -567,9 +567,19 @@ public sealed class AiAgentRunner : IAiAgentRunner
         }
 
         return "CONTEXTO DA ÚLTIMA ESCALA CRIADA COM SUCESSO NESTA CONVERSA:\n" +
-            "Use estes dados somente quando o usuário fizer referência à escala " +
-            "recém-criada (por exemplo, 'essa escala' ou 'dela'). Não invente " +
-            "campos ausentes e não solicite novamente os campos presentes.\n" +
+            "Quando o usuário disser 'a última escala', 'a escala que acabamos de " +
+            "criar', 'a escala que criamos', 'essa escala' ou 'dela', resolva a " +
+            "referência usando a escala armazenada neste contexto. Não solicite " +
+            "novamente título, data, horário, local ou integrantes quando esses " +
+            "dados já estiverem presentes aqui. Se o usuário pedir para enviar " +
+            "essa escala por e-mail, use os dados armazenados para montar o assunto " +
+            "e o corpo do e-mail.\n" +
+            "Para enviar uma nova escala por e-mail, use primeiro GmailCreateDraft " +
+            "com os dados da escala armazenada; 'meu email', 'meu e-mail' e 'para " +
+            "minha conta' devem continuar sendo resolvidos pelo resolvedor de " +
+            "destinatário existente. Depois de obter o draftId, use GmailSend. " +
+            "Não use GmailReply para enviar uma nova escala. GmailSend é a etapa " +
+            "sensível e pode exigir aprovação humana.\n" +
             snapshot;
     }
 
