@@ -243,9 +243,12 @@ public sealed class AiAgentRunnerTests
     }
 
     [Theory]
-    [InlineData("agora envie essa escala para meu email")]
-    [InlineData("envie a escala que acabamos de criar para meu email")]
+    [InlineData("EscalaVendaNova", "agora envie essa escala para meu email")]
+    [InlineData("EscalaVendaNova", "envie a escala que acabamos de criar para meu email")]
+    [InlineData("Criar escala no Escala Venda Nova", "agora envie essa escala para meu email")]
+    [InlineData("Criar escala no Escala Venda Nova", "envie a escala que acabamos de criar para meu email")]
     public async Task RunAsync_ReusesLastSuccessfullyCreatedScaleForReference(
+        string toolName,
         string followUp)
     {
         (OrizonAgentsDbContext db, AiAgent agent) =
@@ -255,7 +258,7 @@ public sealed class AiAgentRunnerTests
             Guid scaleToolId = Guid.NewGuid();
             var scaleTool = new AgentToolDefinition(
                 scaleToolId,
-                "EscalaVendaNova",
+                toolName,
                 "Cria uma escala de venda.",
                 "POST",
                 null,
@@ -296,6 +299,122 @@ public sealed class AiAgentRunnerTests
             Assert.Contains("2026-09-21", secondProvider.OperationalContexts[0]);
             Assert.Contains("Ana, Bruno", secondProvider.OperationalContexts[0]);
             Assert.Contains("Reposição", secondProvider.OperationalContexts[0]);
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_NewConversation_PersistsScaleContextForAnotherDbContext()
+    {
+        string databaseName = $"AiAgentRunnerScaleContext-{Guid.NewGuid()}";
+        var currentTenant = new CurrentTenant();
+        Guid tenantId = Guid.NewGuid();
+        currentTenant.SetTenantId(tenantId);
+        var options = new DbContextOptionsBuilder<OrizonAgentsDbContext>()
+            .UseInMemoryDatabase(databaseName)
+            .Options;
+
+        Guid agentId;
+        Guid conversationId;
+        await using (var db = new OrizonAgentsDbContext(options, currentTenant))
+        {
+            var agent = new AiAgent(
+                tenantId,
+                "Agente de teste",
+                "Agente de teste.",
+                AiProvider.GoogleGemini,
+                "test-model");
+            db.AiAgents.Add(agent);
+            await db.SaveChangesAsync();
+            agentId = agent.Id;
+
+            Guid scaleToolId = Guid.NewGuid();
+            var scaleTool = new AgentToolDefinition(
+                scaleToolId,
+                "Criar escala no Escala Venda Nova",
+                "Cria uma escala de venda.",
+                "POST",
+                null,
+                AgentToolRiskLevel.Read);
+            var result = await CreateRunner(
+                db,
+                new CountingChatProvider(
+                    AiProvider.GoogleGemini.ToString(),
+                    ToolCallResponse(scaleToolId),
+                    "Escala criada."),
+                new StubToolCatalog(scaleTool),
+                new EmptyKnowledgeRetriever(),
+                new RecordingToolExecutor(
+                    AgentToolExecutionResult.Success(
+                        200,
+                        """{"titulo":"Força Total","data":"2026-09-21","horario":"09:00 às 11:00","local":"Bairro Serra Verde","integrantes":["Antonio"],"foco":"Panfletagem no comércio","descricao":"Chegar no horário"}""")),
+                currentTenant: currentTenant)
+                .RunAsync(agentId, new AgentRunRequest("Crie uma escala."));
+
+            Assert.True(result.Succeeded);
+            conversationId = result.Value!.ConversationId;
+        }
+
+        await using var verificationDb =
+            new OrizonAgentsDbContext(options, currentTenant);
+        AiConversation conversation = await verificationDb.AiConversations
+            .SingleAsync(item => item.Id == conversationId);
+
+        Assert.NotNull(conversation.LastSuccessfulScaleContext);
+        Assert.Contains("Força Total", conversation.LastSuccessfulScaleContext);
+        Assert.Contains("Bairro Serra Verde", conversation.LastSuccessfulScaleContext);
+        Assert.Contains("Panfletagem no comércio", conversation.LastSuccessfulScaleContext);
+    }
+
+    [Fact]
+    public async Task RunAsync_ExistingConversation_PersistsScaleContext()
+    {
+        (OrizonAgentsDbContext db, AiAgent agent) =
+            await CreateDbWithAgentAsync();
+        await using (db)
+        {
+            var initial = await CreateRunner(
+                db,
+                new CountingChatProvider(
+                    AiProvider.GoogleGemini.ToString(),
+                    "Conversa iniciada."),
+                new StubToolCatalog(),
+                new EmptyKnowledgeRetriever(),
+                new RecordingToolExecutor())
+                .RunAsync(agent.Id, new AgentRunRequest("Vamos começar."));
+
+            Assert.True(initial.Succeeded);
+
+            Guid scaleToolId = Guid.NewGuid();
+            var scaleTool = new AgentToolDefinition(
+                scaleToolId,
+                "Criar escala no Escala Venda Nova",
+                "Cria uma escala de venda.",
+                "POST",
+                null,
+                AgentToolRiskLevel.Read);
+            var scaleRun = await CreateRunner(
+                db,
+                new CountingChatProvider(
+                    AiProvider.GoogleGemini.ToString(),
+                    ToolCallResponse(scaleToolId),
+                    "Escala criada."),
+                new StubToolCatalog(scaleTool),
+                new EmptyKnowledgeRetriever(),
+                new RecordingToolExecutor(
+                    AgentToolExecutionResult.Success(
+                        200,
+                        """{"titulo":"Força Total","data":"2026-09-21","horario":"09:00 às 11:00","local":"Bairro Serra Verde","integrantes":["Antonio"],"foco":"Panfletagem no comércio"}""")))
+                .RunAsync(
+                    agent.Id,
+                    new AgentRunRequest(
+                        "Crie uma escala nesta conversa.",
+                        initial.Value!.ConversationId));
+
+            Assert.True(scaleRun.Succeeded);
+            AiConversation conversation = await db.AiConversations
+                .SingleAsync(item => item.Id == initial.Value.ConversationId);
+            Assert.NotNull(conversation.LastSuccessfulScaleContext);
+            Assert.Contains("Força Total", conversation.LastSuccessfulScaleContext);
         }
     }
 

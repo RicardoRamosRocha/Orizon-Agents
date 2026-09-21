@@ -115,7 +115,6 @@ public sealed class AiAgentRunner : IAiAgentRunner
         if (request.ConversationId.HasValue)
         {
             conversation = await _dbContext.AiConversations
-                .AsNoTracking()
                 .Include(candidate => candidate.Messages)
                 .SingleOrDefaultAsync(
                     candidate =>
@@ -582,10 +581,7 @@ public sealed class AiAgentRunner : IAiAgentRunner
         context = null;
 
         if (tool is null ||
-            !string.Equals(
-                tool.Name.Trim(),
-                "EscalaVendaNova",
-                StringComparison.OrdinalIgnoreCase) ||
+            !IsScaleCreationTool(tool) ||
             string.IsNullOrWhiteSpace(content))
         {
             return false;
@@ -648,6 +644,20 @@ public sealed class AiAgentRunner : IAiAgentRunner
         {
             return false;
         }
+    }
+
+    private static bool IsScaleCreationTool(AgentToolDefinition tool)
+    {
+        string name = tool.Name.Trim();
+
+        return string.Equals(
+                   name,
+                   "EscalaVendaNova",
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   name,
+                   "Criar escala no Escala Venda Nova",
+                   StringComparison.OrdinalIgnoreCase);
     }
 
     private static JsonElement? FindScaleObject(JsonElement element)
